@@ -37,13 +37,13 @@
             <span>•</span>
             <span>Lesson 01 / 32</span>
             <span>•</span>
-            <span>UC Davis Lec 01 + MIT 6.837 Lec 01</span>
+            <span>UC Davis Lec 01 + MIT 6.837 Lec 01 + 3Blue1Brown Intuition</span>
           </div>
-          <h1 class="text-xl md:text-2xl font-bold text-[var(--foreground)]" data-i18n="pageTitle">
+          <h1 class="text-xl md:text-2xl font-bold text-[var(--foreground)] mt-1" data-i18n="pageTitle">
             L01: 图形学全景与 3D 向量几何直觉 (Vectors, Handedness & The 4 Pillars of CG)
           </h1>
           <p class="text-sm text-[var(--muted-foreground)] mt-1" data-i18n="pageSubtitle">
-            为什么整个 3D 渲染管线几乎建立在 点积 (Dot Product) 和 叉积 (Cross Product) 之上？亲手拖拽向量并通关最后的 3D 向量小游戏！
+            从 3Blue1Brown 的“线性变换与对偶性 (Duality)”视角，彻底搞懂为什么点积的坐标相乘等于投影、为什么叉积的行列式必然生成垂直法向量！
           </p>
         </div>
 
@@ -61,27 +61,287 @@
         </div>
       </div>
 
-      <!-- Navigation Tabs -->
+      <!-- Navigation Tabs (5 Tabs: Added Deep 3B1B Intuition Tab!) -->
       <div class="mt-4 pt-3 border-t border-[var(--border)] flex flex-wrap gap-1.5 bg-[var(--secondary)] p-1 rounded-lg">
-        <button onclick="switchTab('lab1')" id="tab-btn-lab1" class="px-3 py-1.5 rounded-md text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] transition" data-i18n="tab1">
-          1. 3D 向量与点积/叉积实验室
+        <button onclick="switchTab('deep')" id="tab-btn-deep" class="px-3 py-1.5 rounded-md text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] transition" data-i18n="tabDeep">
+          1. 🧠 深度几何原理与推导 (3Blue1Brown 视角)
+        </button>
+        <button onclick="switchTab('lab1')" id="tab-btn-lab1" class="px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition" data-i18n="tab1">
+          2. 🔬 3D 向量点积/叉积实验室
         </button>
         <button onclick="switchTab('lab2')" id="tab-btn-lab2" class="px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition" data-i18n="tab2">
-          2. 图形学四大支柱 3D 管线
+          3. 🏛️ 图形学四大支柱 3D 管线
         </button>
         <button onclick="switchTab('notes')" id="tab-btn-notes" class="px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition" data-i18n="tab3">
-          3. 双课程视频精要 (UCD + MIT)
+          4. 🎥 双课程视频精要 (UCD + MIT)
         </button>
         <button onclick="switchTab('game')" id="tab-btn-game" class="px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition" data-i18n="tab4">
-          🎮 4. 终极互动小游戏：星际护盾与激光校准
+          5. 🎮 终极互动小游戏 (3 关挑战)
         </button>
       </div>
     </div>
 
-    <!-- ==================== TAB 1: 3D VECTOR LAB ==================== -->
-    <div id="tab-lab1" class="space-y-5">
+    <!-- ==================== TAB 0: 3BLUE1BROWN DEEP INTUITION & DERIVATIONS ==================== -->
+    <div id="tab-deep" class="space-y-6">
+
+      <!-- Concept 1: Coordinate-Free Geometry vs Basis Coordinates -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
+          <div>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[var(--secondary)]" data-i18n="c1Badge">
+              第一部分 · 几何本质与坐标编码
+            </span>
+            <h2 class="text-lg font-bold mt-1" data-i18n="c1Title">
+              1. 为什么说“自然界没有坐标轴”？点 (Point)、向量 (Vector) 与基向量的真相
+            </h2>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs leading-relaxed">
+          <div class="bg-[var(--secondary)] p-4 rounded-xl space-y-2">
+            <div class="font-bold text-sm text-[var(--foreground)]" data-i18n="c1Card1Title">
+              ① 点 vs 向量：绝对位置与纯粹位移
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-i18n="c1Card1Text">
+              UC Davis 的 Kenneth Joy 教授在第一讲反复强调：三维空间里本来只有<b>点（位置）</b>和<b>向量（有方向的位移箭头）</b>。向量没有固定起点——把一个箭头在空间中任意平移，只要长度和方向不变，它就是<b>同一个向量</b>！因此：<br/>
+              • <b>两点相减 (Q - P = v)</b>：合法！代表从点 P 走到点 Q 的位移向量。<br/>
+              • <b>点加向量 (P + v = Q)</b>：合法！代表从点 P 出发沿向量 v 移动到点 Q。<br/>
+              • <b>两点相加 (P + Q)</b>：<b>无几何意义！</b>（除非是权重和为 1 的仿射组合，我们将在 Lesson 02 揭晓）。
+            </p>
+          </div>
+
+          <div class="bg-[var(--secondary)] p-4 rounded-xl space-y-2">
+            <div class="font-bold text-sm text-[var(--foreground)]" data-i18n="c1Card2Title">
+              ② 坐标 (x, y, z) 到底是什么？是缩放基向量的“配方”！
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-i18n="c1Card2Text">
+              按 3Blue1Brown 的视角，当我们写下向量 <code>v = (2, 3, -1)</code> 时，不要只把它看成三个孤立的数字，而要把它看作<b>对三个单位基向量 î, ĵ, k̂ 的线性缩放与拼接指令</b>：<br/>
+              <code>v = 2·î + 3·ĵ + (-1)·k̂</code><br/>
+              也就是说：先沿着 X 轴单位向量 î 走 2 倍，再沿着 Y 轴单位向量 ĵ 走 3 倍，最后沿着 Z 轴单位向量 k̂ 反方向走 1 倍。<b>坐标系只是我们为了把几何箭头翻译成数字而选定的一套基向量标架！</b>
+            </p>
+          </div>
+
+          <div class="bg-[var(--secondary)] p-4 rounded-xl space-y-2">
+            <div class="font-bold text-sm text-[var(--foreground)]" data-i18n="c1Card3Title">
+              ③ 为什么线性代数能统治 3D 图形学？
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-i18n="c1Card3Text">
+              因为<b>任何线性运算（旋转、缩放、投影）都满足可加性与齐次性</b>：<br/>
+              <code>L(x·î + y·ĵ + z·k̂) = x·L(î) + y·L(ĵ) + z·L(k̂)</code><br/>
+              这意味着：只要我们知道三个基向量 <code>î, ĵ, k̂</code> 变换后落在了哪里，空间中成百上千万个三角形顶点变换后的位置，全都可以用同一个“坐标乘以变换后基向量再相加”的公式瞬间算出来！这就是下面点积与叉积公式的根本来源。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Concept 2: Deep Dive into Dot Product (3Blue1Brown Duality) -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm space-y-5">
+        <div class="border-b border-[var(--border)] pb-3">
+          <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[var(--secondary)]" data-i18n="c2Badge">
+            第二部分 · 点积 (Dot Product) 深度解密
+          </span>
+          <h2 class="text-lg font-bold mt-1" data-i18n="c2Title">
+            2. 点积的灵魂拷问：为什么“对应坐标相乘再相加 (uₓvₓ + uᵧvᵧ + u_zv_z)”恰好等于“几何投影 ||u||||v||cos(θ)”？
+          </h2>
+          <p class="text-xs text-[var(--muted-foreground)] mt-1" data-i18n="c2Sub">
+            课本通常直接把这两个公式扔给你，却不解释为什么完全不同的两件事（代数坐标相乘 vs 几何投影余弦）居然是同一回事。让我们分三步彻底打通它！
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          <!-- Left Interactive 3B1B Duality Visualizer (6 cols) -->
+          <div class="lg:col-span-6 bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="text-sm font-bold" data-i18n="dualityBoxTitle">
+                🔬 3Blue1Brown 对偶性交互演示：把二维空间挤压到一维数轴
+              </div>
+              <span id="squish-status" class="text-xs font-mono px-2 py-0.5 rounded bg-[var(--card)]">Squish: 0%</span>
+            </div>
+            <p class="text-xs text-[var(--muted-foreground)]" data-i18n="dualityBoxDesc">
+              拖动下方<b>“空间坍缩滑块 (Squish t)”</b>：观察整个 2D 网格如何保持平行等距地<b>线性投影</b>到单位向量 <b>û</b> 所在的一维数轴上！注意看基向量 <b>î (红)</b> 和 <b>ĵ (绿)</b> 落在数轴上的刻度正好是 <b>uₓ</b> 和 <b>uᵧ</b>！
+            </p>
+
+            <div class="relative w-full rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--background)]" style="height: 310px;">
+              <canvas id="dualityCanvas" class="w-full h-full"></canvas>
+            </div>
+
+            <div class="space-y-2.5 text-xs">
+              <div>
+                <div class="flex justify-between font-semibold mb-1">
+                  <span data-i18n="squishSliderLabel">✨ 拖动体验线性投影坍缩 (2D Space → 1D Number Line):</span>
+                  <span id="squish-pct-label" class="font-mono">0% (原始 2D 空间)</span>
+                </div>
+                <input type="range" id="squishSlider" min="0" max="1" step="0.01" value="0" oninput="drawDualityCanvas()" class="w-full" />
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <div class="flex justify-between mb-0.5">
+                    <span class="text-[var(--muted-foreground)]" data-i18n="uAngleLabel">数轴方向角 (û Angle)</span>
+                    <span id="u-angle-val" class="font-mono">30°</span>
+                  </div>
+                  <input type="range" id="uAngleSlider" min="-75" max="75" step="1" value="30" oninput="drawDualityCanvas()" class="w-full" />
+                </div>
+                <div>
+                  <div class="flex justify-between mb-0.5">
+                    <span class="text-[var(--muted-foreground)]" data-i18n="vVecLabel">测试向量 v = (vₓ, vᵧ)</span>
+                    <span id="v-vec-val" class="font-mono">(1.5, 1.2)</span>
+                  </div>
+                  <input type="range" id="vAngleSlider" min="0" max="360" step="2" value="55" oninput="drawDualityCanvas()" class="w-full" />
+                </div>
+              </div>
+
+              <div id="duality-math-readout" class="p-2.5 rounded-lg bg-[var(--card)] border border-[var(--border)] font-mono text-xs">
+                proj(v) = vₓ·proj(î) + vᵧ·proj(ĵ) = vₓ·uₓ + vᵧ·uᵧ = 1.90
+              </div>
+            </div>
+          </div>
+
+          <!-- Right 3-Layer Derivation Steps (6 cols) -->
+          <div class="lg:col-span-6 space-y-3 text-xs leading-relaxed">
+            <div class="p-3.5 rounded-xl bg-[var(--secondary)] space-y-1.5">
+              <div class="font-bold text-sm text-[var(--foreground)]" data-i18n="dotStep1Title">
+                第一层直觉：几何投影与为什么 u · v = v · u（对称性证明）
+              </div>
+              <p class="text-[var(--muted-foreground)]" data-i18n="dotStep1Body">
+                从几何上看，<code>u · v</code> 是把向量 <b>v</b> 垂直投影到 <b>u</b> 的直线上（投影长度为 <code>||v||cosθ</code>），再乘以 <b>u</b> 的长度 <code>||u||</code>。<br/>
+                • <b>同向 (θ &lt; 90°)</b>：投影落在 u 的正方向，点积 &gt; 0；<br/>
+                • <b>垂直 (θ = 90°)</b>：投影坍缩成一个点（长度为 0），点积 = 0；<br/>
+                • <b>反向 (θ &gt; 90°)</b>：投影落在 u 的延长线反方向，点积 &lt; 0。<br/>
+                <b>为什么把 u 投到 v 和把 v 投到 u 结果一样？</b>先假设 u 和 v 长度相等（<code>||u||=||v||</code>），此时它们关于角平分线完全镜像对称，互相投影的长度必然相等；如果把其中一个向量 u 拉长 k 倍，投影本身不变但乘数放大了 k 倍，两边依然严格相等！
+              </p>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-[var(--secondary)] space-y-1.5">
+              <div class="font-bold text-sm text-[var(--foreground)]" data-i18n="dotStep2Title">
+                第二层直觉（3Blue1Brown 核心洞见）：对偶性 (Duality) —— 为什么坐标相乘等于投影？
+              </div>
+              <p class="text-[var(--muted-foreground)]" data-i18n="dotStep2Body">
+                请看左侧画板：假设空间中有一条沿着单位向量 <b>û = (uₓ, uᵧ, u_z)</b> 的一维数轴。现在我们定义一个函数 <code>T(v)</code>，把空间中任意向量 <b>v</b> 垂直投影到这条数轴上，输出它落点的刻度数字。<br/>
+                1) 因为投影是<b>线性变换</b>（平行且等距的网格线投影后依然等距），所以对于 <code>v = vₓî + vᵧĵ + v_zk̂</code>，它在数轴上的落点必然等于：<br/>
+                <code>T(v) = vₓ·T(î) + vᵧ·T(ĵ) + v_z·T(k̂)</code><br/>
+                2) 那么基向量 <b>î = (1,0,0)</b> 投影到 <b>û</b> 数轴上的刻度 <code>T(î)</code> 是多少？根据刚才的对称性，<b>把 î 投影到 û，完全等价于把 û 投影到 X 轴（î）</b>！而 û 在 X 轴上的投影，根据定义不就是 û 的横坐标 <b>uₓ</b> 吗？！同理，<code>T(ĵ) = uᵧ</code>，<code>T(k̂) = u_z</code>！<br/>
+                3) 代入上式立刻得到：<b>任意向量 v 在 û 上的投影长度 = uₓvₓ + uᵧvᵧ + u_zv_z</b>！如果 u 不是单位向量，只需整体再乘以长度 <code>||u||</code>。这就是为什么<b>“坐标对应相乘再相加”本质上就是在算几何投影</b>！
+              </p>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-[var(--secondary)] space-y-1.5">
+              <div class="font-bold text-sm text-[var(--foreground)]" data-i18n="dotStep3Title">
+                第三层直觉：余弦定理代数验证 & 图形学正交分解公式
+              </div>
+              <p class="text-[var(--muted-foreground)]" data-i18n="dotStep3Body">
+                • <b>余弦定理双验证</b>：向量 <b>a</b>, <b>b</b> 与差向量 <b>a - b</b> 构成三角形。由余弦定理：<code>||a - b||² = ||a||² + ||b||² - 2||a||||b||cosθ</code>。把左边按坐标展开：<code>(aₓ-bₓ)²+(aᵧ-bᵧ)²+(a_z-b_z)² = ||a||² + ||b||² - 2(aₓbₓ+aᵧbᵧ+a_zb_z)</code>，消去平方项直接证明 <code>a·b = ||a||||b||cosθ</code>！<br/>
+                • <b>必背的正交分解 (Orthogonal Decomposition)</b>：在图形学中，我们经常要把向量 <b>a</b> 拆成平行于单位向量 <b>n̂</b> 的分量和垂直分量：<br/>
+                <code>a_∥ = (a · n̂) n̂</code> ， <code>a_⊥ = a - (a · n̂) n̂</code><br/>
+                （比如镜面反射就是保持切向分量 <code>a_⊥</code> 不变，把法向分量 <code>a_∥</code> 反向：<code>R = I - 2(I·n̂)n̂</code>！）
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Concept 3: Deep Dive into Cross Product (3Blue1Brown Volume Duality) -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm space-y-5">
+        <div class="border-b border-[var(--border)] pb-3">
+          <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[var(--secondary)]" data-i18n="c3Badge">
+            第三部分 · 叉积 (Cross Product) 深度解密
+          </span>
+          <h2 class="text-lg font-bold mt-1" data-i18n="c3Title">
+            3. 叉积的终极解密：为什么那个奇怪的 3×3 行列式 (aᵧb_z - a_zbᵧ, ...) 算出来的向量，一定垂直于 a 和 b，且长度恰好是平行四边形面积？
+          </h2>
+          <p class="text-xs text-[var(--muted-foreground)] mt-1" data-i18n="c3Sub">
+            死记硬背叉积公式是图形学初学者的第一大噩梦。用 3Blue1Brown 的“三维平行六面体体积 + 对偶性”思想，只需 3 分钟就能看穿它的本质！
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          <!-- Left 3-Layer Cross Product Derivation (6 cols) -->
+          <div class="lg:col-span-6 space-y-3 text-xs leading-relaxed">
+            <div class="p-3.5 rounded-xl bg-[var(--secondary)] space-y-1.5">
+              <div class="font-bold text-sm text-[var(--foreground)]" data-i18n="crossStep1Title">
+                第一步：先理解 2D 叉积与 2×2 行列式的有向面积 (Signed Area)
+              </div>
+              <p class="text-[var(--muted-foreground)]" data-i18n="crossStep1Body">
+                在二维平面上，给定两个向量 <code>a = (aₓ, aᵧ)</code> 和 <code>b = (bₓ, bᵧ)</code>，把它们作为列向量拼成矩阵，其行列式为：<br/>
+                <code>det([a, b]) = aₓbᵧ - aᵧbₓ</code><br/>
+                为什么它等于平行四边形面积？因为这个矩阵把原本面积为 1 的单位正方形 <code>(î, ĵ)</code> 线性拉伸成了以 a, b 为邻边的平行四边形！如果从 a 转向 b 是<b>逆时针</b>，面积为正；如果是<b>顺时针</b>，空间就像翻面纸张一样被翻转了，行列式为负。
+              </p>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-[var(--secondary)] space-y-1.5">
+              <div class="font-bold text-sm text-[var(--foreground)]" data-i18n="crossStep2Title">
+                第二步（3Blue1Brown 皇冠证明）：三维平行六面体体积与对偶向量 p
+              </div>
+              <p class="text-[var(--muted-foreground)]" data-i18n="crossStep2Body">
+                到了三维空间，3×3 行列式 <code>det([x, a, b])</code> 衡量的是由三个向量 <b>(x, a, b)</b> 张成的<b>三维平行六面体（斜棱柱）的有向体积</b>。<br/>
+                现在，我们固定底面向量 <b>a</b> 和 <b>b</b>，把第一个向量 <b>x = (x, y, z)</b> 当作可变探针（见右侧 3D 交互画板）：<br/>
+                1) <b>从代数展开看</b>：按第一列 (x, y, z) 展开这个 3×3 行列式，体积函数 <code>V(x)</code> 是：<br/>
+                <code>V(x) = x·(aᵧb_z - a_zbᵧ) + y·(a_zbₓ - aₓb_z) + z·(aₓbᵧ - aᵧbₓ)</code><br/>
+                注意！这不就是探针向量 <code>(x, y, z)</code> 与某个固定向量 <code>p = (aᵧb_z - a_zbᵧ, a_zbₓ - aₓb_z, aₓbᵧ - aᵧbₓ)</code> 的<b>点积 p · x</b> 吗？！<br/>
+                2) <b>从立体几何看</b>：斜棱柱的体积等于什么？等于<b>“底面 (a,b) 的平行四边形面积 Area” × “探针 x 在垂直于底面方向 n̂ 上的投影高度 (n̂ · x)”</b>！即：<br/>
+                <code>V(x) = Area · (n̂ · x) = (Area · n̂) · x</code><br/>
+                3) <b>一锤定音</b>：既然对空间中任何探针向量 x，都有 <code>p · x = (Area · n̂) · x</code>，那么那个由代数行列式算出来的向量 <b>p</b>，<b>在几何上必然就是垂直于底面 a, b 的法向量 n̂，且它的长度必然等于底面平行四边形的面积 Area = ||a||||b||sin(θ)</b>！
+              </p>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-[var(--secondary)] space-y-1.5">
+              <div class="font-bold text-sm text-[var(--foreground)]" data-i18n="crossStep3Title">
+                第三步：为什么坐标每一项正好排除自己的轴？（投影面积直觉）
+              </div>
+              <p class="text-[var(--muted-foreground)]" data-i18n="crossStep3Body">
+                仔细看叉积的 X 分量：<code>(a × b)ₓ = aᵧb_z - a_zbᵧ</code>，里面只有 Y 和 Z，完全没有 X！为什么？<br/>
+                因为空间平行四边形在 <b>YZ 平面（垂直于 X 轴的墙面）上的投影面积</b>，正好就是 2D 行列式 <code>aᵧb_z - a_zbᵧ</code>！而一个平面朝向 X 轴倾斜得越正（法线 X 分量越大），它在 YZ 墙面上的投影面积就越大！因此，<b>叉积的 (X, Y, Z) 三个分量，其实就是该平行四边形在 (YZ, ZX, XY) 三个坐标墙面上的 2D 投影有向面积</b>！
+              </p>
+            </div>
+          </div>
+
+          <!-- Right Interactive 3D Parallelepiped Volume Visualizer (6 cols) -->
+          <div class="lg:col-span-6 bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="text-sm font-bold" data-i18n="volBoxTitle">
+                🔬 3D 平行六面体体积探针：det([x, a, b]) = (a × b) · x
+              </div>
+              <span id="vol-readout-badge" class="text-xs font-mono px-2 py-0.5 rounded bg-[var(--card)]">Vol = 4.20</span>
+            </div>
+            <p class="text-xs text-[var(--muted-foreground)]" data-i18n="volBoxDesc">
+              拖动下方<b>探针向量 x (绿色)</b> 的高度与水平偏移：观察为什么斜棱柱的体积只取决于 <b>x 在叉积法向量 p = a × b (紫色) 方向上的投影高度 h</b>（祖暅原理：水平切变不改变棱柱体积）！
+            </p>
+
+            <div class="relative w-full rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--background)]" style="height: 310px;">
+              <canvas id="volumeCanvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+            </div>
+
+            <div class="space-y-2.5 text-xs">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <div class="flex justify-between mb-0.5">
+                    <span class="text-[var(--muted-foreground)]" data-i18n="probeHeightLabel">探针垂直高度 h (沿 a×b 方向)</span>
+                    <span id="probe-h-val" class="font-mono">1.40</span>
+                  </div>
+                  <input type="range" id="probeHeightSlider" min="-1.8" max="2.0" step="0.1" value="1.4" oninput="drawVolumeCanvas()" class="w-full" />
+                </div>
+                <div>
+                  <div class="flex justify-between mb-0.5">
+                    <span class="text-[var(--muted-foreground)]" data-i18n="probeShearLabel">探针水平切变偏移 (Shear, 不改体积!)</span>
+                    <span id="probe-shear-val" class="font-mono">0.60</span>
+                  </div>
+                  <input type="range" id="probeShearSlider" min="-1.5" max="1.5" step="0.1" value="0.6" oninput="drawVolumeCanvas()" class="w-full" />
+                </div>
+              </div>
+
+              <div id="volume-math-readout" class="p-2.5 rounded-lg bg-[var(--card)] border border-[var(--border)] font-mono text-xs">
+                Volume = det([x, a, b]) = (a × b) · x = BaseArea(3.00) × Height(1.40) = 4.20
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================== TAB 1: 3D VECTOR LAB (PRESERVED) ==================== -->
+    <div id="tab-lab1" class="hidden space-y-5">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <!-- Left 3D Canvas Viewport (7 cols) -->
         <div class="lg:col-span-7 bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm flex flex-col">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
             <div>
@@ -105,7 +365,6 @@
           <div class="relative w-full rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--background)]" style="height: 410px;">
             <canvas id="vectorCanvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
 
-            <!-- Overlay Legend & Quick Presets -->
             <div class="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
               <div class="flex flex-wrap gap-1.5 pointer-events-auto bg-[var(--card)]/90 backdrop-blur px-2.5 py-1.5 rounded-lg border border-[var(--border)]">
                 <span class="text-xs text-[var(--muted-foreground)] self-center mr-1" data-i18n="presetsLabel">场景预设:</span>
@@ -128,14 +387,12 @@
           </div>
         </div>
 
-        <!-- Right Controls & Real-time Math Readout (5 cols) -->
         <div class="lg:col-span-5 space-y-4">
           <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm space-y-4">
             <h3 class="text-sm font-semibold text-[var(--foreground)] border-b border-[var(--border)] pb-2" data-i18n="coordHeader">
               调整 3D 向量坐标 (Vector Coordinates)
             </h3>
 
-            <!-- Vector A Controls -->
             <div class="space-y-2">
               <div class="flex justify-between items-center text-xs font-semibold">
                 <span class="text-amber-500" data-i18n="vecATitle">向量 a (例如：光线方向 L 或切线 u)</span>
@@ -157,7 +414,6 @@
               </div>
             </div>
 
-            <!-- Vector B Controls -->
             <div class="space-y-2 pt-2 border-t border-[var(--border)]">
               <div class="flex justify-between items-center text-xs font-semibold">
                 <span class="text-cyan-500" data-i18n="vecBTitle">向量 b (例如：表面法线 N 或切线 v)</span>
@@ -180,7 +436,6 @@
             </div>
           </div>
 
-          <!-- Dot Product Live Card -->
           <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm space-y-2">
             <div class="flex items-center justify-between">
               <h3 class="text-sm font-semibold text-[var(--foreground)]" data-i18n="dotCardTitle">1. 点积 (Dot Product): 夹角与投影测量仪</h3>
@@ -208,7 +463,6 @@
             </p>
           </div>
 
-          <!-- Cross Product Live Card -->
           <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm space-y-2">
             <div class="flex items-center justify-between">
               <h3 class="text-sm font-semibold text-[var(--foreground)]" data-i18n="crossCardTitle">2. 叉积 (Cross Product): 法线生成与有向面积</h3>
@@ -240,7 +494,7 @@
       </div>
     </div>
 
-    <!-- ==================== TAB 2: 4 PILLARS OF CG PIPELINE ==================== -->
+    <!-- ==================== TAB 2: 4 PILLARS OF CG PIPELINE (PRESERVED) ==================== -->
     <div id="tab-lab2" class="hidden space-y-5">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
         <div class="lg:col-span-7 bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm">
@@ -316,7 +570,7 @@
       </div>
     </div>
 
-    <!-- ==================== TAB 3: DUAL LECTURE GUIDED NOTES ==================== -->
+    <!-- ==================== TAB 3: DUAL LECTURE GUIDED NOTES (PRESERVED) ==================== -->
     <div id="tab-notes" class="hidden space-y-5">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm space-y-3">
@@ -362,10 +616,10 @@
         <h3 class="text-base font-bold" data-i18n="cheatTitle">本课必背 3D Math 核心备忘录 (Cheat Sheet)</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           <div class="bg-[var(--secondary)] p-3.5 rounded-lg space-y-1.5">
-            <div class="font-bold text-sm" data-i18n="cs1Title">1. 向量归一化 (Normalization)</div>
-            <div class="font-mono bg-[var(--card)] p-2 rounded">û = u / ||u||,  ||u|| = √(u·u)</div>
+            <div class="font-bold text-sm" data-i18n="cs1Title">1. 向量归一化与正交分解</div>
+            <div class="font-mono bg-[var(--card)] p-2 rounded">û = u / ||u||,  a_∥ = (a·n̂)n̂</div>
             <p class="text-[var(--muted-foreground)]" data-i18n="cs1Desc">
-              在计算光照或角度前，务必先把方向向量归一化为单位向量（长度为 1），此时点积 û · v̂ 直接等于 cos(θ)！
+              归一化后单位向量点积 û · v̂ 直接等于 cos(θ)；任意向量 a 沿单位向量 n̂ 的平行分量为 (a·n̂)n̂，垂直分量为 a - (a·n̂)n̂。
             </p>
           </div>
           <div class="bg-[var(--secondary)] p-3.5 rounded-lg space-y-1.5">
@@ -386,10 +640,9 @@
       </div>
     </div>
 
-    <!-- ==================== TAB 4: PLAYABLE 3D MINI-GAME ==================== -->
+    <!-- ==================== TAB 4: PLAYABLE 3D MINI-GAME (PRESERVED) ==================== -->
     <div id="tab-game" class="hidden space-y-5">
       <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm space-y-4">
-        <!-- Game Top Bar & Mission Selector -->
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] pb-4">
           <div>
             <div class="flex items-center gap-2">
@@ -422,12 +675,10 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          <!-- Left 3D Game Viewport (7 cols) -->
           <div class="lg:col-span-7 flex flex-col">
             <div class="relative w-full rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--background)]" style="height: 410px;">
               <canvas id="gameCanvas" class="w-full h-full cursor-pointer"></canvas>
 
-              <!-- Top HUD Overlay -->
               <div class="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
                 <div class="bg-[var(--card)]/90 backdrop-blur px-3 py-2 rounded-lg border border-[var(--border)] text-xs space-y-0.5">
                   <div id="game-hud-mission" class="font-bold text-sm">Mission 1: 太阳能帆板点积对准</div>
@@ -438,7 +689,6 @@
                 </div>
               </div>
 
-              <!-- Bottom Action Bar inside Viewport -->
               <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none">
                 <span class="text-xs bg-[var(--card)]/85 px-2.5 py-1 rounded border border-[var(--border)] text-[var(--muted-foreground)]" data-i18n="gameOrbitHint">
                   提示：可按住鼠标拖拽旋转 3D 视角观察空间角度；关卡 3 直接点击正面晶面！
@@ -450,9 +700,7 @@
             </div>
           </div>
 
-          <!-- Right Mission Control Panel (5 cols) -->
           <div class="lg:col-span-5 space-y-4">
-            <!-- Mission 1 Controls -->
             <div id="mission-panel-1" class="bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-4">
               <div class="space-y-1">
                 <div class="text-sm font-bold" data-i18n="m1Title">🌞 任务 1：调节卫星帆板法向量 N 对准太阳光 L</div>
@@ -479,7 +727,6 @@
                 </div>
               </div>
 
-              <!-- Live Energy Progress Bar -->
               <div class="bg-[var(--card)] p-3 rounded-lg border border-[var(--border)] space-y-2">
                 <div class="flex justify-between text-xs font-semibold">
                   <span data-i18n="m1PowerLabel">点积充能效率 max(0, N̂ · L̂)</span>
@@ -488,13 +735,10 @@
                 <div class="w-full h-3 bg-[var(--secondary)] rounded-full overflow-hidden">
                   <div id="m1-power-bar" class="h-full bg-[var(--primary)] transition-all" style="width: 65%;"></div>
                 </div>
-                <div id="m1-feedback" class="text-xs text-[var(--muted-foreground)]">
-                  调整上方两个滑块，观察 3D 视图中青色法线 N 与金色光线 L 的夹角变化！
-                </div>
+                <div id="m1-feedback" class="text-xs text-[var(--muted-foreground)]"></div>
               </div>
             </div>
 
-            <!-- Mission 2 Controls -->
             <div id="mission-panel-2" class="hidden bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-4">
               <div class="space-y-1">
                 <div class="text-sm font-bold" data-i18n="m2Title">🛡️ 任务 2：用叉积 a × b 构建等离子护盾拦截陨石</div>
@@ -529,7 +773,7 @@
                 </div>
 
                 <button onclick="toggleMission2Winding()" id="m2-winding-btn" class="w-full py-2 rounded-lg font-semibold bg-[var(--card)] border border-[var(--border)] hover:opacity-90">
-                  🔄 切换环绕顺序 (当前: b × a 朝反了！点击切换 a × b)
+                  🔄 切换环绕顺序
                 </button>
               </div>
 
@@ -546,7 +790,6 @@
               </div>
             </div>
 
-            <!-- Mission 3 Controls -->
             <div id="mission-panel-3" class="hidden bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-4">
               <div class="space-y-1">
                 <div class="text-sm font-bold" data-i18n="m3Title">🎯 任务 3：人肉 GPU 光栅化器——点击所有正面三角形！</div>
@@ -580,171 +823,97 @@
       zh: {
         stageBadge: 'Stage 1 · 3D 数学与空间变换',
         pageTitle: 'L01: 图形学全景与 3D 向量几何直觉 (Vectors, Handedness & The 4 Pillars of CG)',
-        pageSubtitle: '为什么整个 3D 渲染管线几乎建立在 点积 (Dot Product) 和 叉积 (Cross Product) 之上？亲手拖拽向量并通关最后的 3D 向量小游戏！',
-        tab1: '1. 3D 向量与点积/叉积实验室',
-        tab2: '2. 图形学四大支柱 3D 管线',
-        tab3: '3. 双课程视频精要 (UCD + MIT)',
-        tab4: '🎮 4. 终极互动小游戏：星际护盾与激光校准',
-        lab1Title: '交互式 3D 向量几何沙盒 (按住鼠标拖拽旋转视角)',
-        lab1Legend: '琥珀色: 向量 a ｜ 青色: 向量 b ｜ 紫色: 叉积法向量 a × b ｜ 虚线: 点积投影 proj_b(a)',
-        presetsLabel: '场景预设:',
-        presetLit: '漫反射受光 (θ < 90°)',
-        presetOrtho: '正交基 (θ = 90°)',
-        presetBack: '背面剔除 (θ > 90°)',
-        presetCollinear: '共线退化 (a × b = 0)',
-        chkArea: '显示叉积平行四边形面积',
-        chkProj: '显示点积正交投影',
-        coordHeader: '调整 3D 向量坐标 (Vector Coordinates)',
-        vecATitle: '向量 a (例如：光线方向 L 或切线 u)',
-        vecBTitle: '向量 b (例如：表面法线 N 或切线 v)',
-        dotCardTitle: '1. 点积 (Dot Product): 夹角与投影测量仪',
-        dotValLabel: '点积值 (a · b)',
-        angleValLabel: '空间夹角 (θ)',
-        lambertValLabel: 'Lambert 漫反射系数',
-        dotIntuition: '💡 图形学直觉：当 a·b > 0 时，两向量夹角小于 90°。在着色计算中，若 L · N > 0，说明光线照亮了表面正面；若 L · N ≤ 0，表面处于背光面！',
-        crossCardTitle: '2. 叉积 (Cross Product): 法线生成与有向面积',
-        paraAreaLabel: '平行四边形面积 ||a × b||',
-        triAreaLabel: '对应三角形面积 (½||a × b||)',
-        crossIntuition: '💡 图形学直觉：用三角形两条边做叉积 (P₁ - P₀) × (P₂ - P₀) 就能立刻算出表面法向量 N 和面积！',
-        jumpToGameBtn: '去玩向量小游戏 →',
-        lab2Title: '计算机图形学四大支柱实时沙盒 (The 4 Pillars of CG)',
-        lab2Subtitle: 'Justin Solomon (MIT 6.837 Lec 01) 与 Kenneth Joy (UC Davis Lec 01) 开篇共同强调的图形学四大核心模块',
-        shapeIco: '二十面体网格',
-        shapeTorus: '3D 圆环面 (Torus)',
-        pillarPrompt: '点击切换四大支柱，观察同一个 3D 对象的演变：',
-        p1Title: '1. Modeling (几何建模：我们如何表示形状？)',
-        p1Desc: '只显示顶点 (Vertices) 与拓扑边 (Wireframe Edges)。计算机必须用离散的顶点坐标、参数样条或细分网格来近似三维世界。',
-        p2Title: '2. Rendering (渲染：光线如何与表面交互？)',
-        p2Desc: '利用我们在 Lab 1 学到的数学：先用每块三角形两条边的叉积求面法线 N，再用 max(0, N · L) 计算每个面的受光亮度！',
-        p3Title: '3. Animation & Simulation (动画与物理仿真)',
-        p3Desc: '让顶点随时间 t 根据微分方程或弹性波函数运动，并在每一帧实时重新计算叉积法线与点积光照。',
-        lightAngleLabel: '调节虚拟光源水平角 (Light Azimuth)',
-        chkNormals: '绘制每个三角面的叉积法向量针 (Normal Needles)',
-        ucdNoteTitle: '几何直觉视角：从真实世界到屏幕像素的抽象旅程',
-        ucdNote1: '[00:00 - 12:00] 什么是计算机图形学？将数学描述的虚拟场景（几何 + 材质 + 相机 + 光源）转化为 2D 像素阵列（Frame Buffer）的艺术与科学。',
-        ucdNote2: '[12:00 - 26:00] 为什么我们要关心坐标系无关性 (Coordinate-Free Geometry)？自然界本身没有 XYZ 坐标轴！点（Point）代表空间中的绝对位置，而向量（Vector）代表两点之间的有向位移。',
-        ucdNote3: '[26:00 - 45:00] 渲染管线鸟瞰：从建模空间（Modeling Space）到世界空间（World Space），再到相机空间（Eye Space）和屏幕裁剪与扫描转换。',
-        mitNoteTitle: '现代图形学视角：Representation, Sampling & Linear Algebra',
-        mitNote1: '[00:00 - 20:00] 图形学与计算机视觉 (CV) 的对偶关系：Graphics 是正向合成（3D Model → 2D Image）；Vision 是逆向推理（2D Image → 3D Model）。如今二者正通过 NeRF / 3DGS 走向融合。',
-        mitNote2: '[20:00 - 48:00] 四大核心模块拆解：1) Geometry (Curves, Surfaces, Meshes)；2) Animation & Simulation (ODEs, Skinning)；3) Rendering (Ray Tracing vs. Rasterization)；4) Imaging & Color。',
-        mitNote3: '[48:00 - 75:00] 贯穿全课的两个底层瓶颈：如何把连续的数学对象变成离散采样（Sampling & Aliasing），以及如何用线性代数/矩阵加速几何运算。',
-        cheatTitle: '本课必背 3D Math 核心备忘录 (Cheat Sheet)',
-        cs1Title: '1. 向量归一化 (Normalization)',
-        cs1Desc: '在计算光照或角度前，务必先把方向向量归一化为单位向量（长度为 1），此时点积 û · v̂ 直接等于 cos(θ)！',
-        cs2Title: '2. 点积的三大图形学用途',
-        cs2Desc: '① 测量两向量夹角与前后朝向判定；② 计算向量 a 在向量 b 方向上的正交投影；③ 计算 Lambert 漫反射光照强度 I = max(0, N · L)。',
-        cs3Title: '3. 叉积的三大图形学用途',
-        cs3Desc: '① 构建垂直于平面的表面法向量 N；② 构建相机的正交坐标系标架 u = up × w；③ 计算三角形面积与像素重心坐标。',
-        gameBadge: '🎮 Play to Learn · 互动通关小游戏',
-        gameMainTitle: '星际能量护盾与激光校准特训 (Starshield & Vector Defense)',
-        gameMainSub: '通过亲手完成 3 个太空图形学工程任务，直观掌握点积受光、叉积造法线与背面剔除雷达！',
-        m1Tab: '关卡 1: 点积太阳能聚能',
-        m2Tab: '关卡 2: 叉积等离子护盾',
-        m3Tab: '关卡 3: 背面剔除雷达点击赛',
-        gameOrbitHint: '提示：可按住鼠标拖拽旋转 3D 视角观察空间角度；关卡 3 直接点击正面晶面！',
-        newTargetBtn: '🎲 随机生成新目标挑战',
-        m1Title: '🌞 任务 1：调节卫星帆板法向量 N 对准太阳光 L',
-        m1Desc: '在 Lambert 漫反射定律中，接收到的太阳能功率正比于 max(0, N̂ · L̂) = cos(θ)。请调节帆板法向量 N 的倾角，使它与金色太阳光向量 L 完全同向对齐（效率 ≥ 97% 即可通关）！',
-        m1SliderYaw: '帆板水平偏航角 (Normal Yaw φ)',
-        m1SliderPitch: '帆板俯仰倾角 (Normal Pitch θ)',
-        m1PowerLabel: '点积充能效率 max(0, N̂ · L̂)',
-        m2Title: '🛡️ 任务 2：用叉积 a × b 构建等离子护盾拦截陨石',
-        m2Desc: '红色虚线是来袭陨石方向 T！你需要展开两根护盾发生杆 a 和 b，使得它们的叉积法线 N = a × b 正好迎向陨石（N̂ · T̂ ≥ 0.95），且护盾平行四边形面积 ||a × b|| ≥ 3.2！',
-        m2SliderAngle: '发生杆张角 (Angle between a & b)',
-        m2SliderLen: '发生杆长度 (Rod Length ||a|| = ||b||)',
-        m2SliderTilt: '护盾平面俯仰旋转 (Plane Tilt)',
-        m2AlignLabel: '法线对准度 (N̂ · T̂):',
-        m2AreaLabel: '护盾面积 ||a × b|| = ||a||||b||sin(θ):',
-        m3Title: '🎯 任务 3：人肉 GPU 光栅化器——点击所有正面三角形！',
-        m3Desc: '在 3D 视口中有一颗八面体能量核心。请化身 GPU 的 Back-Face Culling（背面剔除）单元：直接用鼠标点击 3D 画布上所有朝向你的正面三角形（N · V > 0），全部点亮即可通关！',
-        m3ProgressLabel: '已锁定的正面三角形 (Front-Facing):'
+        pageSubtitle: '从 3Blue1Brown 的“线性变换与对偶性 (Duality)”视角，彻底搞懂为什么点积的坐标相乘等于投影、为什么叉积的行列式必然生成垂直法向量！',
+        tabDeep: '1. 🧠 深度几何原理与推导 (3Blue1Brown 视角)',
+        tab1: '2. 🔬 3D 向量点积/叉积实验室',
+        tab2: '3. 🏛️ 图形学四大支柱 3D 管线',
+        tab3: '4. 🎥 双课程视频精要 (UCD + MIT)',
+        tab4: '5. 🎮 终极互动小游戏 (3 关挑战)',
+        c1Badge: '第一部分 · 几何本质与坐标编码',
+        c1Title: '1. 为什么说“自然界没有坐标轴”？点 (Point)、向量 (Vector) 与基向量的真相',
+        c1Card1Title: '① 点 vs 向量：绝对位置与纯粹位移',
+        c1Card1Text: 'UC Davis 的 Kenneth Joy 教授在第一讲反复强调：三维空间里本来只有点（位置）和向量（有方向的位移箭头）。向量没有固定起点——把一个箭头在空间中任意平移，只要长度和方向不变，它就是同一个向量！因此：两点相减 (Q - P = v) 代表位移向量；点加向量 (P + v = Q) 代表移动到新点；而两点直接相加 (P + Q) 没有几何意义！',
+        c1Card2Title: '② 坐标 (x, y, z) 到底是什么？是缩放基向量的“配方”！',
+        c1Card2Text: '按 3Blue1Brown 的视角，当我们写下 v = (2, 3, -1) 时，不要只把它看成三个孤立数字，而要把它看作对三个单位基向量 î, ĵ, k̂ 的线性缩放与拼接指令：v = 2·î + 3·ĵ + (-1)·k̂。坐标系只是我们为了把几何箭头翻译成数字而选定的一套基向量标架！',
+        c1Card3Title: '③ 为什么线性代数能统治 3D 图形学？',
+        c1Card3Text: '因为任何线性运算（旋转、缩放、正交投影）都满足 L(x·î + y·ĵ + z·k̂) = x·L(î) + y·L(ĵ) + z·L(k̂)。只要我们知道三个基向量 î, ĵ, k̂ 变换后落在了哪里，空间中任意向量变换后的结果就等于“坐标乘以基向量落点再相加”！这正是点积与叉积坐标公式的根源。',
+        c2Badge: '第二部分 · 点积 (Dot Product) 深度解密',
+        c2Title: '2. 点积的灵魂拷问：为什么“对应坐标相乘再相加 (uₓvₓ + uᵧvᵧ + u_zv_z)”恰好等于“几何投影 ||u||||v||cos(θ)”？',
+        c2Sub: '课本通常直接把这两个公式扔给你，却不解释为什么代数坐标相乘会等于几何投影。让我们用 3Blue1Brown 的对偶性分三步彻底打通它！',
+        dualityBoxTitle: '🔬 3Blue1Brown 对偶性交互演示：把二维空间挤压到一维数轴',
+        dualityBoxDesc: '拖动下方“空间坍缩滑块 (Squish t)”：观察整个 2D 网格如何保持平行等距地线性投影到单位向量 û 所在的一维数轴上！注意看基向量 î (红) 和 ĵ (绿) 落在数轴上的刻度正好是 uₓ 和 uᵧ！',
+        squishSliderLabel: '✨ 拖动体验线性投影坍缩 (2D Space → 1D Number Line):',
+        uAngleLabel: '数轴方向角 (û Angle)',
+        vVecLabel: '旋转测试向量 v',
+        dotStep1Title: '第一层直觉：几何投影与为什么 u · v = v · u（对称性证明）',
+        dotStep1Body: '从几何上看，u · v 是把向量 v 垂直投影到 u 的直线上（有向投影长度为 ||v||cosθ），再乘以 ||u||。当 θ < 90° 时同向为正；θ = 90° 时投影成点为 0；θ > 90° 时反向为负。为什么交换顺序结果不变？当 ||u|| = ||v|| 时，两向量关于角平分线完全镜像对称，互相投影长度必然相等；若将 u 拉长 k 倍，投影长度不变但乘数放大了 k 倍，两边依然严格相等！',
+        dotStep2Title: '第二层直觉（3Blue1Brown 核心洞见）：对偶性 (Duality) —— 为什么坐标相乘等于投影？',
+        dotStep2Body: '请看左侧画板：沿着单位向量 û = (uₓ, uᵧ, u_z) 架设一条一维数轴，定义线性投影函数 T(v) 将空间向量垂直投影到该数轴上。因为投影是线性的，T(v) = vₓT(î) + vᵧT(ĵ) + v_zT(k̂)。而根据对称性，把 X 轴单位向量 î 投影到 û 数轴上的刻度 T(î)，完全等于把 û 投影回 X 轴的坐标——也就是 uₓ！同理 T(ĵ) = uᵧ，T(k̂) = u_z。代入即得：投影刻度 T(v) = uₓvₓ + uᵧvᵧ + u_zv_z！原来“坐标相乘再相加”本质上就是向一维数轴做线性投影！',
+        dotStep3Title: '第三层直觉：余弦定理代数验证 & 图形学正交分解公式',
+        dotStep3Body: '由三角形余弦定理 ||a - b||² = ||a||² + ||b||² - 2||a||||b||cosθ，将左侧按坐标平方展开并消去平方项，同样可严格证得 a·b = ||a||||b||cosθ。在图形学中，点积最重要的推论是正交分解：任意向量 a 沿单位法线 n̂ 的平行分量为 a_∥ = (a·n̂)n̂，垂直分量为 a_⊥ = a - (a·n̂)n̂（这正是镜面反射公式 R = I - 2(I·n̂)n̂ 的由来！）。',
+        c3Badge: '第三部分 · 叉积 (Cross Product) 深度解密',
+        c3Title: '3. 叉积的终极解密：为什么那个奇怪的 3×3 行列式 (aᵧb_z - a_zbᵧ, ...) 算出来的向量，一定垂直于 a 和 b，且长度恰好是平行四边形面积？',
+        c3Sub: '用 3Blue1Brown 的“三维平行六面体有向体积 + 对偶性”思想，3 分钟看穿叉积行列式的几何本质！',
+        crossStep1Title: '第一步：先理解 2D 叉积与 2×2 行列式的有向面积 (Signed Area)',
+        crossStep1Body: '在 2D 平面上，det([a, b]) = aₓbᵧ - aᵧbₓ 代表将面积为 1 的单位正方形线性拉伸成以 a, b 为邻边的平行四边形后的有向面积。当 b 在 a 的逆时针方向时面积为正；顺时针时空间发生翻转，面积为负。',
+        crossStep2Title: '第二步（3Blue1Brown 皇冠证明）：三维平行六面体体积与对偶向量 p',
+        crossStep2Body: '在 3D 空间中，行列式 V(x) = det([x, a, b]) 计算的是探针向量 x 与底面 (a, b) 张成的平行六面体有向体积。① 按第一列 (x,y,z) 代数展开：V(x) = x(aᵧb_z - a_zbᵧ) + y(a_zbₓ - aₓb_z) + z(aₓbᵧ - aᵧbₓ) = p · x。② 从立体几何看：斜棱柱体积 = 底面积 Area × 探针 x 在底面单位法线 n̂ 上的投影高度 (n̂ · x) = (Area · n̂) · x。③ 既然对任意向量 x 都有 p · x = (Area · n̂) · x，那么代数向量 p 必然垂直于 a 和 b（方向遵循右手定则），且长度必然等于底面平行四边形面积 Area！',
+        crossStep3Title: '第三步：为什么叉积的 X 分量 (aᵧb_z - a_zbᵧ) 偏偏不含 X？',
+        crossStep3Body: '因为 aᵧb_z - a_zbᵧ 正好是三维平行四边形投影到 YZ 墙面（垂直于 X 轴）上的 2D 阴影面积！一个平面越是正对着 X 轴（即它的法向量 X 分量越大），它在 YZ 墙面上的投影面积就越大。所以叉积的三个坐标分量，其实就是该平行四边形在三个坐标平面上的 2D 投影面积！',
+        volBoxTitle: '🔬 3D 平行六面体体积探针：det([x, a, b]) = (a × b) · x',
+        volBoxDesc: '拖动下方探针向量 x (绿色) 的高度与水平切变偏移：观察为什么斜棱柱的体积只取决于 x 在叉积法向量 p = a × b (紫色) 方向上的投影高度 h（水平切变不改变体积）！',
+        probeHeightLabel: '探针垂直高度 h (沿 a×b 方向)',
+        probeShearLabel: '探针水平切变偏移 (Shear, 不改体积!)'
       },
       en: {
         stageBadge: 'Stage 1 · 3D Math & Spatial Transforms',
         pageTitle: 'L01: Computer Graphics Panorama & 3D Vector Geometry Intuition',
-        pageSubtitle: 'Why is almost the entire 3D rendering pipeline built on the Dot Product and Cross Product? Drag vectors in 3D space and beat the 3D Vector Mini-Game!',
-        tab1: '1. 3D Vector, Dot & Cross Lab',
-        tab2: '2. The 4 Pillars of CG Pipeline',
-        tab3: '3. Dual Lecture Notes (UCD + MIT)',
-        tab4: '🎮 4. Mini-Game: Starshield & Vector Defense',
-        lab1Title: 'Interactive 3D Vector Geometry Sandbox (Drag mouse to orbit camera)',
-        lab1Legend: 'Amber: Vector a ｜ Cyan: Vector b ｜ Purple: Cross Normal a × b ｜ Dashed: Projection proj_b(a)',
-        presetsLabel: 'Presets:',
-        presetLit: 'Lambert Lit (θ < 90°)',
-        presetOrtho: 'Orthonormal (θ = 90°)',
-        presetBack: 'Back-Face Culling (θ > 90°)',
-        presetCollinear: 'Collinear (a × b = 0)',
-        chkArea: 'Show Cross Product Parallelogram Area',
-        chkProj: 'Show Dot Product Orthogonal Projection',
-        coordHeader: 'Adjust 3D Vector Coordinates',
-        vecATitle: 'Vector a (e.g., Light Direction L or Tangent u)',
-        vecBTitle: 'Vector b (e.g., Surface Normal N or Tangent v)',
-        dotCardTitle: '1. Dot Product: Angle & Projection Meter',
-        dotValLabel: 'Dot Product (a · b)',
-        angleValLabel: 'Angle (θ)',
-        lambertValLabel: 'Lambert Diffuse Factor',
-        dotIntuition: '💡 CG Intuition: When a·b > 0, the angle θ < 90°. In shading, L · N > 0 means the surface faces the light; L · N ≤ 0 means the surface is self-shadowed!',
-        crossCardTitle: '2. Cross Product: Normal Generator & Signed Area',
-        paraAreaLabel: 'Parallelogram Area ||a × b||',
-        triAreaLabel: 'Triangle Area (½||a × b||)',
-        crossIntuition: '💡 CG Intuition: Taking the cross product (P₁ - P₀) × (P₂ - P₀) of two triangle edges immediately gives its surface normal N and area!',
-        jumpToGameBtn: 'Play Vector Mini-Game →',
-        lab2Title: 'The 4 Pillars of Computer Graphics Live Sandbox',
-        lab2Subtitle: 'The 4 core pillars highlighted in MIT 6.837 Lec 01 (Justin Solomon) & UC Davis Lec 01 (Kenneth Joy)',
-        shapeIco: 'Icosahedron Mesh',
-        shapeTorus: '3D Torus Mesh',
-        pillarPrompt: 'Switch between the pillars to see how the same 3D object evolves:',
-        p1Title: '1. Modeling (How do we represent 3D shape?)',
-        p1Desc: 'Displays discrete vertices and wireframe edges. Computers approximate continuous 3D shapes using vertices, splines, or subdivision meshes.',
-        p2Title: '2. Rendering (How does light interact with surfaces?)',
-        p2Desc: 'Uses the math from Lab 1: Cross Product of triangle edges computes the face normal N, and Dot Product max(0, N · L) computes diffuse shading!',
-        p3Title: '3. Animation & Simulation (How do things move?)',
-        p3Desc: 'Deforms vertices over time t via wave functions or ODEs, recomputing cross-product normals and dot-product lighting every frame.',
-        lightAngleLabel: 'Virtual Light Azimuth Angle',
-        chkNormals: 'Draw Cross-Product Face Normal Needles',
-        ucdNoteTitle: 'Geometric Intuition: From Continuous 3D Space to Pixels',
-        ucdNote1: '[00:00 - 12:00] What is Computer Graphics? Transforming mathematical descriptions of virtual scenes (geometry, materials, cameras, lights) into a 2D pixel frame buffer.',
-        ucdNote2: '[12:00 - 26:00] Coordinate-Free Geometry: Nature has no built-in XYZ axes! Points represent absolute positions, while Vectors represent directed displacements without fixed origins.',
-        ucdNote3: '[26:00 - 45:00] Pipeline Overview: Modeling Space → World Space → Eye/Camera Space → Clipping & Scan Conversion.',
-        mitNoteTitle: 'Modern CG Perspective: Representation, Sampling & Linear Algebra',
-        mitNote1: '[00:00 - 20:00] Duality of Graphics & Vision: Graphics synthesizes 2D images from 3D models (3D → 2D); Vision infers 3D models from 2D images (2D → 3D).',
-        mitNote2: '[20:00 - 48:00] Four Core Pillars: 1) Geometry (Curves, Surfaces, Meshes); 2) Animation & Simulation (ODEs, Skinning); 3) Rendering (Ray Tracing vs. Rasterization); 4) Imaging & Color.',
-        mitNote3: '[48:00 - 75:00] Fundamental Themes: Discretizing continuous math via Sampling (fighting Aliasing), and accelerating billions of operations via Linear Algebra.',
-        cheatTitle: 'Essential 3D Math Cheat Sheet for Lesson 01',
-        cs1Title: '1. Vector Normalization',
-        cs1Desc: 'Always normalize direction vectors to unit length (||û|| = 1) before lighting calculations so that û · v̂ directly equals cos(θ).',
-        cs2Title: '2. Top 3 Uses of Dot Product in CG',
-        cs2Desc: '① Measure angle & front/back facing; ② Project vector a onto vector b; ③ Compute Lambertian diffuse shading I = max(0, N · L).',
-        cs3Title: '3. Top 3 Uses of Cross Product in CG',
-        cs3Desc: '① Compute triangle surface normal N; ② Construct orthogonal camera axes u = up × w; ③ Compute triangle area & barycentric weights.',
-        gameBadge: '🎮 Play to Learn · Interactive Mini-Game',
-        gameMainTitle: 'Starshield & Vector Defense (3 Missions)',
-        gameMainSub: 'Master Dot Product lighting, Cross Product surface normals, and Back-Face Culling by completing 3 hands-on space engineering missions!',
-        m1Tab: 'Mission 1: Solar Dot Alignment',
-        m2Tab: 'Mission 2: Cross-Product Shield',
-        m3Tab: 'Mission 3: Back-Face Culling Radar',
-        gameOrbitHint: 'Tip: Drag mouse to orbit the 3D view; in Mission 3, click directly on front-facing crystal facets!',
-        newTargetBtn: '🎲 Randomize New Target',
-        m1Title: '🌞 Mission 1: Align Solar Panel Normal N with Sun Ray L',
-        m1Desc: 'By Lambert’s Law, solar power is proportional to max(0, N̂ · L̂) = cos(θ). Rotate the panel normal N until it aligns with the golden sun ray L (reach ≥ 97% efficiency to clear)!',
-        m1SliderYaw: 'Panel Normal Yaw (φ)',
-        m1SliderPitch: 'Panel Normal Pitch (θ)',
-        m1PowerLabel: 'Dot Product Efficiency max(0, N̂ · L̂)',
-        m2Title: '🛡️ Mission 2: Build a Cross-Product Plasma Shield (a × b)',
-        m2Desc: 'The red dashed vector T is an incoming meteor! Adjust emitter rods a and b so their Cross Product Normal N = a × b points at T (N̂ · T̂ ≥ 0.95) AND shield area ||a × b|| ≥ 3.2!',
-        m2SliderAngle: 'Spread Angle between Rods a & b',
-        m2SliderLen: 'Emitter Rod Length (||a|| = ||b||)',
-        m2SliderTilt: 'Shield Plane Pitch Tilt',
-        m2AlignLabel: 'Normal Alignment (N̂ · T̂):',
-        m2AreaLabel: 'Shield Area ||a × b|| = ||a||||b||sin(θ):',
-        m3Title: '🎯 Mission 3: Be the GPU — Click All Front-Facing Triangles!',
-        m3Desc: 'An octahedron core is floating in 3D space. Act as the GPU Back-Face Culling unit: click directly on all Front-Facing triangles (N · V > 0) on the 3D canvas!',
-        m3ProgressLabel: 'Locked Front-Facing Facets:'
+        pageSubtitle: 'Through 3Blue1Brown’s lens of Linear Transformations & Duality, understand WHY coordinate multiplication equals geometric projection and WHY the cross-product determinant yields a perpendicular normal!',
+        tabDeep: '1. 🧠 Deep Intuition & Proofs (3Blue1Brown Style)',
+        tab1: '2. 🔬 3D Vector, Dot & Cross Lab',
+        tab2: '3. 🏛️ The 4 Pillars of CG Pipeline',
+        tab3: '4. 🎥 Dual Lecture Notes (UCD + MIT)',
+        tab4: '5. 🎮 Mini-Game (3 Missions)',
+        c1Badge: 'Part 1 · Geometric Essence vs. Coordinate Encoding',
+        c1Title: '1. Why "Nature Has No Axes": The Truth About Points, Vectors, and Basis Vectors',
+        c1Card1Title: '① Point vs. Vector: Position vs. Pure Displacement',
+        c1Card1Text: 'Prof. Kenneth Joy (UC Davis) emphasizes that 3D space natively contains Points (locations) and Vectors (directed displacements). A vector has no fixed origin—slide it anywhere without changing length or direction and it is the exact same vector! Thus: Point minus Point (Q - P = v) is a displacement vector; Point plus Vector (P + v = Q) is a new point; Point plus Point (P + Q) is geometrically undefined!',
+        c1Card2Title: '② What Are Coordinates (x, y, z)? A Recipe for Scaling Basis Vectors!',
+        c1Card2Text: 'In 3Blue1Brown’s view, writing v = (2, 3, -1) is a recipe for scaling and adding three unit basis vectors î, ĵ, k̂: v = 2·î + 3·ĵ + (-1)·k̂. Coordinate axes are simply a chosen frame to translate geometric arrows into triples of numbers.',
+        c1Card3Title: '③ Why Does Linear Algebra Rule 3D Graphics?',
+        c1Card3Text: 'Because any linear operation (rotation, scaling, projection) satisfies L(x·î + y·ĵ + z·k̂) = x·L(î) + y·L(ĵ) + z·L(k̂). Once we know where the 3 basis vectors î, ĵ, k̂ land, we immediately know where millions of vertices land!',
+        c2Badge: 'Part 2 · Deep Dive into the Dot Product',
+        c2Title: '2. The Soul of the Dot Product: Why Does "uₓvₓ + uᵧvᵧ + u_zv_z" Equal Geometric Projection "||u||||v||cos(θ)"?',
+        c2Sub: 'Textbooks state both formulas without explaining why multiplying coordinates has anything to do with projection and cosines. Let’s bridge them in 3 steps via Duality!',
+        dualityBoxTitle: '🔬 3Blue1Brown Duality Explorer: Squishing 2D Space onto a 1D Number Line',
+        dualityBoxDesc: 'Drag the "Squish t" slider below: watch the entire 2D grid linearly project onto the 1D number line along unit vector û! Notice that where basis vectors î (red) and ĵ (green) land on that line are literally uₓ and uᵧ!',
+        squishSliderLabel: '✨ Drag to Squish 2D Space onto the 1D Line of û:',
+        uAngleLabel: '1D Line Angle (û Angle)',
+        vVecLabel: 'Rotate Test Vector v',
+        dotStep1Title: 'Layer 1: Geometric Projection & Why u · v = v · u (Symmetry Proof)',
+        dotStep1Body: 'Geometrically, u · v projects vector v orthogonally onto the line of u (signed length ||v||cosθ) and scales by ||u||. Why is it symmetric? If ||u|| = ||v||, the two vectors are mirror images across their bisector, so their projections onto each other are identical. Scaling u by k simply scales both sides by k!',
+        dotStep2Title: 'Layer 2 (3Blue1Brown Crown Jewel): Duality — Vectors as 3D-to-1D Linear Transformations!',
+        dotStep2Body: 'Look at the left canvas: place a 1D number line along unit vector û = (uₓ, uᵧ, u_z) and define a linear map T(v) that projects any vector v onto that number line. By linearity, T(v) = vₓT(î) + vᵧT(ĵ) + v_zT(k̂). By symmetry of unit vectors, projecting î=(1,0,0) onto û is identical to projecting û onto the X-axis—which is literally uₓ! Similarly T(ĵ) = uᵧ and T(k̂) = u_z. Thus T(v) = uₓvₓ + uᵧvᵧ + u_zv_z! Multiplying coordinates and adding them IS applying a 1D projection matrix!',
+        dotStep3Title: 'Layer 3: Law of Cosines Verification & Orthogonal Decomposition',
+        dotStep3Body: 'Expanding ||a - b||² = ||a||² + ||b||² - 2||a||||b||cosθ in coordinates cancels all squared terms, leaving a·b = ||a||||b||cosθ. In CG, this gives Orthogonal Decomposition: any vector a splits into a parallel component a_∥ = (a·n̂)n̂ and perpendicular component a_⊥ = a - (a·n̂)n̂ (used directly in mirror reflection R = I - 2(I·n̂)n̂).',
+        c3Badge: 'Part 3 · Deep Dive into the Cross Product',
+        c3Title: '3. Decoding the Cross Product: Why Must the 3×3 Determinant (aᵧb_z - a_zbᵧ, ...) Be Perpendicular to a & b with Length Equal to Area?',
+        c3Sub: 'Using 3Blue1Brown’s 3D Parallelepiped Volume + Duality proof, see why the determinant formula is geometrically inevitable!',
+        crossStep1Title: 'Step 1: 2D Signed Area & the 2×2 Determinant',
+        crossStep1Body: 'In 2D, det([a, b]) = aₓbᵧ - aᵧbₓ measures the signed area of the parallelogram spanned by a and b (positive if b is counter-clockwise from a, negative if clockwise).',
+        crossStep2Title: 'Step 2 (3Blue1Brown Volume Proof): 3D Parallelepiped Volume & the Dual Vector p',
+        crossStep2Body: 'In 3D, V(x) = det([x, a, b]) gives the signed volume of the parallelepiped spanned by probe vector x and base (a, b). ① Expanding the determinant along column x=(x,y,z) gives V(x) = x(aᵧb_z - a_zbᵧ) + y(a_zbₓ - aₓb_z) + z(aₓbᵧ - aᵧbₓ) = p · x. ② Geometrically, Volume = BaseArea × Height = BaseArea × (n̂ · x) = (BaseArea · n̂) · x. ③ Since p · x = (BaseArea · n̂) · x for ALL vectors x, the algebraic vector p MUST point along the perpendicular normal n̂ with magnitude equal to BaseArea = ||a||||b||sin(θ)!',
+        crossStep3Title: 'Step 3: Why Does the X-Component (aᵧb_z - a_zbᵧ) Contain Only Y and Z?',
+        crossStep3Body: 'Because aᵧb_z - a_zbᵧ is the 2D signed area of the parallelogram’s shadow projected onto the YZ wall (perpendicular to X)! The more the surface faces the X-axis, the larger its shadow on the YZ wall!',
+        volBoxTitle: '🔬 3D Parallelepiped Volume Probe: det([x, a, b]) = (a × b) · x',
+        volBoxDesc: 'Drag the green probe vector x height and horizontal shear below: see why the prism volume depends ONLY on the height h along the purple normal p = a × b (shearing parallel to the base never changes volume)!',
+        probeHeightLabel: 'Probe Orthogonal Height h (along a×b)',
+        probeShearLabel: 'Horizontal Shear (Does NOT change volume!)'
       }
     };
 
     // ==================== STATE ====================
-    let activeTab = 'lab1';
+    let activeTab = 'deep';
     let isRightHanded = true;
     let isSwappedCross = false;
 
@@ -763,24 +932,12 @@
     let animTime = 0;
     let animFrameId = null;
 
-    // ==================== MINI-GAME STATE ====================
+    // Mini-Game State
     let currentMission = 1;
     let missionsCleared = { 1: false, 2: false, 3: false };
-
-    // Mission 1: Target sun direction (yaw, pitch in degrees)
-    let m1TargetYaw = -45;
-    let m1TargetPitch = 38;
-    let m1UserYaw = 20;
-    let m1UserPitch = 15;
-
-    // Mission 2: Target threat direction + user shield params
-    let m2TargetTilt = 28;
-    let m2UserSpread = 45;
-    let m2UserLen = 1.6;
-    let m2UserTilt = 10;
-    let m2WindingCorrect = false; // starts inverted so user discovers winding flip!
-
-    // Mission 3: Octahedron facets clicked
+    let m1TargetYaw = -45, m1TargetPitch = 38;
+    let m1UserYaw = 20, m1UserPitch = 15;
+    let m2TargetTilt = 28, m2UserSpread = 45, m2UserLen = 1.6, m2UserTilt = 10, m2WindingCorrect = false;
     let m3SelectedFaces = new Set();
     let m3CachedScreenPolys = [];
 
@@ -796,6 +953,8 @@
       });
 
       refreshDynamicLabels();
+      drawDualityCanvas();
+      drawVolumeCanvas();
       updateVectors();
       drawPillarsScene();
       updateGameUI();
@@ -803,31 +962,23 @@
 
     function refreshDynamicLabels() {
       const hBtn = document.getElementById('handedness-btn');
-      hBtn.textContent = currentLang === 'zh'
-        ? (isRightHanded ? '右手坐标系 (Right-Handed: OpenGL/Three.js)' : '左手坐标系 (Left-Handed: DirectX/Unity)')
-        : (isRightHanded ? 'Right-Handed (OpenGL / Three.js)' : 'Left-Handed (DirectX / Unity)');
-
+      if (hBtn) {
+        hBtn.textContent = currentLang === 'zh'
+          ? (isRightHanded ? '右手坐标系 (Right-Handed: OpenGL/Three.js)' : '左手坐标系 (Left-Handed: DirectX/Unity)')
+          : (isRightHanded ? 'Right-Handed (OpenGL / Three.js)' : 'Left-Handed (DirectX / Unity)');
+      }
       const sBtn = document.getElementById('swap-order-btn');
-      sBtn.textContent = currentLang === 'zh'
-        ? (isSwappedCross ? '当前叉积: b × a = -(a × b) (点击切回 a × b)' : '当前叉积: a × b (点击切换 b × a)')
-        : (isSwappedCross ? 'Order: b × a = -(a × b) (Click for a × b)' : 'Order: a × b (Click to flip b × a)');
-
-      const title = document.getElementById('pillar-hud-title');
-      if (currentLang === 'zh') {
-        if (activePillar === 1) title.textContent = 'Pillar 1: Modeling (离散顶点与网格拓扑)';
-        if (activePillar === 2) title.textContent = 'Pillar 2: Rendering (叉积求法线 + 点积求漫反射)';
-        if (activePillar === 3) title.textContent = 'Pillar 3: Animation & Simulation (时变顶点形变)';
-      } else {
-        if (activePillar === 1) title.textContent = 'Pillar 1: Modeling (Vertices & Wireframe Topology)';
-        if (activePillar === 2) title.textContent = 'Pillar 2: Rendering (Cross Normals + Dot Shading)';
-        if (activePillar === 3) title.textContent = 'Pillar 3: Animation & Simulation (Time-Varying Deformation)';
+      if (sBtn) {
+        sBtn.textContent = currentLang === 'zh'
+          ? (isSwappedCross ? '当前叉积: b × a = -(a × b) (点击切回 a × b)' : '当前叉积: a × b (点击切换 b × a)')
+          : (isSwappedCross ? 'Order: b × a = -(a × b) (Click for a × b)' : 'Order: a × b (Click to flip b × a)');
       }
     }
 
     // ==================== TAB SWITCHING ====================
     function switchTab(tabId) {
       activeTab = tabId;
-      ['lab1', 'lab2', 'notes', 'game'].forEach(id => {
+      ['deep', 'lab1', 'lab2', 'notes', 'game'].forEach(id => {
         const panel = document.getElementById('tab-' + id);
         const btn = document.getElementById('tab-btn-' + id);
         if (id === tabId) {
@@ -838,9 +989,15 @@
           btn.className = 'px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition';
         }
       });
-      if (tabId === 'lab1') resizeAndDrawLab1();
-      if (tabId === 'lab2') resizeAndDrawLab2();
-      if (tabId === 'game') resizeAndDrawGame();
+      if (tabId === 'deep') {
+        resizeAndDrawDeepCanvases();
+      } else if (tabId === 'lab1') {
+        resizeAndDrawLab1();
+      } else if (tabId === 'lab2') {
+        resizeAndDrawLab2();
+      } else if (tabId === 'game') {
+        resizeAndDrawGame();
+      }
     }
 
     // ==================== MATH HELPERS ====================
@@ -926,6 +1083,196 @@
         ctx.fillText(label, to.x + 8 * Math.cos(angle), to.y + 8 * Math.sin(angle));
       }
       ctx.restore();
+    }
+
+    // ==================== TAB 0: 3BLUE1BROWN DUALITY & VOLUME VISUALIZERS ====================
+    function drawDualityCanvas() {
+      const canvas = document.getElementById('dualityCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const squish = parseFloat(document.getElementById('squishSlider').value);
+      const uDeg = parseFloat(document.getElementById('uAngleSlider').value);
+      const vDeg = parseFloat(document.getElementById('vAngleSlider').value);
+
+      const uRad = uDeg * (Math.PI / 180);
+      const ux = Math.cos(uRad), uy = Math.sin(uRad);
+
+      const vRad = vDeg * (Math.PI / 180);
+      const vLen = 1.9;
+      const vx = vLen * Math.cos(vRad), vy = vLen * Math.sin(vRad);
+
+      document.getElementById('squish-status').textContent = `Squish: ${Math.round(squish * 100)}%`;
+      document.getElementById('squish-pct-label').textContent = currentLang === 'zh'
+        ? `${Math.round(squish * 100)}% (${squish > 0.95 ? '已坍缩为一维投影数轴!' : '线性插值过渡中'})`
+        : `${Math.round(squish * 100)}% (${squish > 0.95 ? 'Collapsed to 1D Line!' : 'Interpolating...'})`;
+      document.getElementById('u-angle-val').textContent = `${uDeg}° (uₓ=${ux.toFixed(2)}, uᵧ=${uy.toFixed(2)})`;
+      document.getElementById('v-vec-val').textContent = `(${vx.toFixed(2)}, ${vy.toFixed(2)})`;
+
+      const cx = w / 2, cy = h / 2;
+      const scale = 68;
+
+      // Helper: interpolate point p=(x,y) towards its orthogonal projection on u=(ux,uy) by factor squish
+      const transformPt = (x, y) => {
+        const dotUV = x * ux + y * uy;
+        const projX = dotUV * ux;
+        const projY = dotUV * uy;
+        const curX = x * (1 - squish) + projX * squish;
+        const curY = y * (1 - squish) + projY * squish;
+        return { x: cx + curX * scale, y: cy - curY * scale };
+      };
+
+      // Draw 1D Number Line of û
+      ctx.save();
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx - ux * 3.5 * scale, cy + uy * 3.5 * scale);
+      ctx.lineTo(cx + ux * 3.5 * scale, cy - uy * 3.5 * scale);
+      ctx.stroke();
+      ctx.restore();
+
+      // Draw Squished 2D Grid Lines
+      ctx.save();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+      ctx.lineWidth = 1;
+      for (let i = -3; i <= 3; i++) {
+        const p1 = transformPt(i, -3);
+        const p2 = transformPt(i, 3);
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+
+        const p3 = transformPt(-3, i);
+        const p4 = transformPt(3, i);
+        ctx.beginPath(); ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.stroke();
+      }
+      ctx.restore();
+
+      const origin = { x: cx, y: cy };
+      // Basis vectors î = (1,0) and ĵ = (0,1) under squish transformation
+      const pI = transformPt(1, 0);
+      const pJ = transformPt(0, 1);
+      const pU = { x: cx + ux * scale, y: cy - uy * scale };
+      const pV = transformPt(vx, vy);
+
+      drawArrow2D(ctx, origin, pU, '#f59e0b', 3, 'û');
+      drawArrow2D(ctx, origin, pI, '#ef4444', 2.5, squish > 0.8 ? `T(î)=uₓ=${ux.toFixed(2)}` : 'î');
+      drawArrow2D(ctx, origin, pJ, '#22c55e', 2.5, squish > 0.8 ? `T(ĵ)=uᵧ=${uy.toFixed(2)}` : 'ĵ');
+      drawArrow2D(ctx, origin, pV, '#38bdf8', 3.2, squish > 0.8 ? `T(v)=${(vx*ux+vy*uy).toFixed(2)}` : 'v');
+
+      const dotRes = vx * ux + vy * uy;
+      document.getElementById('duality-math-readout').textContent =
+        `T(v) = vₓ·T(î) + vᵧ·T(ĵ) = (${vx.toFixed(2)})(${ux.toFixed(2)}) + (${vy.toFixed(2)})(${uy.toFixed(2)}) = ${dotRes.toFixed(2)}`;
+    }
+
+    function drawVolumeCanvas() {
+      const canvas = document.getElementById('volumeCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      drawFloorGrid(ctx, w, h);
+
+      const probeH = parseFloat(document.getElementById('probeHeightSlider').value);
+      const probeShear = parseFloat(document.getElementById('probeShearSlider').value);
+      document.getElementById('probe-h-val').textContent = probeH.toFixed(2);
+      document.getElementById('probe-shear-val').textContent = probeShear.toFixed(2);
+
+      // Base vectors a and b in XZ plane (so a x b points straight along +Y with area = 3.0)
+      const baseA = { x: 2.0, y: 0, z: 0.3 };
+      const baseB = { x: 0.2, y: 0, z: 1.55 };
+      const crossAB = cross(baseA, baseB, true); // primarily along +Y
+      const baseArea = norm(crossAB);
+      const unitN = normalize(crossAB);
+
+      // Probe vector x has orthogonal height probeH along unitN, plus horizontal shear in base plane
+      const probeX = {
+        x: unitN.x * probeH + probeShear * 0.8,
+        y: unitN.y * probeH,
+        z: unitN.z * probeH + probeShear * 0.5
+      };
+
+      const add3 = (u, v) => ({ x: u.x + v.x, y: u.y + v.y, z: u.z + v.z });
+      const O = { x: 0, y: 0, z: 0 };
+      const A = baseA;
+      const B = baseB;
+      const AB = add3(A, B);
+
+      const X = probeX;
+      const XA = add3(X, A);
+      const XB = add3(X, B);
+      const XAB = add3(X, AB);
+
+      const pO = project3D(O, w, h, camYaw, camPitch, 68);
+      const pA = project3D(A, w, h, camYaw, camPitch, 68);
+      const pB = project3D(B, w, h, camYaw, camPitch, 68);
+      const pAB = project3D(AB, w, h, camYaw, camPitch, 68);
+
+      const pX = project3D(X, w, h, camYaw, camPitch, 68);
+      const pXA = project3D(XA, w, h, camYaw, camPitch, 68);
+      const pXB = project3D(XB, w, h, camYaw, camPitch, 68);
+      const pXAB = project3D(XAB, w, h, camYaw, camPitch, 68);
+
+      // Draw Base Parallelogram
+      ctx.save();
+      ctx.fillStyle = 'rgba(168, 85, 247, 0.24)';
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(pO.x, pO.y); ctx.lineTo(pA.x, pA.y); ctx.lineTo(pAB.x, pAB.y); ctx.lineTo(pB.x, pB.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw Top Parallelogram of Parallelepiped
+      ctx.fillStyle = probeH >= 0 ? 'rgba(34, 197, 94, 0.22)' : 'rgba(244, 63, 94, 0.22)';
+      ctx.strokeStyle = probeH >= 0 ? '#22c55e' : '#f43f5e';
+      ctx.beginPath();
+      ctx.moveTo(pX.x, pX.y); ctx.lineTo(pXA.x, pXA.y); ctx.lineTo(pXAB.x, pXAB.y); ctx.lineTo(pXB.x, pXB.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw 4 Pillar Edges connecting Base to Top
+      ctx.setLineDash([3, 3]);
+      [[pO, pX], [pA, pXA], [pB, pXB], [pAB, pXAB]].forEach(([u, v]) => {
+        ctx.beginPath(); ctx.moveTo(u.x, u.y); ctx.lineTo(v.x, v.y); ctx.stroke();
+      });
+      ctx.restore();
+
+      // Draw Vectors a, b, x, and Cross Product p = a x b
+      drawArrow2D(ctx, pO, pA, '#f59e0b', 3, 'a');
+      drawArrow2D(ctx, pO, pB, '#06b6d4', 3, 'b');
+      drawArrow2D(ctx, pO, pX, '#22c55e', 3.2, 'Probe x');
+
+      const pCross = project3D({ x: crossAB.x * 0.65, y: crossAB.y * 0.65, z: crossAB.z * 0.65 }, w, h, camYaw, camPitch, 68);
+      drawArrow2D(ctx, pO, pCross, '#a855f7', 3.5, 'p = a × b');
+
+      const vol = dot(crossAB, probeX);
+      document.getElementById('vol-readout-badge').textContent = `Vol = ${vol.toFixed(2)}`;
+      document.getElementById('volume-math-readout').textContent =
+        `det([x, a, b]) = (a × b) · x = ||a × b||(${baseArea.toFixed(2)}) × Height(${probeH.toFixed(2)}) = ${vol.toFixed(2)}`;
+    }
+
+    function resizeAndDrawDeepCanvases() {
+      const c1 = document.getElementById('dualityCanvas');
+      if (c1) {
+        const r1 = c1.parentElement.getBoundingClientRect();
+        c1.width = r1.width || 520;
+        c1.height = r1.height || 310;
+        drawDualityCanvas();
+      }
+      const c2 = document.getElementById('volumeCanvas');
+      if (c2) {
+        const r2 = c2.parentElement.getBoundingClientRect();
+        c2.width = r2.width || 520;
+        c2.height = r2.height || 310;
+        drawVolumeCanvas();
+      }
     }
 
     // ==================== LAB 1: VECTOR SANDBOX ====================
@@ -1361,7 +1708,6 @@
       const origin = project3D({ x: 0, y: 0, z: 0 }, w, h, camYaw, camPitch);
 
       if (currentMission === 1) {
-        // Mission 1: Dot Product Solar Panel
         const sunVec = sphericalToVec(m1TargetYaw, m1TargetPitch, 2.5);
         const normVec = sphericalToVec(m1UserYaw, m1UserPitch, 2.2);
         const sunUnit = normalize(sunVec);
@@ -1371,7 +1717,6 @@
 
         if (eff >= 0.97) missionsCleared[1] = true;
 
-        // Draw Solar Panel Quad perpendicular to normUnit
         const upRef = Math.abs(normUnit.y) < 0.9 ? { x: 0, y: 1, z: 0 } : { x: 1, y: 0, z: 0 };
         const tangentU = normalize(cross(upRef, normUnit, true));
         const tangentV = normalize(cross(normUnit, tangentU, true));
@@ -1422,11 +1767,9 @@
             : 'Adjust Yaw & Pitch until the cyan Normal N aligns with the golden Sun vector L!';
         }
       } else if (currentMission === 2) {
-        // Mission 2: Cross Product Plasma Shield
         const halfSpread = (m2UserSpread / 2) * (Math.PI / 180);
         const tiltRad = m2UserTilt * (Math.PI / 180);
 
-        // Construct rods a and b in tilted plane
         const localA = { x: m2UserLen * Math.sin(halfSpread), y: 0, z: m2UserLen * Math.cos(halfSpread) };
         const localB = { x: -m2UserLen * Math.sin(halfSpread), y: 0, z: m2UserLen * Math.cos(halfSpread) };
 
@@ -1442,7 +1785,6 @@
         const shieldArea = norm(shieldCross);
         const shieldNorm = normalize(shieldCross);
 
-        // Threat vector T perpendicular to target tilt plane
         const tRad = m2TargetTilt * (Math.PI / 180);
         const threatUnit = normalize({ x: 0, y: Math.cos(tRad), z: Math.sin(tRad) });
         const threatVec = { x: threatUnit.x * 2.5, y: threatUnit.y * 2.5, z: threatUnit.z * 2.5 };
@@ -1451,7 +1793,6 @@
         const isClear = align >= 0.95 && shieldArea >= 3.2;
         if (isClear) missionsCleared[2] = true;
 
-        // Draw Shield Parallelogram
         const pA = project3D(rodA, w, h, camYaw, camPitch);
         const pB = project3D(rodB, w, h, camYaw, camPitch);
         const pSum = project3D({ x: rodA.x + rodB.x, y: rodA.y + rodB.y, z: rodA.z + rodB.z }, w, h, camYaw, camPitch);
@@ -1525,21 +1866,19 @@
           }
         }
       } else if (currentMission === 3) {
-        // Mission 3: Back-Face Culling Interactive Click Game
         const octVerts = [
-          { x: 0, y: 2.1, z: 0 },  // 0 top
-          { x: 0, y: -2.1, z: 0 }, // 1 bottom
-          { x: 2.1, y: 0, z: 0 },  // 2 +X
-          { x: 0, y: 0, z: 2.1 },  // 3 +Z
-          { x: -2.1, y: 0, z: 0 }, // 4 -X
-          { x: 0, y: 0, z: -2.1 }  // 5 -Z
+          { x: 0, y: 2.1, z: 0 },
+          { x: 0, y: -2.1, z: 0 },
+          { x: 2.1, y: 0, z: 0 },
+          { x: 0, y: 0, z: 2.1 },
+          { x: -2.1, y: 0, z: 0 },
+          { x: 0, y: 0, z: -2.1 }
         ];
         const octFaces = [
           [0, 3, 2], [0, 4, 3], [0, 5, 4], [0, 2, 5],
           [1, 2, 3], [1, 3, 4], [1, 4, 5], [1, 5, 2]
         ];
 
-        // Camera view vector in world space (pointing from origin towards viewer camera)
         const viewVec = normalize({
           x: -Math.cos(camPitch) * Math.sin(camYaw),
           y: Math.sin(camPitch),
@@ -1571,7 +1910,6 @@
           };
         });
 
-        // Sort back-to-front for rendering
         faceRecords.sort((a, b) => a.depth - b.depth);
         m3CachedScreenPolys = faceRecords;
 
@@ -1609,7 +1947,6 @@
           ctx.stroke();
           ctx.restore();
 
-          // Draw face normal needle
           const cProj = project3D(rec.center, w, h, camYaw, camPitch, 84);
           const tip = {
             x: rec.center.x + rec.n.x * 0.45,
@@ -1617,14 +1954,7 @@
             z: rec.center.z + rec.n.z * 0.45
           };
           const tipProj = project3D(tip, w, h, camYaw, camPitch, 84);
-          drawArrow2D(
-            ctx,
-            cProj,
-            tipProj,
-            rec.isFront ? '#10b981' : '#f43f5e',
-            1.6,
-            `#${rec.idx}`
-          );
+          drawArrow2D(ctx, cProj, tipProj, rec.isFront ? '#10b981' : '#f43f5e', 1.6, `#${rec.idx}`);
         });
 
         document.getElementById('m3-progress-val').textContent = `${lockedFrontCount} / ${frontFaces.length}`;
@@ -1665,7 +1995,6 @@
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
 
-      // Check front-most hit polygon first (reverse of back-to-front list)
       for (let i = m3CachedScreenPolys.length - 1; i >= 0; i--) {
         const rec = m3CachedScreenPolys[i];
         const [p0, p1, p2] = rec.poly2D;
@@ -1699,6 +2028,7 @@
     // ==================== MOUSE ORBIT INTERACTION ====================
     function attachOrbitEvents(canvasId, redrawFn, clickFn = null) {
       const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
       canvas.addEventListener('mousedown', e => {
         isDragging = true;
         dragStartX = e.clientX;
@@ -1714,6 +2044,7 @@
         lastMouseY = e.clientY;
         camYaw += dx * 0.008;
         camPitch = Math.max(-1.2, Math.min(1.2, camPitch + dy * 0.008));
+        if (activeTab === 'deep') drawVolumeCanvas();
         if (activeTab === 'lab1') drawVectorScene();
         if (activeTab === 'lab2') drawPillarsScene();
         if (activeTab === 'game') updateGameUI();
@@ -1730,11 +2061,13 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      attachOrbitEvents('volumeCanvas', drawVolumeCanvas);
       attachOrbitEvents('vectorCanvas', drawVectorScene);
       attachOrbitEvents('pillarsCanvas', drawPillarsScene);
       attachOrbitEvents('gameCanvas', updateGameUI, handleGameCanvasClick);
-      resizeAndDrawLab1();
+      resizeAndDrawDeepCanvases();
       window.addEventListener('resize', () => {
+        if (activeTab === 'deep') resizeAndDrawDeepCanvases();
         if (activeTab === 'lab1') resizeAndDrawLab1();
         if (activeTab === 'lab2') resizeAndDrawLab2();
         if (activeTab === 'game') resizeAndDrawGame();
