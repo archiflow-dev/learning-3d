@@ -21,7 +21,7 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
   onBackToPortal
 }) => {
   const isZh = lang === 'zh';
-  const [activeTab, setActiveTab] = useState<'lab1' | 'lab2' | 'videos' | 'quiz'>('lab1');
+  const [activeTab, setActiveTab] = useState<'lab1' | 'lab2' | 'videos' | 'game'>('lab1');
   const [isRightHanded, setIsRightHanded] = useState(true);
   const [isSwappedCross, setIsSwappedCross] = useState(false);
   const [showParallelogram, setShowParallelogram] = useState(true);
@@ -33,6 +33,7 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
   const [camYaw, setCamYaw] = useState(-0.65);
   const [camPitch, setCamPitch] = useState(0.45);
   const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
   const lastMouseRef = useRef({ x: 0, y: 0 });
 
   const [activePillar, setActivePillar] = useState<1 | 2 | 3>(2);
@@ -40,10 +41,36 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
   const [lightAzimuth, setLightAzimuth] = useState(45);
   const [showNormals, setShowNormals] = useState(true);
 
-  const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
+  // Mini-Game State (Tab 4)
+  const [currentMission, setCurrentMission] = useState<1 | 2 | 3>(1);
+  const [missionsCleared, setMissionsCleared] = useState<Record<number, boolean>>({
+    1: false,
+    2: false,
+    3: false
+  });
+  const [m1Target, setM1Target] = useState({ yaw: -45, pitch: 38 });
+  const [m1User, setM1User] = useState({ yaw: 20, pitch: 15 });
+
+  const [m2TargetTilt, setM2TargetTilt] = useState(28);
+  const [m2Spread, setM2Spread] = useState(45);
+  const [m2Len, setM2Len] = useState(1.6);
+  const [m2Tilt, setM2Tilt] = useState(10);
+  const [m2WindingCorrect, setM2WindingCorrect] = useState(false);
+
+  const [m3SelectedFaces, setM3SelectedFaces] = useState<number[]>([]);
+  const [m3Feedback, setM3Feedback] = useState<string>('');
+  const m3CachedPolysRef = useRef<
+    Array<{
+      idx: number;
+      ndotv: number;
+      isFront: boolean;
+      poly2D: Array<{ x: number; y: number }>;
+    }>
+  >([]);
 
   const vectorCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pillarsCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const gameCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const dot = (u: Vec3, v: Vec3) => u.x * v.x + u.y * v.y + u.z * v.z;
   const norm = (u: Vec3) => Math.sqrt(dot(u, u));
@@ -57,6 +84,15 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
       x: s * (u.y * v.z - u.z * v.y),
       y: s * (u.z * v.x - u.x * v.z),
       z: s * (u.x * v.y - u.y * v.x)
+    };
+  };
+  const sphericalToVec = (yawDeg: number, pitchDeg: number, radius = 1): Vec3 => {
+    const yaw = yawDeg * (Math.PI / 180);
+    const pitch = pitchDeg * (Math.PI / 180);
+    return {
+      x: radius * Math.cos(pitch) * Math.sin(yaw),
+      y: radius * Math.sin(pitch),
+      z: radius * Math.cos(pitch) * Math.cos(yaw)
     };
   };
 
@@ -387,6 +423,260 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
     };
   }, [activeTab, activePillar, activeShape, lightAzimuth, showNormals, camYaw, camPitch]);
 
+  // Draw Tab 4 Mini-Game Canvas
+  useEffect(() => {
+    if (activeTab !== 'game') return;
+    const canvas = gameCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.parentElement?.getBoundingClientRect();
+    canvas.width = rect?.width || 680;
+    canvas.height = rect?.height || 410;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // Floor Grid
+    ctx.save();
+    ctx.strokeStyle = 'rgba(148,163,184,0.14)';
+    ctx.lineWidth = 1;
+    for (let i = -3; i <= 3; i++) {
+      const p1 = project3D({ x: i, y: 0, z: -3 }, w, h, camYaw, camPitch);
+      const p2 = project3D({ x: i, y: 0, z: 3 }, w, h, camYaw, camPitch);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+
+      const p3 = project3D({ x: -3, y: 0, z: i }, w, h, camYaw, camPitch);
+      const p4 = project3D({ x: 3, y: 0, z: i }, w, h, camYaw, camPitch);
+      ctx.beginPath();
+      ctx.moveTo(p3.x, p3.y);
+      ctx.lineTo(p4.x, p4.y);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    const origin = project3D({ x: 0, y: 0, z: 0 }, w, h, camYaw, camPitch);
+
+    if (currentMission === 1) {
+      const sunVec = sphericalToVec(m1Target.yaw, m1Target.pitch, 2.5);
+      const normVec = sphericalToVec(m1User.yaw, m1User.pitch, 2.2);
+      const sunUnit = normalize(sunVec);
+      const normUnit = normalize(normVec);
+      const eff = Math.max(0, dot(sunUnit, normUnit));
+
+      if (eff >= 0.97 && !missionsCleared[1]) {
+        setMissionsCleared(prev => ({ ...prev, 1: true }));
+      }
+
+      const upRef = Math.abs(normUnit.y) < 0.9 ? { x: 0, y: 1, z: 0 } : { x: 1, y: 0, z: 0 };
+      const tangentU = normalize(cross(upRef, normUnit, true));
+      const tangentV = normalize(cross(normUnit, tangentU, true));
+      const s = 1.15;
+      const corners = [
+        { x: (tangentU.x + tangentV.x) * s, y: (tangentU.y + tangentV.y) * s, z: (tangentU.z + tangentV.z) * s },
+        { x: (-tangentU.x + tangentV.x) * s, y: (-tangentU.y + tangentV.y) * s, z: (-tangentU.z + tangentV.z) * s },
+        { x: (-tangentU.x - tangentV.x) * s, y: (-tangentU.y - tangentV.y) * s, z: (-tangentU.z - tangentV.z) * s },
+        { x: (tangentU.x - tangentV.x) * s, y: (tangentU.y - tangentV.y) * s, z: (tangentU.z - tangentV.z) * s }
+      ].map(p => project3D(p, w, h, camYaw, camPitch));
+
+      ctx.save();
+      ctx.fillStyle = eff >= 0.97 ? 'rgba(16, 185, 129, 0.45)' : `rgba(56, 189, 248, ${0.15 + eff * 0.45})`;
+      ctx.strokeStyle = eff >= 0.97 ? '#10b981' : '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(corners[0].x, corners[0].y);
+      corners.slice(1).forEach(c => ctx.lineTo(c.x, c.y));
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      drawArrow2D(ctx, origin, project3D(sunVec, w, h, camYaw, camPitch), '#f59e0b', 3.5, 'Sun L');
+      drawArrow2D(
+        ctx,
+        origin,
+        project3D(normVec, w, h, camYaw, camPitch),
+        eff >= 0.97 ? '#10b981' : '#06b6d4',
+        3.5,
+        'Normal N'
+      );
+    } else if (currentMission === 2) {
+      const halfSpread = (m2Spread / 2) * (Math.PI / 180);
+      const tiltRad = m2Tilt * (Math.PI / 180);
+      const localA = { x: m2Len * Math.sin(halfSpread), y: 0, z: m2Len * Math.cos(halfSpread) };
+      const localB = { x: -m2Len * Math.sin(halfSpread), y: 0, z: m2Len * Math.cos(halfSpread) };
+
+      const rotX = (v: Vec3): Vec3 => ({
+        x: v.x,
+        y: v.y * Math.cos(tiltRad) - v.z * Math.sin(tiltRad),
+        z: v.y * Math.sin(tiltRad) + v.z * Math.cos(tiltRad)
+      });
+
+      const rodA = rotX(localA);
+      const rodB = rotX(localB);
+      const shieldCross = m2WindingCorrect ? cross(rodA, rodB, true) : cross(rodB, rodA, true);
+      const shieldArea = norm(shieldCross);
+      const shieldNorm = normalize(shieldCross);
+
+      const tRad = m2TargetTilt * (Math.PI / 180);
+      const threatUnit = normalize({ x: 0, y: Math.cos(tRad), z: Math.sin(tRad) });
+      const threatVec = { x: threatUnit.x * 2.5, y: threatUnit.y * 2.5, z: threatUnit.z * 2.5 };
+
+      const align = dot(shieldNorm, threatUnit);
+      const isClear = align >= 0.95 && shieldArea >= 3.2;
+      if (isClear && !missionsCleared[2]) {
+        setMissionsCleared(prev => ({ ...prev, 2: true }));
+      }
+
+      const pA = project3D(rodA, w, h, camYaw, camPitch);
+      const pB = project3D(rodB, w, h, camYaw, camPitch);
+      const pSum = project3D(
+        { x: rodA.x + rodB.x, y: rodA.y + rodB.y, z: rodA.z + rodB.z },
+        w,
+        h,
+        camYaw,
+        camPitch
+      );
+
+      ctx.save();
+      ctx.fillStyle = isClear
+        ? 'rgba(16, 185, 129, 0.35)'
+        : align < 0
+        ? 'rgba(244, 63, 94, 0.25)'
+        : 'rgba(168, 85, 247, 0.25)';
+      ctx.strokeStyle = isClear ? '#10b981' : '#a855f7';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(origin.x, origin.y);
+      ctx.lineTo(pA.x, pA.y);
+      ctx.lineTo(pSum.x, pSum.y);
+      ctx.lineTo(pB.x, pB.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      drawArrow2D(ctx, origin, pA, '#f59e0b', 3, 'Rod a');
+      drawArrow2D(ctx, origin, pB, '#06b6d4', 3, 'Rod b');
+      drawArrow2D(ctx, origin, project3D(threatVec, w, h, camYaw, camPitch), '#f43f5e', 3, 'Meteor T');
+      drawArrow2D(
+        ctx,
+        origin,
+        project3D({ x: shieldCross.x * 0.6, y: shieldCross.y * 0.6, z: shieldCross.z * 0.6 }, w, h, camYaw, camPitch),
+        isClear ? '#10b981' : '#a855f7',
+        3.5,
+        m2WindingCorrect ? 'N = a × b' : 'N = b × a'
+      );
+    } else if (currentMission === 3) {
+      const octVerts: Vec3[] = [
+        { x: 0, y: 2.1, z: 0 },
+        { x: 0, y: -2.1, z: 0 },
+        { x: 2.1, y: 0, z: 0 },
+        { x: 0, y: 0, z: 2.1 },
+        { x: -2.1, y: 0, z: 0 },
+        { x: 0, y: 0, z: -2.1 }
+      ];
+      const octFaces: [number, number, number][] = [
+        [0, 3, 2], [0, 4, 3], [0, 5, 4], [0, 2, 5],
+        [1, 2, 3], [1, 3, 4], [1, 4, 5], [1, 5, 2]
+      ];
+      const viewVec = normalize({
+        x: -Math.cos(camPitch) * Math.sin(camYaw),
+        y: Math.sin(camPitch),
+        z: Math.cos(camPitch) * Math.cos(camYaw)
+      });
+
+      const projVerts = octVerts.map(v => project3D(v, w, h, camYaw, camPitch, 84));
+      const faceRecords = octFaces.map((f, idx) => {
+        const v0 = octVerts[f[0]], v1 = octVerts[f[1]], v2 = octVerts[f[2]];
+        const e1 = { x: v1.x - v0.x, y: v1.y - v0.y, z: v1.z - v0.z };
+        const e2 = { x: v2.x - v0.x, y: v2.y - v0.y, z: v2.z - v0.z };
+        const n = normalize(cross(e1, e2, true));
+        const ndotv = dot(n, viewVec);
+        const center = {
+          x: (v0.x + v1.x + v2.x) / 3,
+          y: (v0.y + v1.y + v2.y) / 3,
+          z: (v0.z + v1.z + v2.z) / 3
+        };
+        const pCenter = project3D(center, w, h, camYaw, camPitch, 84);
+        return {
+          idx,
+          n,
+          ndotv,
+          isFront: ndotv > 0.02,
+          center,
+          depth: pCenter.depth,
+          poly2D: [projVerts[f[0]], projVerts[f[1]], projVerts[f[2]]]
+        };
+      });
+
+      faceRecords.sort((a, b) => a.depth - b.depth);
+      m3CachedPolysRef.current = faceRecords;
+
+      const frontFaces = faceRecords.filter(r => r.isFront);
+      const lockedFrontCount = frontFaces.filter(r => m3SelectedFaces.includes(r.idx)).length;
+      if (frontFaces.length > 0 && lockedFrontCount === frontFaces.length && !missionsCleared[3]) {
+        setMissionsCleared(prev => ({ ...prev, 3: true }));
+      }
+
+      faceRecords.forEach(rec => {
+        const [p0, p1, p2] = rec.poly2D;
+        const isPicked = m3SelectedFaces.includes(rec.idx);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.closePath();
+
+        if (isPicked) {
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.65)';
+          ctx.strokeStyle = '#10b981';
+          ctx.lineWidth = 2.5;
+        } else if (rec.isFront) {
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.28)';
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 1.6;
+        } else {
+          ctx.fillStyle = 'rgba(100, 116, 139, 0.1)';
+          ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+          ctx.setLineDash([4, 4]);
+          ctx.lineWidth = 1;
+        }
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        const cProj = project3D(rec.center, w, h, camYaw, camPitch, 84);
+        const tip = {
+          x: rec.center.x + rec.n.x * 0.45,
+          y: rec.center.y + rec.n.y * 0.45,
+          z: rec.center.z + rec.n.z * 0.45
+        };
+        const tipProj = project3D(tip, w, h, camYaw, camPitch, 84);
+        drawArrow2D(ctx, cProj, tipProj, rec.isFront ? '#10b981' : '#f43f5e', 1.6, `#${rec.idx}`);
+      });
+    }
+  }, [
+    activeTab,
+    currentMission,
+    m1Target,
+    m1User,
+    m2TargetTilt,
+    m2Spread,
+    m2Len,
+    m2Tilt,
+    m2WindingCorrect,
+    m3SelectedFaces,
+    camYaw,
+    camPitch,
+    missionsCleared
+  ]);
+
   const dVal = dot(vecA, vecB);
   const lenA = norm(vecA);
   const lenB = norm(vecB);
@@ -396,8 +686,21 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
   const crossVec = isSwappedCross ? cross(vecB, vecA) : cross(vecA, vecB);
   const areaVal = norm(crossVec);
 
+  // Mission 1 & 2 derived values
+  const m1Eff = Math.max(
+    0,
+    dot(
+      normalize(sphericalToVec(m1Target.yaw, m1Target.pitch, 1)),
+      normalize(sphericalToVec(m1User.yaw, m1User.pitch, 1))
+    )
+  );
+  const m2ShieldArea = m2Len * m2Len * Math.sin(m2Spread * (Math.PI / 180));
+  const m2Align =
+    (m2WindingCorrect ? 1 : -1) * Math.cos((m2Tilt - m2TargetTilt) * (Math.PI / 180));
+
   const handleMouseDown = (e: React.MouseEvent) => {
     isDraggingRef.current = true;
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
     lastMouseRef.current = { x: e.clientX, y: e.clientY };
   };
 
@@ -410,9 +713,64 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
     setCamPitch(prev => Math.max(-1.2, Math.min(1.2, prev + dy * 0.008)));
   };
 
+  const pointInTriangle2D = (
+    px: number,
+    py: number,
+    p0: { x: number; y: number },
+    p1: { x: number; y: number },
+    p2: { x: number; y: number }
+  ) => {
+    const area = 0.5 * (-p1.y * p2.x + p0.y * (-p1.x + p2.x) + p0.x * (p1.y - p2.y) + p1.x * p2.y);
+    if (Math.abs(area) < 1e-5) return false;
+    const s =
+      (1 / (2 * area)) * (p0.y * p2.x - p0.x * p2.y + (p2.y - p0.y) * px + (p0.x - p2.x) * py);
+    const t =
+      (1 / (2 * area)) * (p0.x * p1.y - p0.y * p1.x + (p0.y - p1.y) * px + (p1.x - p0.x) * py);
+    return s >= 0 && t >= 0 && s + t <= 1;
+  };
+
+  const handleGameMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const moved = Math.hypot(e.clientX - dragStartRef.current.x, e.clientY - dragStartRef.current.y);
+    isDraggingRef.current = false;
+    if (currentMission !== 3 || moved >= 5) return;
+
+    const canvas = gameCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    const polys = m3CachedPolysRef.current;
+    for (let i = polys.length - 1; i >= 0; i--) {
+      const rec = polys[i];
+      const [p0, p1, p2] = rec.poly2D;
+      if (pointInTriangle2D(mx, my, p0, p1, p2)) {
+        if (rec.isFront) {
+          if (!m3SelectedFaces.includes(rec.idx)) {
+            setM3SelectedFaces(prev => [...prev, rec.idx]);
+          }
+          setM3Feedback(
+            isZh
+              ? `✅ 命中正面 #${rec.idx}！N · V = +${rec.ndotv.toFixed(2)} > 0，保留渲染！`
+              : `✅ Hit Front Face #${rec.idx}! N · V = +${rec.ndotv.toFixed(2)} > 0 (Kept)!`
+          );
+          return;
+        } else {
+          setM3Feedback(
+            isZh
+              ? `❌ 晶面 #${rec.idx} 是背面 (N · V = ${rec.ndotv.toFixed(2)} ≤ 0)，应被背面剔除！`
+              : `❌ Facet #${rec.idx} is Back-Facing (N · V = ${rec.ndotv.toFixed(2)} ≤ 0), culled!`
+          );
+        }
+      }
+    }
+  };
+
   const handleMouseUp = () => {
     isDraggingRef.current = false;
   };
+
+  const clearedCount = Object.values(missionsCleared).filter(Boolean).length;
 
   return (
     <div className="space-y-6" onMouseUp={handleMouseUp}>
@@ -439,8 +797,8 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
             </h1>
             <p className="text-sm text-slate-400 mt-1">
               {isZh
-                ? '通过拖拽 3D 向量亲手探索点积（投影/漫反射）与叉积（法向量/有向面积），并连接两门名校公开课的第一讲。'
-                : 'Drag 3D vectors to explore Dot Product (projection & diffuse lighting) and Cross Product (surface normals & signed area).'}
+                ? '通过拖拽 3D 向量探索点积与叉积，并在第 4 节通关 3 个星际图形学互动小游戏！'
+                : 'Drag 3D vectors to explore Dot & Cross Products, then beat the 3-Mission Vector Defense Mini-Game!'}
             </p>
           </div>
 
@@ -468,7 +826,12 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
             { id: 'lab1', label: isZh ? '1. 3D 向量与点积/叉积实验室' : '1. 3D Vector, Dot & Cross Lab' },
             { id: 'lab2', label: isZh ? '2. 图形学四大支柱 3D 管线' : '2. The 4 Pillars of CG Pipeline' },
             { id: 'videos', label: isZh ? '3. 嵌入课程视频与导读 (MIT + UC Davis)' : '3. Embedded Lecture Videos & Notes' },
-            { id: 'quiz', label: isZh ? '4. 直觉闯关测验 (Quiz)' : '4. Intuition Quiz' }
+            {
+              id: 'game',
+              label: isZh
+                ? `🎮 4. 终极互动小游戏 (${clearedCount}/3 通关)`
+                : `🎮 4. Vector Mini-Game (${clearedCount}/3 Cleared)`
+            }
           ].map(tab => (
             <button
               key={tab.id}
@@ -710,6 +1073,14 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
                   <div className="text-lg font-bold font-mono text-purple-400">{(areaVal * 0.5).toFixed(2)}</div>
                 </div>
               </div>
+              <div className="pt-2 flex justify-end">
+                <button
+                  onClick={() => setActiveTab('game')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition"
+                >
+                  {isZh ? '🎮 去玩向量通关小游戏 →' : '🎮 Play Vector Mini-Game →'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -864,127 +1235,263 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
                 allowFullScreen
               />
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              {isZh
-                ? '重点看点：图形学与计算机视觉的对偶性（3D → 2D vs 2D → 3D）、课程四大板块拆解（Geometry, Animation, Rendering, Imaging）以及为什么线性代数是图形学的通用语言。'
-                : 'Key Takeaways: Duality between Graphics (3D → 2D) and Vision (2D → 3D), the 4 core pillars of the syllabus, and why Linear Algebra powers real-time rendering.'}
-            </p>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-950 text-amber-300 border border-amber-800">
-                  UC Davis ECS 175 · Fall 2009 · Lecture 01
-                </span>
-                <a
-                  href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+1+Kenneth+Joy"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-amber-400 hover:underline"
-                >
-                  {isZh ? '在 YouTube 搜索/观看本讲 ↗' : 'Watch on YouTube ↗'}
-                </a>
-              </div>
-              <h3 className="text-lg font-bold text-white">
-                UC Davis Lecture 1: Introduction to Computer Graphics (Prof. Kenneth Joy)
-              </h3>
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5 text-xs text-slate-300 leading-relaxed">
-                <div className="font-semibold text-amber-400 text-sm">
-                  {isZh ? 'Kenneth Joy 教授第一讲核心直觉笔记：' : 'Prof. Kenneth Joy Lecture 1 Key Intuition:'}
-                </div>
-                <p>
-                  {isZh
-                    ? '1. Coordinate-Free Thinking (无坐标几何直觉)：在写下 (x, y, z) 之前，先在脑海中想象空间中的点、向量、平面与光线。坐标只是选定参考标架（Frame）后的读数。'
-                    : '1. Coordinate-Free Thinking: Visualize points, vectors, planes, and rays geometrically before introducing (x, y, z) coordinates.'}
-                </p>
-                <p>
-                  {isZh
-                    ? '2. Modeling → Viewing → Clipping → Scan Conversion：从三维几何模型出发，经过相机变换与裁剪，最终离散化为帧缓冲（Frame Buffer）中的 RGB 像素。'
-                    : '2. Modeling → Viewing → Clipping → Scan Conversion: The classical pipeline from 3D geometry to 2D frame buffer pixels.'}
-                </p>
-              </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-950 text-amber-300 border border-amber-800">
+                UC Davis ECS 175 · Fall 2009 · Lecture 01
+              </span>
+              <a
+                href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+1+Kenneth+Joy"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-amber-400 hover:underline"
+              >
+                {isZh ? '在 YouTube 搜索/观看本讲 ↗' : 'Watch on YouTube ↗'}
+              </a>
+            </div>
+            <h3 className="text-lg font-bold text-white">
+              UC Davis Lecture 1: Introduction to Computer Graphics (Prof. Kenneth Joy)
+            </h3>
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5 text-xs text-slate-300 leading-relaxed">
+              <p>
+                {isZh
+                  ? '1. Coordinate-Free Thinking (无坐标几何直觉)：在写下 (x, y, z) 之前，先在脑海中想象空间中的点、向量、平面与光线。'
+                  : '1. Coordinate-Free Thinking: Visualize points, vectors, planes, and rays geometrically before introducing (x, y, z) coordinates.'}
+              </p>
+              <p>
+                {isZh
+                  ? '2. Modeling → Viewing → Clipping → Scan Conversion：从三维几何模型出发，经过相机变换与裁剪，最终离散化为帧缓冲中的 RGB 像素。'
+                  : '2. Modeling → Viewing → Clipping → Scan Conversion: The classical pipeline from 3D geometry to 2D frame buffer pixels.'}
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* TAB 4: QUIZ */}
-      {activeTab === 'quiz' && (
+      {/* TAB 4: PLAYABLE 3D VECTOR MINI-GAME */}
+      {activeTab === 'game' && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5">
-          <h2 className="text-lg font-bold text-white">
-            {isZh ? 'Lesson 01 直觉闯关测验' : 'Lesson 01 Intuition Quiz'}
-          </h2>
-          {[
-            {
-              q: isZh
-                ? 'Q1. 在右手坐标系中，如果三角形边向量 e₁ 指向 +X，边向量 e₂ 指向 +Y，那么叉积 e₁ × e₂ 生成的面法线 N 指向哪里？'
-                : 'Q1. In a Right-Handed system, if edge e₁ points along +X and edge e₂ points along +Y, where does the normal N = e₁ × e₂ point?',
-              options: [
-                { id: 'A', text: isZh ? 'A. 指向屏幕外侧 (+Z，朝向观察者)' : 'A. Out of the screen (+Z, towards viewer)', correct: true },
-                { id: 'B', text: isZh ? 'B. 指向屏幕内部 (-Z，远离观察者)' : 'B. Into the screen (-Z, away from viewer)', correct: false },
-                { id: 'C', text: isZh ? 'C. 长度为 0' : 'C. Zero length', correct: false }
-              ],
-              explain: isZh
-                ? '根据右手定则，四指从 +X 弯向 +Y（逆时针），大拇指指向 +Z（屏幕外侧）。'
-                : 'By the Right-Hand Rule, curling fingers from +X to +Y points the thumb along +Z (out of the screen).'
-            },
-            {
-              q: isZh
-                ? 'Q2. 若表面单位法线为 N，指向相机的单位视线向量为 V，背面剔除 (Back-Face Culling) 应当剔除满足什么条件的三角形？'
-                : 'Q2. Given unit normal N and unit view vector V (pointing to camera), which triangles does Back-Face Culling discard?',
-              options: [
-                { id: 'A', text: 'A. N × V = 0', correct: false },
-                { id: 'B', text: isZh ? 'B. N · V ≤ 0 (夹角 ≥ 90°)' : 'B. N · V ≤ 0 (angle ≥ 90°)', correct: true },
-                { id: 'C', text: isZh ? 'C. N · V > 0 (夹角 < 90°)' : 'C. N · V > 0 (angle < 90°)', correct: false }
-              ],
-              explain: isZh
-                ? '当 N · V ≤ 0 时，表面法线与视线夹角 ≥ 90°，代表该面背对相机。'
-                : 'When N · V ≤ 0, the angle between normal and view direction is ≥ 90°, meaning the triangle faces away from the camera.'
-            },
-            {
-              q: isZh
-                ? 'Q3. 已知 3D 三角形两条边向量为 a 和 b，该三角形的面积等于什么？'
-                : 'Q3. Given a 3D triangle with edge vectors a and b, what is its area?',
-              options: [
-                { id: 'A', text: 'A. 0.5 * |a · b|', correct: false },
-                { id: 'B', text: 'B. 0.5 * ||a × b||', correct: true },
-                { id: 'C', text: 'C. ||a|| * ||b||', correct: false }
-              ],
-              explain: isZh
-                ? '叉积模长 ||a × b|| = ||a|| ||b|| sin(θ) 等于平行四边形面积，三角形面积为其一半。'
-                : 'The magnitude ||a × b|| equals the parallelogram area, so the triangle area is half of that.'
-            }
-          ].map((item, idx) => (
-            <div key={idx} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-              <div className="text-sm font-semibold text-white">{item.q}</div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-                {item.options.map(opt => {
-                  const chosen = quizAnswers[idx] === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={() => setQuizAnswers({ ...quizAnswers, [idx]: opt.id })}
-                      className={`p-3 rounded-lg border text-left transition ${
-                        chosen
-                          ? opt.correct
-                            ? 'border-emerald-500 bg-emerald-950/40 text-emerald-200'
-                            : 'border-rose-500 bg-rose-950/40 text-rose-200'
-                          : 'border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300'
-                      }`}
-                    >
-                      {opt.text}
-                    </button>
-                  );
-                })}
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-600 text-white">
+                  {isZh ? '🎮 Play to Learn · 互动通关小游戏' : '🎮 Play to Learn · Interactive Mini-Game'}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono bg-slate-800 text-emerald-400">
+                  {isZh ? `已通关: ${clearedCount} / 3` : `Cleared: ${clearedCount} / 3`}
+                </span>
               </div>
-              {quizAnswers[idx] && (
-                <div className="text-xs text-slate-300 bg-slate-900 p-3 rounded-lg border border-slate-800">
-                  💡 {item.explain}
+              <h2 className="text-xl font-bold text-white mt-1">
+                {isZh
+                  ? '星际能量护盾与激光校准特训 (Starshield & Vector Defense)'
+                  : 'Starshield & Vector Defense (3 Missions)'}
+              </h2>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: 1 as const, label: isZh ? '关卡 1: 点积太阳能聚能' : 'Mission 1: Solar Dot Alignment' },
+                { id: 2 as const, label: isZh ? '关卡 2: 叉积等离子护盾' : 'Mission 2: Cross-Product Shield' },
+                { id: 3 as const, label: isZh ? '关卡 3: 背面剔除点击赛' : 'Mission 3: Back-Face Culling Radar' }
+              ].map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setCurrentMission(m.id)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition ${
+                    currentMission === m.id
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  {missionsCleared[m.id] ? '✓ ' : ''}
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-7">
+              <div
+                className="relative w-full rounded-xl overflow-hidden border border-slate-800 bg-slate-950"
+                style={{ height: 410 }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+              >
+                <canvas
+                  ref={gameCanvasRef}
+                  onMouseUp={handleGameMouseUp}
+                  className="w-full h-full cursor-pointer"
+                />
+              </div>
+            </div>
+
+            <div className="lg:col-span-5 space-y-4">
+              {currentMission === 1 && (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4">
+                  <div className="text-sm font-bold text-white">
+                    {isZh
+                      ? '🌞 任务 1：调节卫星帆板法向量 N 对准太阳光 L'
+                      : '🌞 Mission 1: Align Solar Panel Normal N with Sun Ray L'}
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    {isZh
+                      ? '调节下方两个滑块，使青色法向量 N 与金色太阳光 L 同向重合（点积效率 ≥ 97% 即可通关）！'
+                      : 'Rotate the panel normal N until it aligns with the golden Sun vector L (reach ≥ 97% efficiency)!'}
+                  </p>
+
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span>{isZh ? '帆板水平偏航角 (Yaw)' : 'Normal Yaw'}</span>
+                        <span className="font-mono">{m1User.yaw}°</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-180"
+                        max="180"
+                        value={m1User.yaw}
+                        onChange={e => setM1User({ ...m1User, yaw: parseFloat(e.target.value) })}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span>{isZh ? '帆板俯仰倾角 (Pitch)' : 'Normal Pitch'}</span>
+                        <span className="font-mono">{m1User.pitch}°</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-85"
+                        max="85"
+                        value={m1User.pitch}
+                        onChange={e => setM1User({ ...m1User, pitch: parseFloat(e.target.value) })}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-2 text-xs">
+                    <div className="flex justify-between font-bold">
+                      <span>{isZh ? '当前点积充能效率:' : 'Dot Product Efficiency:'}</span>
+                      <span className="font-mono text-emerald-400">{(m1Eff * 100).toFixed(1)}%</span>
+                    </div>
+                    <button
+                      onClick={() =>
+                        setM1Target({
+                          yaw: Math.round(Math.random() * 240 - 120),
+                          pitch: Math.round(Math.random() * 110 - 45)
+                        })
+                      }
+                      className="w-full py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200"
+                    >
+                      {isZh ? '🎲 随机新太阳光方向' : '🎲 Randomize Sun Direction'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {currentMission === 2 && (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 text-xs">
+                  <div className="text-sm font-bold text-white">
+                    {isZh
+                      ? '🛡️ 任务 2：用叉积 a × b 构建等离子护盾拦截陨石'
+                      : '🛡️ Mission 2: Build a Cross-Product Plasma Shield'}
+                  </div>
+                  <div className="space-y-2.5">
+                    <div>
+                      <div className="flex justify-between">
+                        <span>{isZh ? '发生杆张角' : 'Spread Angle'}</span>
+                        <span className="font-mono">{m2Spread}°</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="15"
+                        max="165"
+                        value={m2Spread}
+                        onChange={e => setM2Spread(parseFloat(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between">
+                        <span>{isZh ? '发生杆长度' : 'Rod Length'}</span>
+                        <span className="font-mono">{m2Len.toFixed(2)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1.0"
+                        max="2.4"
+                        step="0.05"
+                        value={m2Len}
+                        onChange={e => setM2Len(parseFloat(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between">
+                        <span>{isZh ? '护盾平面俯仰角' : 'Plane Pitch Tilt'}</span>
+                        <span className="font-mono">{m2Tilt}°</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-80"
+                        max="80"
+                        value={m2Tilt}
+                        onChange={e => setM2Tilt(parseFloat(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                    <button
+                      onClick={() => setM2WindingCorrect(!m2WindingCorrect)}
+                      className="w-full py-2 rounded-lg font-semibold bg-indigo-600 hover:bg-indigo-500 text-white"
+                    >
+                      {m2WindingCorrect
+                        ? isZh
+                          ? '🔄 当前环绕: a × b (正面朝外)'
+                          : '🔄 Winding: a × b (Front)'
+                        : isZh
+                        ? '⚠️ 当前环绕: b × a (朝反了！点击切换 a × b)'
+                        : '⚠️ Winding: b × a (Inverted! Click to flip)'}
+                    </button>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                    <div className="flex justify-between">
+                      <span>{isZh ? '法线对准度 N̂ · T̂ (需 ≥ 0.95):' : 'Alignment N̂ · T̂ (≥ 0.95):'}</span>
+                      <span className="font-mono font-bold">{m2Align.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>{isZh ? '护盾面积 ||a × b|| (需 ≥ 3.20):' : 'Shield Area ||a × b|| (≥ 3.20):'}</span>
+                      <span className="font-mono font-bold">{m2ShieldArea.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {currentMission === 3 && (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 text-xs">
+                  <div className="text-sm font-bold text-white">
+                    {isZh
+                      ? '🎯 任务 3：点击 3D 画布中所有正面三角形！'
+                      : '🎯 Mission 3: Click All Front-Facing Triangles!'}
+                  </div>
+                  <p className="text-slate-400 leading-relaxed">
+                    {isZh
+                      ? '直接点击左侧 3D 画布上绿色法线朝向相机的正面晶面（N · V > 0），避开红色虚线背面！'
+                      : 'Click directly on the 3D canvas facets whose green normal needles point toward the camera (N · V > 0)!'}
+                  </p>
+                  {m3Feedback && (
+                    <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-slate-200">
+                      {m3Feedback}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          ))}
+          </div>
         </div>
       )}
     </div>
