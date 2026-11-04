@@ -1,0 +1,1745 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 01: 图形学全景与 3D 向量几何直觉 | CG Panorama & 3D Vector Geometry</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --background: #020617;
+      --card: #0f172a;
+      --secondary: #1e293b;
+      --secondary-foreground: #e2e8f0;
+      --foreground: #f8fafc;
+      --muted-foreground: #94a3b8;
+      --border: #1e293b;
+      --primary: #4f46e5;
+      --primary-foreground: #ffffff;
+    }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased p-4 md:p-6">
+  <div class="max-w-6xl mx-auto space-y-5">
+
+    <!-- Top Header Banner -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="flex-1 min-w-[260px]">
+          <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-[var(--muted-foreground)] mb-1.5">
+            <a href="../index.html" class="px-2.5 py-0.5 rounded-full bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 transition">
+              ← 返回课程总站首页 (Course Index)
+            </a>
+            <span>•</span>
+            <span class="px-2.5 py-0.5 rounded-full bg-[var(--secondary)] text-[var(--secondary-foreground)]" data-i18n="stageBadge">
+              Stage 1 · 3D 数学与空间变换
+            </span>
+            <span>•</span>
+            <span>Lesson 01 / 32</span>
+            <span>•</span>
+            <span>UC Davis Lec 01 + MIT 6.837 Lec 01</span>
+          </div>
+          <h1 class="text-xl md:text-2xl font-bold text-[var(--foreground)]" data-i18n="pageTitle">
+            L01: 图形学全景与 3D 向量几何直觉 (Vectors, Handedness & The 4 Pillars of CG)
+          </h1>
+          <p class="text-sm text-[var(--muted-foreground)] mt-1" data-i18n="pageSubtitle">
+            为什么整个 3D 渲染管线几乎建立在 点积 (Dot Product) 和 叉积 (Cross Product) 之上？亲手拖拽向量并通关最后的 3D 向量小游戏！
+          </p>
+        </div>
+
+        <!-- Top-Right Language Switcher Button -->
+        <div class="flex items-center gap-2">
+          <button
+            onclick="toggleLanguage()"
+            id="lang-toggle-btn"
+            class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-[var(--border)] bg-[var(--secondary)] text-[var(--foreground)] hover:opacity-90 transition shadow-sm"
+            title="Switch Language / 切换中英文"
+          >
+            <span>🌐</span>
+            <span id="lang-toggle-label">EN / English</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="mt-4 pt-3 border-t border-[var(--border)] flex flex-wrap gap-1.5 bg-[var(--secondary)] p-1 rounded-lg">
+        <button onclick="switchTab('lab1')" id="tab-btn-lab1" class="px-3 py-1.5 rounded-md text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] transition" data-i18n="tab1">
+          1. 3D 向量与点积/叉积实验室
+        </button>
+        <button onclick="switchTab('lab2')" id="tab-btn-lab2" class="px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition" data-i18n="tab2">
+          2. 图形学四大支柱 3D 管线
+        </button>
+        <button onclick="switchTab('notes')" id="tab-btn-notes" class="px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition" data-i18n="tab3">
+          3. 双课程视频精要 (UCD + MIT)
+        </button>
+        <button onclick="switchTab('game')" id="tab-btn-game" class="px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition" data-i18n="tab4">
+          🎮 4. 终极互动小游戏：星际护盾与激光校准
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 1: 3D VECTOR LAB ==================== -->
+    <div id="tab-lab1" class="space-y-5">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Left 3D Canvas Viewport (7 cols) -->
+        <div class="lg:col-span-7 bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm flex flex-col">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <h2 class="text-base font-semibold text-[var(--foreground)]" data-i18n="lab1Title">
+                交互式 3D 向量几何沙盒 (按住鼠标拖拽旋转视角)
+              </h2>
+              <p class="text-xs text-[var(--muted-foreground)]" data-i18n="lab1Legend">
+                琥珀色: 向量 a ｜ 青色: 向量 b ｜ 紫色: 叉积法向量 a × b ｜ 虚线: 点积投影 proj_b(a)
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button onclick="toggleHandedness()" id="handedness-btn" class="px-2.5 py-1 text-xs font-medium rounded border border-[var(--border)] bg-[var(--secondary)] text-[var(--foreground)] hover:opacity-90">
+                右手坐标系 (Right-Handed: OpenGL/Three.js)
+              </button>
+              <button onclick="swapCrossOrder()" id="swap-order-btn" class="px-2.5 py-1 text-xs font-medium rounded bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90">
+                当前叉积: a × b (点击切换 b × a)
+              </button>
+            </div>
+          </div>
+
+          <div class="relative w-full rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--background)]" style="height: 410px;">
+            <canvas id="vectorCanvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+
+            <!-- Overlay Legend & Quick Presets -->
+            <div class="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+              <div class="flex flex-wrap gap-1.5 pointer-events-auto bg-[var(--card)]/90 backdrop-blur px-2.5 py-1.5 rounded-lg border border-[var(--border)]">
+                <span class="text-xs text-[var(--muted-foreground)] self-center mr-1" data-i18n="presetsLabel">场景预设:</span>
+                <button onclick="applyPreset('lighting')" class="px-2 py-1 text-xs rounded bg-[var(--secondary)] hover:opacity-80" data-i18n="presetLit">漫反射受光 (θ &lt; 90°)</button>
+                <button onclick="applyPreset('orthogonal')" class="px-2 py-1 text-xs rounded bg-[var(--secondary)] hover:opacity-80" data-i18n="presetOrtho">正交基 (θ = 90°)</button>
+                <button onclick="applyPreset('backface')" class="px-2 py-1 text-xs rounded bg-[var(--secondary)] hover:opacity-80" data-i18n="presetBack">背面剔除 (θ &gt; 90°)</button>
+                <button onclick="applyPreset('collinear')" class="px-2 py-1 text-xs rounded bg-[var(--secondary)] hover:opacity-80" data-i18n="presetCollinear">共线退化 (a × b = 0)</button>
+              </div>
+              <div class="pointer-events-auto bg-[var(--card)]/90 backdrop-blur px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs">
+                <label class="inline-flex items-center gap-1.5 cursor-pointer mr-3">
+                  <input type="checkbox" id="showParallelogram" checked onchange="drawVectorScene()" />
+                  <span data-i18n="chkArea">显示叉积平行四边形面积</span>
+                </label>
+                <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" id="showProjection" checked onchange="drawVectorScene()" />
+                  <span data-i18n="chkProj">显示点积正交投影</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Controls & Real-time Math Readout (5 cols) -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm space-y-4">
+            <h3 class="text-sm font-semibold text-[var(--foreground)] border-b border-[var(--border)] pb-2" data-i18n="coordHeader">
+              调整 3D 向量坐标 (Vector Coordinates)
+            </h3>
+
+            <!-- Vector A Controls -->
+            <div class="space-y-2">
+              <div class="flex justify-between items-center text-xs font-semibold">
+                <span class="text-amber-500" data-i18n="vecATitle">向量 a (例如：光线方向 L 或切线 u)</span>
+                <span id="vecA-label" class="font-mono bg-[var(--secondary)] px-2 py-0.5 rounded">(1.5, 2.0, 0.8)</span>
+              </div>
+              <div class="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <label class="text-[var(--muted-foreground)] block mb-0.5">a_x</label>
+                  <input type="range" id="ax" min="-3" max="3" step="0.1" value="1.5" oninput="updateVectors()" class="w-full" />
+                </div>
+                <div>
+                  <label class="text-[var(--muted-foreground)] block mb-0.5">a_y</label>
+                  <input type="range" id="ay" min="-3" max="3" step="0.1" value="2.0" oninput="updateVectors()" class="w-full" />
+                </div>
+                <div>
+                  <label class="text-[var(--muted-foreground)] block mb-0.5">a_z</label>
+                  <input type="range" id="az" min="-3" max="3" step="0.1" value="0.8" oninput="updateVectors()" class="w-full" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Vector B Controls -->
+            <div class="space-y-2 pt-2 border-t border-[var(--border)]">
+              <div class="flex justify-between items-center text-xs font-semibold">
+                <span class="text-cyan-500" data-i18n="vecBTitle">向量 b (例如：表面法线 N 或切线 v)</span>
+                <span id="vecB-label" class="font-mono bg-[var(--secondary)] px-2 py-0.5 rounded">(2.2, 0.5, 1.5)</span>
+              </div>
+              <div class="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <label class="text-[var(--muted-foreground)] block mb-0.5">b_x</label>
+                  <input type="range" id="bx" min="-3" max="3" step="0.1" value="2.2" oninput="updateVectors()" class="w-full" />
+                </div>
+                <div>
+                  <label class="text-[var(--muted-foreground)] block mb-0.5">b_y</label>
+                  <input type="range" id="by" min="-3" max="3" step="0.1" value="0.5" oninput="updateVectors()" class="w-full" />
+                </div>
+                <div>
+                  <label class="text-[var(--muted-foreground)] block mb-0.5">b_z</label>
+                  <input type="range" id="bz" min="-3" max="3" step="0.1" value="1.5" oninput="updateVectors()" class="w-full" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dot Product Live Card -->
+          <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-[var(--foreground)]" data-i18n="dotCardTitle">1. 点积 (Dot Product): 夹角与投影测量仪</h3>
+              <span id="dot-badge" class="px-2 py-0.5 rounded text-xs font-semibold bg-[var(--secondary)]">同向锐角 (受光)</span>
+            </div>
+            <p class="text-xs text-[var(--muted-foreground)] font-mono">
+              a · b = a_x·b_x + a_y·b_y + a_z·b_z = ||a|| ||b|| cos(θ)
+            </p>
+            <div class="grid grid-cols-3 gap-2 pt-1">
+              <div class="bg-[var(--secondary)] p-2.5 rounded-lg">
+                <div class="text-xs text-[var(--muted-foreground)]" data-i18n="dotValLabel">点积值 (a · b)</div>
+                <div id="dot-val" class="text-base font-bold font-mono mt-0.5">5.50</div>
+              </div>
+              <div class="bg-[var(--secondary)] p-2.5 rounded-lg">
+                <div class="text-xs text-[var(--muted-foreground)]" data-i18n="angleValLabel">空间夹角 (θ)</div>
+                <div id="angle-val" class="text-base font-bold font-mono mt-0.5">37.2°</div>
+              </div>
+              <div class="bg-[var(--secondary)] p-2.5 rounded-lg">
+                <div class="text-xs text-[var(--muted-foreground)]" data-i18n="lambertValLabel">Lambert 漫反射系数</div>
+                <div id="lambert-val" class="text-base font-bold font-mono mt-0.5">0.80</div>
+              </div>
+            </div>
+            <p class="text-xs text-[var(--muted-foreground)] pt-1" data-i18n="dotIntuition">
+              💡 图形学直觉：当 a·b &gt; 0 时，两向量夹角小于 90°。在着色计算中，若 L · N &gt; 0，说明光线照亮了表面正面；若 L · N ≤ 0，表面处于背光面！
+            </p>
+          </div>
+
+          <!-- Cross Product Live Card -->
+          <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-[var(--foreground)]" data-i18n="crossCardTitle">2. 叉积 (Cross Product): 法线生成与有向面积</h3>
+              <span id="cross-vec-badge" class="px-2 py-0.5 rounded text-xs font-mono bg-[var(--secondary)]">(2.6, -0.5, -3.7)</span>
+            </div>
+            <p class="text-xs text-[var(--muted-foreground)] font-mono">
+              a × b = (a_y b_z - a_z b_y, a_z b_x - a_x b_z, a_x b_y - a_y b_x)
+            </p>
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              <div class="bg-[var(--secondary)] p-2.5 rounded-lg">
+                <div class="text-xs text-[var(--muted-foreground)]" data-i18n="paraAreaLabel">平行四边形面积 ||a × b||</div>
+                <div id="area-val" class="text-base font-bold font-mono mt-0.5">4.51</div>
+              </div>
+              <div class="bg-[var(--secondary)] p-2.5 rounded-lg">
+                <div class="text-xs text-[var(--muted-foreground)]" data-i18n="triAreaLabel">对应三角形面积 (½||a × b||)</div>
+                <div id="tri-area-val" class="text-base font-bold font-mono mt-0.5">2.26</div>
+              </div>
+            </div>
+            <div class="pt-1 flex items-center justify-between gap-2">
+              <p class="text-xs text-[var(--muted-foreground)]" data-i18n="crossIntuition">
+                💡 图形学直觉：用三角形两条边做叉积 (P₁ - P₀) × (P₂ - P₀) 就能立刻算出表面法向量 N 和面积！
+              </p>
+              <button onclick="switchTab('game')" class="shrink-0 px-2.5 py-1 rounded text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90" data-i18n="jumpToGameBtn">
+                去玩向量小游戏 →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 2: 4 PILLARS OF CG PIPELINE ==================== -->
+    <div id="tab-lab2" class="hidden space-y-5">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div class="lg:col-span-7 bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <h2 class="text-base font-semibold" data-i18n="lab2Title">计算机图形学四大支柱实时沙盒 (The 4 Pillars of CG)</h2>
+              <p class="text-xs text-[var(--muted-foreground)]" data-i18n="lab2Subtitle">
+                Justin Solomon (MIT 6.837 Lec 01) 与 Kenneth Joy (UC Davis Lec 01) 开篇共同强调的图形学四大核心模块
+              </p>
+            </div>
+            <div class="flex gap-1.5">
+              <button onclick="setShape('icosahedron')" id="shape-ico" class="px-2.5 py-1 text-xs rounded bg-[var(--primary)] text-[var(--primary-foreground)]" data-i18n="shapeIco">二十面体网格</button>
+              <button onclick="setShape('torus')" id="shape-torus" class="px-2.5 py-1 text-xs rounded bg-[var(--secondary)] text-[var(--foreground)]" data-i18n="shapeTorus">3D 圆环面 (Torus)</button>
+            </div>
+          </div>
+
+          <div class="relative w-full rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--background)]" style="height: 390px;">
+            <canvas id="pillarsCanvas" class="w-full h-full"></canvas>
+            <div class="absolute top-3 left-3 bg-[var(--card)]/90 backdrop-blur px-3 py-2 rounded-lg border border-[var(--border)] text-xs space-y-1">
+              <div id="pillar-hud-title" class="font-bold text-sm">Pillar 2: Rendering (着色与可见性)</div>
+              <div id="pillar-hud-stats" class="text-[var(--muted-foreground)] font-mono">Faces: 20 | Normals: (P₁-P₀)×(P₂-P₀)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-5 space-y-3">
+          <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm space-y-3">
+            <h3 class="text-sm font-semibold" data-i18n="pillarPrompt">点击切换四大支柱，观察同一个 3D 对象的演变：</h3>
+
+            <button onclick="selectPillar(1)" id="pillar-card-1" class="w-full text-left p-3 rounded-lg border border-[var(--border)] bg-[var(--secondary)] hover:opacity-90 transition">
+              <div class="flex justify-between items-center">
+                <span class="font-semibold text-sm" data-i18n="p1Title">1. Modeling (几何建模：我们如何表示形状？)</span>
+                <span class="text-xs px-2 py-0.5 rounded bg-[var(--card)]">Stage 2</span>
+              </div>
+              <p class="text-xs text-[var(--muted-foreground)] mt-1" data-i18n="p1Desc">
+                只显示顶点 (Vertices) 与拓扑边 (Wireframe Edges)。计算机必须用离散的顶点坐标、参数样条或细分网格来近似三维世界。
+              </p>
+            </button>
+
+            <button onclick="selectPillar(2)" id="pillar-card-2" class="w-full text-left p-3 rounded-lg border-2 border-[var(--primary)] bg-[var(--secondary)] transition">
+              <div class="flex justify-between items-center">
+                <span class="font-semibold text-sm" data-i18n="p2Title">2. Rendering (渲染：光线如何与表面交互？)</span>
+                <span class="text-xs px-2 py-0.5 rounded bg-[var(--card)]">Stage 3 & 4</span>
+              </div>
+              <p class="text-xs text-[var(--muted-foreground)] mt-1" data-i18n="p2Desc">
+                利用我们在 Lab 1 学到的数学：先用每块三角形两条边的叉积求面法线 N，再用 max(0, N · L) 计算每个面的受光亮度！
+              </p>
+            </button>
+
+            <button onclick="selectPillar(3)" id="pillar-card-3" class="w-full text-left p-3 rounded-lg border border-[var(--border)] bg-[var(--secondary)] hover:opacity-90 transition">
+              <div class="flex justify-between items-center">
+                <span class="font-semibold text-sm" data-i18n="p3Title">3. Animation & Simulation (动画与物理仿真)</span>
+                <span class="text-xs px-2 py-0.5 rounded bg-[var(--card)]">Stage 5</span>
+              </div>
+              <p class="text-xs text-[var(--muted-foreground)] mt-1" data-i18n="p3Desc">
+                让顶点随时间 t 根据微分方程或弹性波函数运动，并在每一帧实时重新计算叉积法线与点积光照。
+              </p>
+            </button>
+
+            <div class="pt-2 border-t border-[var(--border)] space-y-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-[var(--muted-foreground)]" data-i18n="lightAngleLabel">调节虚拟光源水平角 (Light Azimuth)</span>
+                <span id="light-angle-label" class="font-mono">45°</span>
+              </div>
+              <input type="range" id="lightAzimuth" min="0" max="360" value="45" oninput="updatePillarLight()" class="w-full" />
+              <label class="inline-flex items-center gap-2 cursor-pointer pt-1">
+                <input type="checkbox" id="showFaceNormals" checked onchange="drawPillarsScene()" />
+                <span data-i18n="chkNormals">绘制每个三角面的叉积法向量针 (Normal Needles)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 3: DUAL LECTURE GUIDED NOTES ==================== -->
+    <div id="tab-notes" class="hidden space-y-5">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[var(--secondary)]">UC Davis ECS 175 · Lecture 01</span>
+            <span class="text-xs text-[var(--muted-foreground)]">Prof. Kenneth Joy (Fall 2009)</span>
+          </div>
+          <h3 class="text-base font-bold" data-i18n="ucdNoteTitle">几何直觉视角：从真实世界到屏幕像素的抽象旅程</h3>
+          <ul class="space-y-2 text-xs text-[var(--muted-foreground)] leading-relaxed list-disc pl-4">
+            <li data-i18n="ucdNote1">
+              [00:00 - 12:00] 什么是计算机图形学？将数学描述的虚拟场景（几何 + 材质 + 相机 + 光源）转化为 2D 像素阵列（Frame Buffer）的艺术与科学。
+            </li>
+            <li data-i18n="ucdNote2">
+              [12:00 - 26:00] 为什么我们要关心坐标系无关性 (Coordinate-Free Geometry)？自然界本身没有 XYZ 坐标轴！点（Point）代表空间中的绝对位置，而向量（Vector）代表两点之间的有向位移。
+            </li>
+            <li data-i18n="ucdNote3">
+              [26:00 - 45:00] 渲染管线鸟瞰：从建模空间（Modeling Space）到世界空间（World Space），再到相机空间（Eye Space）和屏幕裁剪与扫描转换。
+            </li>
+          </ul>
+        </div>
+
+        <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[var(--secondary)]">MIT 6.837 · Lecture 01</span>
+            <span class="text-xs text-[var(--muted-foreground)]">Prof. Justin Solomon (Fall 2021)</span>
+          </div>
+          <h3 class="text-base font-bold" data-i18n="mitNoteTitle">现代图形学视角：Representation, Sampling & Linear Algebra</h3>
+          <ul class="space-y-2 text-xs text-[var(--muted-foreground)] leading-relaxed list-disc pl-4">
+            <li data-i18n="mitNote1">
+              [00:00 - 20:00] 图形学与计算机视觉 (CV) 的对偶关系：Graphics 是正向合成（3D Model → 2D Image）；Vision 是逆向推理（2D Image → 3D Model）。如今二者正通过 NeRF / 3DGS 走向融合。
+            </li>
+            <li data-i18n="mitNote2">
+              [20:00 - 48:00] 四大核心模块拆解：1) Geometry (Curves, Surfaces, Meshes)；2) Animation & Simulation (ODEs, Skinning)；3) Rendering (Ray Tracing vs. Rasterization)；4) Imaging & Color。
+            </li>
+            <li data-i18n="mitNote3">
+              [48:00 - 75:00] 贯穿全课的两个底层瓶颈：如何把连续的数学对象变成离散采样（Sampling & Aliasing），以及如何用线性代数/矩阵加速几何运算。
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm space-y-3">
+        <h3 class="text-base font-bold" data-i18n="cheatTitle">本课必背 3D Math 核心备忘录 (Cheat Sheet)</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div class="bg-[var(--secondary)] p-3.5 rounded-lg space-y-1.5">
+            <div class="font-bold text-sm" data-i18n="cs1Title">1. 向量归一化 (Normalization)</div>
+            <div class="font-mono bg-[var(--card)] p-2 rounded">û = u / ||u||,  ||u|| = √(u·u)</div>
+            <p class="text-[var(--muted-foreground)]" data-i18n="cs1Desc">
+              在计算光照或角度前，务必先把方向向量归一化为单位向量（长度为 1），此时点积 û · v̂ 直接等于 cos(θ)！
+            </p>
+          </div>
+          <div class="bg-[var(--secondary)] p-3.5 rounded-lg space-y-1.5">
+            <div class="font-bold text-sm" data-i18n="cs2Title">2. 点积的三大图形学用途</div>
+            <div class="font-mono bg-[var(--card)] p-2 rounded">a · b = ||a|| ||b|| cos(θ)</div>
+            <p class="text-[var(--muted-foreground)]" data-i18n="cs2Desc">
+              ① 测量两向量夹角与前后朝向判定；② 计算向量 a 在向量 b 方向上的正交投影；③ 计算 Lambert 漫反射光照强度 I = max(0, N · L)。
+            </p>
+          </div>
+          <div class="bg-[var(--secondary)] p-3.5 rounded-lg space-y-1.5">
+            <div class="font-bold text-sm" data-i18n="cs3Title">3. 叉积的三大图形学用途</div>
+            <div class="font-mono bg-[var(--card)] p-2 rounded">||a × b|| = ||a|| ||b|| sin(θ)</div>
+            <p class="text-[var(--muted-foreground)]" data-i18n="cs3Desc">
+              ① 构建垂直于平面的表面法向量 N；② 构建相机的正交坐标系标架 u = up × w；③ 计算三角形面积与像素重心坐标。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 4: PLAYABLE 3D MINI-GAME ==================== -->
+    <div id="tab-game" class="hidden space-y-5">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm space-y-4">
+        <!-- Game Top Bar & Mission Selector -->
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] pb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[var(--primary)] text-[var(--primary-foreground)]" data-i18n="gameBadge">
+                🎮 Play to Learn · 互动通关小游戏
+              </span>
+              <span id="game-score-badge" class="px-2.5 py-0.5 rounded-full text-xs font-mono bg-[var(--secondary)]">
+                已完成关卡: 0 / 3
+              </span>
+            </div>
+            <h2 class="text-lg font-bold mt-1" data-i18n="gameMainTitle">
+              星际能量护盾与激光校准特训 (Starshield & Vector Defense)
+            </h2>
+            <p class="text-xs text-[var(--muted-foreground)]" data-i18n="gameMainSub">
+              通过亲手完成 3 个太空图形学工程任务，直观掌握点积受光、叉积造法线与背面剔除雷达！
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="selectMission(1)" id="mission-btn-1" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] transition" data-i18n="m1Tab">
+              关卡 1: 点积太阳能聚能 (Dot Product)
+            </button>
+            <button onclick="selectMission(2)" id="mission-btn-2" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--secondary)] text-[var(--foreground)] transition" data-i18n="m2Tab">
+              关卡 2: 叉积等离子护盾 (Cross Product)
+            </button>
+            <button onclick="selectMission(3)" id="mission-btn-3" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--secondary)] text-[var(--foreground)] transition" data-i18n="m3Tab">
+              关卡 3: 背面剔除雷达点击赛 (Back-Face Culling)
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <!-- Left 3D Game Viewport (7 cols) -->
+          <div class="lg:col-span-7 flex flex-col">
+            <div class="relative w-full rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--background)]" style="height: 410px;">
+              <canvas id="gameCanvas" class="w-full h-full cursor-pointer"></canvas>
+
+              <!-- Top HUD Overlay -->
+              <div class="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                <div class="bg-[var(--card)]/90 backdrop-blur px-3 py-2 rounded-lg border border-[var(--border)] text-xs space-y-0.5">
+                  <div id="game-hud-mission" class="font-bold text-sm">Mission 1: 太阳能帆板点积对准</div>
+                  <div id="game-hud-target" class="text-[var(--muted-foreground)] font-mono">目标: 让 N̂ · L̂ ≥ 0.97 (充能效率 ≥ 97%)</div>
+                </div>
+                <div id="game-status-pill" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-[var(--secondary)] border border-[var(--border)]">
+                  ⚡ 当前效率: 42%
+                </div>
+              </div>
+
+              <!-- Bottom Action Bar inside Viewport -->
+              <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+                <span class="text-xs bg-[var(--card)]/85 px-2.5 py-1 rounded border border-[var(--border)] text-[var(--muted-foreground)]" data-i18n="gameOrbitHint">
+                  提示：可按住鼠标拖拽旋转 3D 视角观察空间角度；关卡 3 直接点击正面晶面！
+                </span>
+                <button onclick="randomizeCurrentMission()" class="pointer-events-auto px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--secondary)] border border-[var(--border)] hover:opacity-90" data-i18n="newTargetBtn">
+                  🎲 随机生成新目标挑战
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Mission Control Panel (5 cols) -->
+          <div class="lg:col-span-5 space-y-4">
+            <!-- Mission 1 Controls -->
+            <div id="mission-panel-1" class="bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-4">
+              <div class="space-y-1">
+                <div class="text-sm font-bold" data-i18n="m1Title">🌞 任务 1：调节卫星帆板法向量 N 对准太阳光 L</div>
+                <p class="text-xs text-[var(--muted-foreground)] leading-relaxed" data-i18n="m1Desc">
+                  在 Lambert 漫反射定律中，接收到的太阳能功率正比于 <code>max(0, N̂ · L̂) = cos(θ)</code>。请调节帆板法向量 N 的倾角，使它与金色太阳光向量 L 完全同向对齐（效率 ≥ 97% 即可通关）！
+                </p>
+              </div>
+
+              <div class="space-y-3 text-xs">
+                <div>
+                  <div class="flex justify-between mb-1">
+                    <span class="font-medium" data-i18n="m1SliderYaw">帆板水平偏航角 (Normal Yaw φ)</span>
+                    <span id="m1-yaw-label" class="font-mono">20°</span>
+                  </div>
+                  <input type="range" id="m1-yaw" min="-180" max="180" step="1" value="20" oninput="updateGameMission1()" class="w-full" />
+                </div>
+
+                <div>
+                  <div class="flex justify-between mb-1">
+                    <span class="font-medium" data-i18n="m1SliderPitch">帆板俯仰倾角 (Normal Pitch θ)</span>
+                    <span id="m1-pitch-label" class="font-mono">30°</span>
+                  </div>
+                  <input type="range" id="m1-pitch" min="-85" max="85" step="1" value="30" oninput="updateGameMission1()" class="w-full" />
+                </div>
+              </div>
+
+              <!-- Live Energy Progress Bar -->
+              <div class="bg-[var(--card)] p-3 rounded-lg border border-[var(--border)] space-y-2">
+                <div class="flex justify-between text-xs font-semibold">
+                  <span data-i18n="m1PowerLabel">点积充能效率 max(0, N̂ · L̂)</span>
+                  <span id="m1-power-text" class="font-mono">65.0%</span>
+                </div>
+                <div class="w-full h-3 bg-[var(--secondary)] rounded-full overflow-hidden">
+                  <div id="m1-power-bar" class="h-full bg-[var(--primary)] transition-all" style="width: 65%;"></div>
+                </div>
+                <div id="m1-feedback" class="text-xs text-[var(--muted-foreground)]">
+                  调整上方两个滑块，观察 3D 视图中青色法线 N 与金色光线 L 的夹角变化！
+                </div>
+              </div>
+            </div>
+
+            <!-- Mission 2 Controls -->
+            <div id="mission-panel-2" class="hidden bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-4">
+              <div class="space-y-1">
+                <div class="text-sm font-bold" data-i18n="m2Title">🛡️ 任务 2：用叉积 a × b 构建等离子护盾拦截陨石</div>
+                <p class="text-xs text-[var(--muted-foreground)] leading-relaxed" data-i18n="m2Desc">
+                  红色虚线是来袭陨石方向 T！你需要展开两根护盾发生杆 a 和 b，使得它们的<b>叉积法线 N = a × b 正好迎向陨石</b>（N̂ · T̂ ≥ 0.95），且<b>护盾平行四边形面积 ||a × b|| ≥ 3.2</b>！
+                </p>
+              </div>
+
+              <div class="space-y-2.5 text-xs">
+                <div>
+                  <div class="flex justify-between mb-0.5">
+                    <span class="font-medium" data-i18n="m2SliderAngle">发生杆张角 (Angle between a & b)</span>
+                    <span id="m2-spread-label" class="font-mono">45°</span>
+                  </div>
+                  <input type="range" id="m2-spread" min="15" max="165" step="1" value="45" oninput="updateGameMission2()" class="w-full" />
+                </div>
+
+                <div>
+                  <div class="flex justify-between mb-0.5">
+                    <span class="font-medium" data-i18n="m2SliderLen">发生杆长度 (Rod Length ||a|| = ||b||)</span>
+                    <span id="m2-len-label" class="font-mono">1.6</span>
+                  </div>
+                  <input type="range" id="m2-len" min="1.0" max="2.4" step="0.05" value="1.6" oninput="updateGameMission2()" class="w-full" />
+                </div>
+
+                <div>
+                  <div class="flex justify-between mb-0.5">
+                    <span class="font-medium" data-i18n="m2SliderTilt">护盾平面俯仰旋转 (Plane Tilt)</span>
+                    <span id="m2-tilt-label" class="font-mono">10°</span>
+                  </div>
+                  <input type="range" id="m2-tilt" min="-80" max="80" step="1" value="10" oninput="updateGameMission2()" class="w-full" />
+                </div>
+
+                <button onclick="toggleMission2Winding()" id="m2-winding-btn" class="w-full py-2 rounded-lg font-semibold bg-[var(--card)] border border-[var(--border)] hover:opacity-90">
+                  🔄 切换环绕顺序 (当前: b × a 朝反了！点击切换 a × b)
+                </button>
+              </div>
+
+              <div class="bg-[var(--card)] p-3 rounded-lg border border-[var(--border)] space-y-1.5 text-xs">
+                <div class="flex justify-between">
+                  <span data-i18n="m2AlignLabel">法线对准度 (N̂ · T̂):</span>
+                  <span id="m2-align-val" class="font-mono font-bold">-0.85</span>
+                </div>
+                <div class="flex justify-between">
+                  <span data-i18n="m2AreaLabel">护盾面积 ||a × b|| = ||a||||b||sin(θ):</span>
+                  <span id="m2-area-val" class="font-mono font-bold">1.81 / 3.20</span>
+                </div>
+                <div id="m2-feedback" class="text-[var(--muted-foreground)] pt-1"></div>
+              </div>
+            </div>
+
+            <!-- Mission 3 Controls -->
+            <div id="mission-panel-3" class="hidden bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-4">
+              <div class="space-y-1">
+                <div class="text-sm font-bold" data-i18n="m3Title">🎯 任务 3：人肉 GPU 光栅化器——点击所有正面三角形！</div>
+                <p class="text-xs text-[var(--muted-foreground)] leading-relaxed" data-i18n="m3Desc">
+                  在 3D 视口中有一颗八面体能量核心。请化身 GPU 的 <b>Back-Face Culling（背面剔除）</b> 单元：直接<b>用鼠标点击 3D 画布上所有朝向你的正面三角形（N · V &gt; 0）</b>，全部点亮即可通关！
+                </p>
+              </div>
+
+              <div class="bg-[var(--card)] p-3.5 rounded-lg border border-[var(--border)] space-y-2 text-xs">
+                <div class="flex justify-between font-semibold">
+                  <span data-i18n="m3ProgressLabel">已锁定的正面三角形 (Front-Facing):</span>
+                  <span id="m3-progress-val" class="font-mono">0 / 4</span>
+                </div>
+                <p id="m3-last-click" class="text-[var(--muted-foreground)]">
+                  👆 直接在左侧 3D 画布中点击你认为朝向相机的晶面！
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ==================== BILINGUAL DICTIONARY (ZH / EN) ====================
+    let currentLang = 'zh';
+
+    const I18N = {
+      zh: {
+        stageBadge: 'Stage 1 · 3D 数学与空间变换',
+        pageTitle: 'L01: 图形学全景与 3D 向量几何直觉 (Vectors, Handedness & The 4 Pillars of CG)',
+        pageSubtitle: '为什么整个 3D 渲染管线几乎建立在 点积 (Dot Product) 和 叉积 (Cross Product) 之上？亲手拖拽向量并通关最后的 3D 向量小游戏！',
+        tab1: '1. 3D 向量与点积/叉积实验室',
+        tab2: '2. 图形学四大支柱 3D 管线',
+        tab3: '3. 双课程视频精要 (UCD + MIT)',
+        tab4: '🎮 4. 终极互动小游戏：星际护盾与激光校准',
+        lab1Title: '交互式 3D 向量几何沙盒 (按住鼠标拖拽旋转视角)',
+        lab1Legend: '琥珀色: 向量 a ｜ 青色: 向量 b ｜ 紫色: 叉积法向量 a × b ｜ 虚线: 点积投影 proj_b(a)',
+        presetsLabel: '场景预设:',
+        presetLit: '漫反射受光 (θ < 90°)',
+        presetOrtho: '正交基 (θ = 90°)',
+        presetBack: '背面剔除 (θ > 90°)',
+        presetCollinear: '共线退化 (a × b = 0)',
+        chkArea: '显示叉积平行四边形面积',
+        chkProj: '显示点积正交投影',
+        coordHeader: '调整 3D 向量坐标 (Vector Coordinates)',
+        vecATitle: '向量 a (例如：光线方向 L 或切线 u)',
+        vecBTitle: '向量 b (例如：表面法线 N 或切线 v)',
+        dotCardTitle: '1. 点积 (Dot Product): 夹角与投影测量仪',
+        dotValLabel: '点积值 (a · b)',
+        angleValLabel: '空间夹角 (θ)',
+        lambertValLabel: 'Lambert 漫反射系数',
+        dotIntuition: '💡 图形学直觉：当 a·b > 0 时，两向量夹角小于 90°。在着色计算中，若 L · N > 0，说明光线照亮了表面正面；若 L · N ≤ 0，表面处于背光面！',
+        crossCardTitle: '2. 叉积 (Cross Product): 法线生成与有向面积',
+        paraAreaLabel: '平行四边形面积 ||a × b||',
+        triAreaLabel: '对应三角形面积 (½||a × b||)',
+        crossIntuition: '💡 图形学直觉：用三角形两条边做叉积 (P₁ - P₀) × (P₂ - P₀) 就能立刻算出表面法向量 N 和面积！',
+        jumpToGameBtn: '去玩向量小游戏 →',
+        lab2Title: '计算机图形学四大支柱实时沙盒 (The 4 Pillars of CG)',
+        lab2Subtitle: 'Justin Solomon (MIT 6.837 Lec 01) 与 Kenneth Joy (UC Davis Lec 01) 开篇共同强调的图形学四大核心模块',
+        shapeIco: '二十面体网格',
+        shapeTorus: '3D 圆环面 (Torus)',
+        pillarPrompt: '点击切换四大支柱，观察同一个 3D 对象的演变：',
+        p1Title: '1. Modeling (几何建模：我们如何表示形状？)',
+        p1Desc: '只显示顶点 (Vertices) 与拓扑边 (Wireframe Edges)。计算机必须用离散的顶点坐标、参数样条或细分网格来近似三维世界。',
+        p2Title: '2. Rendering (渲染：光线如何与表面交互？)',
+        p2Desc: '利用我们在 Lab 1 学到的数学：先用每块三角形两条边的叉积求面法线 N，再用 max(0, N · L) 计算每个面的受光亮度！',
+        p3Title: '3. Animation & Simulation (动画与物理仿真)',
+        p3Desc: '让顶点随时间 t 根据微分方程或弹性波函数运动，并在每一帧实时重新计算叉积法线与点积光照。',
+        lightAngleLabel: '调节虚拟光源水平角 (Light Azimuth)',
+        chkNormals: '绘制每个三角面的叉积法向量针 (Normal Needles)',
+        ucdNoteTitle: '几何直觉视角：从真实世界到屏幕像素的抽象旅程',
+        ucdNote1: '[00:00 - 12:00] 什么是计算机图形学？将数学描述的虚拟场景（几何 + 材质 + 相机 + 光源）转化为 2D 像素阵列（Frame Buffer）的艺术与科学。',
+        ucdNote2: '[12:00 - 26:00] 为什么我们要关心坐标系无关性 (Coordinate-Free Geometry)？自然界本身没有 XYZ 坐标轴！点（Point）代表空间中的绝对位置，而向量（Vector）代表两点之间的有向位移。',
+        ucdNote3: '[26:00 - 45:00] 渲染管线鸟瞰：从建模空间（Modeling Space）到世界空间（World Space），再到相机空间（Eye Space）和屏幕裁剪与扫描转换。',
+        mitNoteTitle: '现代图形学视角：Representation, Sampling & Linear Algebra',
+        mitNote1: '[00:00 - 20:00] 图形学与计算机视觉 (CV) 的对偶关系：Graphics 是正向合成（3D Model → 2D Image）；Vision 是逆向推理（2D Image → 3D Model）。如今二者正通过 NeRF / 3DGS 走向融合。',
+        mitNote2: '[20:00 - 48:00] 四大核心模块拆解：1) Geometry (Curves, Surfaces, Meshes)；2) Animation & Simulation (ODEs, Skinning)；3) Rendering (Ray Tracing vs. Rasterization)；4) Imaging & Color。',
+        mitNote3: '[48:00 - 75:00] 贯穿全课的两个底层瓶颈：如何把连续的数学对象变成离散采样（Sampling & Aliasing），以及如何用线性代数/矩阵加速几何运算。',
+        cheatTitle: '本课必背 3D Math 核心备忘录 (Cheat Sheet)',
+        cs1Title: '1. 向量归一化 (Normalization)',
+        cs1Desc: '在计算光照或角度前，务必先把方向向量归一化为单位向量（长度为 1），此时点积 û · v̂ 直接等于 cos(θ)！',
+        cs2Title: '2. 点积的三大图形学用途',
+        cs2Desc: '① 测量两向量夹角与前后朝向判定；② 计算向量 a 在向量 b 方向上的正交投影；③ 计算 Lambert 漫反射光照强度 I = max(0, N · L)。',
+        cs3Title: '3. 叉积的三大图形学用途',
+        cs3Desc: '① 构建垂直于平面的表面法向量 N；② 构建相机的正交坐标系标架 u = up × w；③ 计算三角形面积与像素重心坐标。',
+        gameBadge: '🎮 Play to Learn · 互动通关小游戏',
+        gameMainTitle: '星际能量护盾与激光校准特训 (Starshield & Vector Defense)',
+        gameMainSub: '通过亲手完成 3 个太空图形学工程任务，直观掌握点积受光、叉积造法线与背面剔除雷达！',
+        m1Tab: '关卡 1: 点积太阳能聚能',
+        m2Tab: '关卡 2: 叉积等离子护盾',
+        m3Tab: '关卡 3: 背面剔除雷达点击赛',
+        gameOrbitHint: '提示：可按住鼠标拖拽旋转 3D 视角观察空间角度；关卡 3 直接点击正面晶面！',
+        newTargetBtn: '🎲 随机生成新目标挑战',
+        m1Title: '🌞 任务 1：调节卫星帆板法向量 N 对准太阳光 L',
+        m1Desc: '在 Lambert 漫反射定律中，接收到的太阳能功率正比于 max(0, N̂ · L̂) = cos(θ)。请调节帆板法向量 N 的倾角，使它与金色太阳光向量 L 完全同向对齐（效率 ≥ 97% 即可通关）！',
+        m1SliderYaw: '帆板水平偏航角 (Normal Yaw φ)',
+        m1SliderPitch: '帆板俯仰倾角 (Normal Pitch θ)',
+        m1PowerLabel: '点积充能效率 max(0, N̂ · L̂)',
+        m2Title: '🛡️ 任务 2：用叉积 a × b 构建等离子护盾拦截陨石',
+        m2Desc: '红色虚线是来袭陨石方向 T！你需要展开两根护盾发生杆 a 和 b，使得它们的叉积法线 N = a × b 正好迎向陨石（N̂ · T̂ ≥ 0.95），且护盾平行四边形面积 ||a × b|| ≥ 3.2！',
+        m2SliderAngle: '发生杆张角 (Angle between a & b)',
+        m2SliderLen: '发生杆长度 (Rod Length ||a|| = ||b||)',
+        m2SliderTilt: '护盾平面俯仰旋转 (Plane Tilt)',
+        m2AlignLabel: '法线对准度 (N̂ · T̂):',
+        m2AreaLabel: '护盾面积 ||a × b|| = ||a||||b||sin(θ):',
+        m3Title: '🎯 任务 3：人肉 GPU 光栅化器——点击所有正面三角形！',
+        m3Desc: '在 3D 视口中有一颗八面体能量核心。请化身 GPU 的 Back-Face Culling（背面剔除）单元：直接用鼠标点击 3D 画布上所有朝向你的正面三角形（N · V > 0），全部点亮即可通关！',
+        m3ProgressLabel: '已锁定的正面三角形 (Front-Facing):'
+      },
+      en: {
+        stageBadge: 'Stage 1 · 3D Math & Spatial Transforms',
+        pageTitle: 'L01: Computer Graphics Panorama & 3D Vector Geometry Intuition',
+        pageSubtitle: 'Why is almost the entire 3D rendering pipeline built on the Dot Product and Cross Product? Drag vectors in 3D space and beat the 3D Vector Mini-Game!',
+        tab1: '1. 3D Vector, Dot & Cross Lab',
+        tab2: '2. The 4 Pillars of CG Pipeline',
+        tab3: '3. Dual Lecture Notes (UCD + MIT)',
+        tab4: '🎮 4. Mini-Game: Starshield & Vector Defense',
+        lab1Title: 'Interactive 3D Vector Geometry Sandbox (Drag mouse to orbit camera)',
+        lab1Legend: 'Amber: Vector a ｜ Cyan: Vector b ｜ Purple: Cross Normal a × b ｜ Dashed: Projection proj_b(a)',
+        presetsLabel: 'Presets:',
+        presetLit: 'Lambert Lit (θ < 90°)',
+        presetOrtho: 'Orthonormal (θ = 90°)',
+        presetBack: 'Back-Face Culling (θ > 90°)',
+        presetCollinear: 'Collinear (a × b = 0)',
+        chkArea: 'Show Cross Product Parallelogram Area',
+        chkProj: 'Show Dot Product Orthogonal Projection',
+        coordHeader: 'Adjust 3D Vector Coordinates',
+        vecATitle: 'Vector a (e.g., Light Direction L or Tangent u)',
+        vecBTitle: 'Vector b (e.g., Surface Normal N or Tangent v)',
+        dotCardTitle: '1. Dot Product: Angle & Projection Meter',
+        dotValLabel: 'Dot Product (a · b)',
+        angleValLabel: 'Angle (θ)',
+        lambertValLabel: 'Lambert Diffuse Factor',
+        dotIntuition: '💡 CG Intuition: When a·b > 0, the angle θ < 90°. In shading, L · N > 0 means the surface faces the light; L · N ≤ 0 means the surface is self-shadowed!',
+        crossCardTitle: '2. Cross Product: Normal Generator & Signed Area',
+        paraAreaLabel: 'Parallelogram Area ||a × b||',
+        triAreaLabel: 'Triangle Area (½||a × b||)',
+        crossIntuition: '💡 CG Intuition: Taking the cross product (P₁ - P₀) × (P₂ - P₀) of two triangle edges immediately gives its surface normal N and area!',
+        jumpToGameBtn: 'Play Vector Mini-Game →',
+        lab2Title: 'The 4 Pillars of Computer Graphics Live Sandbox',
+        lab2Subtitle: 'The 4 core pillars highlighted in MIT 6.837 Lec 01 (Justin Solomon) & UC Davis Lec 01 (Kenneth Joy)',
+        shapeIco: 'Icosahedron Mesh',
+        shapeTorus: '3D Torus Mesh',
+        pillarPrompt: 'Switch between the pillars to see how the same 3D object evolves:',
+        p1Title: '1. Modeling (How do we represent 3D shape?)',
+        p1Desc: 'Displays discrete vertices and wireframe edges. Computers approximate continuous 3D shapes using vertices, splines, or subdivision meshes.',
+        p2Title: '2. Rendering (How does light interact with surfaces?)',
+        p2Desc: 'Uses the math from Lab 1: Cross Product of triangle edges computes the face normal N, and Dot Product max(0, N · L) computes diffuse shading!',
+        p3Title: '3. Animation & Simulation (How do things move?)',
+        p3Desc: 'Deforms vertices over time t via wave functions or ODEs, recomputing cross-product normals and dot-product lighting every frame.',
+        lightAngleLabel: 'Virtual Light Azimuth Angle',
+        chkNormals: 'Draw Cross-Product Face Normal Needles',
+        ucdNoteTitle: 'Geometric Intuition: From Continuous 3D Space to Pixels',
+        ucdNote1: '[00:00 - 12:00] What is Computer Graphics? Transforming mathematical descriptions of virtual scenes (geometry, materials, cameras, lights) into a 2D pixel frame buffer.',
+        ucdNote2: '[12:00 - 26:00] Coordinate-Free Geometry: Nature has no built-in XYZ axes! Points represent absolute positions, while Vectors represent directed displacements without fixed origins.',
+        ucdNote3: '[26:00 - 45:00] Pipeline Overview: Modeling Space → World Space → Eye/Camera Space → Clipping & Scan Conversion.',
+        mitNoteTitle: 'Modern CG Perspective: Representation, Sampling & Linear Algebra',
+        mitNote1: '[00:00 - 20:00] Duality of Graphics & Vision: Graphics synthesizes 2D images from 3D models (3D → 2D); Vision infers 3D models from 2D images (2D → 3D).',
+        mitNote2: '[20:00 - 48:00] Four Core Pillars: 1) Geometry (Curves, Surfaces, Meshes); 2) Animation & Simulation (ODEs, Skinning); 3) Rendering (Ray Tracing vs. Rasterization); 4) Imaging & Color.',
+        mitNote3: '[48:00 - 75:00] Fundamental Themes: Discretizing continuous math via Sampling (fighting Aliasing), and accelerating billions of operations via Linear Algebra.',
+        cheatTitle: 'Essential 3D Math Cheat Sheet for Lesson 01',
+        cs1Title: '1. Vector Normalization',
+        cs1Desc: 'Always normalize direction vectors to unit length (||û|| = 1) before lighting calculations so that û · v̂ directly equals cos(θ).',
+        cs2Title: '2. Top 3 Uses of Dot Product in CG',
+        cs2Desc: '① Measure angle & front/back facing; ② Project vector a onto vector b; ③ Compute Lambertian diffuse shading I = max(0, N · L).',
+        cs3Title: '3. Top 3 Uses of Cross Product in CG',
+        cs3Desc: '① Compute triangle surface normal N; ② Construct orthogonal camera axes u = up × w; ③ Compute triangle area & barycentric weights.',
+        gameBadge: '🎮 Play to Learn · Interactive Mini-Game',
+        gameMainTitle: 'Starshield & Vector Defense (3 Missions)',
+        gameMainSub: 'Master Dot Product lighting, Cross Product surface normals, and Back-Face Culling by completing 3 hands-on space engineering missions!',
+        m1Tab: 'Mission 1: Solar Dot Alignment',
+        m2Tab: 'Mission 2: Cross-Product Shield',
+        m3Tab: 'Mission 3: Back-Face Culling Radar',
+        gameOrbitHint: 'Tip: Drag mouse to orbit the 3D view; in Mission 3, click directly on front-facing crystal facets!',
+        newTargetBtn: '🎲 Randomize New Target',
+        m1Title: '🌞 Mission 1: Align Solar Panel Normal N with Sun Ray L',
+        m1Desc: 'By Lambert’s Law, solar power is proportional to max(0, N̂ · L̂) = cos(θ). Rotate the panel normal N until it aligns with the golden sun ray L (reach ≥ 97% efficiency to clear)!',
+        m1SliderYaw: 'Panel Normal Yaw (φ)',
+        m1SliderPitch: 'Panel Normal Pitch (θ)',
+        m1PowerLabel: 'Dot Product Efficiency max(0, N̂ · L̂)',
+        m2Title: '🛡️ Mission 2: Build a Cross-Product Plasma Shield (a × b)',
+        m2Desc: 'The red dashed vector T is an incoming meteor! Adjust emitter rods a and b so their Cross Product Normal N = a × b points at T (N̂ · T̂ ≥ 0.95) AND shield area ||a × b|| ≥ 3.2!',
+        m2SliderAngle: 'Spread Angle between Rods a & b',
+        m2SliderLen: 'Emitter Rod Length (||a|| = ||b||)',
+        m2SliderTilt: 'Shield Plane Pitch Tilt',
+        m2AlignLabel: 'Normal Alignment (N̂ · T̂):',
+        m2AreaLabel: 'Shield Area ||a × b|| = ||a||||b||sin(θ):',
+        m3Title: '🎯 Mission 3: Be the GPU — Click All Front-Facing Triangles!',
+        m3Desc: 'An octahedron core is floating in 3D space. Act as the GPU Back-Face Culling unit: click directly on all Front-Facing triangles (N · V > 0) on the 3D canvas!',
+        m3ProgressLabel: 'Locked Front-Facing Facets:'
+      }
+    };
+
+    // ==================== STATE ====================
+    let activeTab = 'lab1';
+    let isRightHanded = true;
+    let isSwappedCross = false;
+
+    let camYaw = -0.65;
+    let camPitch = 0.45;
+    let isDragging = false;
+    let dragStartX = 0, dragStartY = 0;
+    let lastMouseX = 0, lastMouseY = 0;
+
+    let vecA = { x: 1.5, y: 2.0, z: 0.8 };
+    let vecB = { x: 2.2, y: 0.5, z: 1.5 };
+
+    let activePillar = 2;
+    let activeShape = 'icosahedron';
+    let lightAzimuthDeg = 45;
+    let animTime = 0;
+    let animFrameId = null;
+
+    // ==================== MINI-GAME STATE ====================
+    let currentMission = 1;
+    let missionsCleared = { 1: false, 2: false, 3: false };
+
+    // Mission 1: Target sun direction (yaw, pitch in degrees)
+    let m1TargetYaw = -45;
+    let m1TargetPitch = 38;
+    let m1UserYaw = 20;
+    let m1UserPitch = 15;
+
+    // Mission 2: Target threat direction + user shield params
+    let m2TargetTilt = 28;
+    let m2UserSpread = 45;
+    let m2UserLen = 1.6;
+    let m2UserTilt = 10;
+    let m2WindingCorrect = false; // starts inverted so user discovers winding flip!
+
+    // Mission 3: Octahedron facets clicked
+    let m3SelectedFaces = new Set();
+    let m3CachedScreenPolys = [];
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.getElementById('lang-toggle-label').textContent =
+        currentLang === 'zh' ? 'EN / English' : '中文 / Chinese';
+
+      const dict = I18N[currentLang];
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (dict[key]) el.textContent = dict[key];
+      });
+
+      refreshDynamicLabels();
+      updateVectors();
+      drawPillarsScene();
+      updateGameUI();
+    }
+
+    function refreshDynamicLabels() {
+      const hBtn = document.getElementById('handedness-btn');
+      hBtn.textContent = currentLang === 'zh'
+        ? (isRightHanded ? '右手坐标系 (Right-Handed: OpenGL/Three.js)' : '左手坐标系 (Left-Handed: DirectX/Unity)')
+        : (isRightHanded ? 'Right-Handed (OpenGL / Three.js)' : 'Left-Handed (DirectX / Unity)');
+
+      const sBtn = document.getElementById('swap-order-btn');
+      sBtn.textContent = currentLang === 'zh'
+        ? (isSwappedCross ? '当前叉积: b × a = -(a × b) (点击切回 a × b)' : '当前叉积: a × b (点击切换 b × a)')
+        : (isSwappedCross ? 'Order: b × a = -(a × b) (Click for a × b)' : 'Order: a × b (Click to flip b × a)');
+
+      const title = document.getElementById('pillar-hud-title');
+      if (currentLang === 'zh') {
+        if (activePillar === 1) title.textContent = 'Pillar 1: Modeling (离散顶点与网格拓扑)';
+        if (activePillar === 2) title.textContent = 'Pillar 2: Rendering (叉积求法线 + 点积求漫反射)';
+        if (activePillar === 3) title.textContent = 'Pillar 3: Animation & Simulation (时变顶点形变)';
+      } else {
+        if (activePillar === 1) title.textContent = 'Pillar 1: Modeling (Vertices & Wireframe Topology)';
+        if (activePillar === 2) title.textContent = 'Pillar 2: Rendering (Cross Normals + Dot Shading)';
+        if (activePillar === 3) title.textContent = 'Pillar 3: Animation & Simulation (Time-Varying Deformation)';
+      }
+    }
+
+    // ==================== TAB SWITCHING ====================
+    function switchTab(tabId) {
+      activeTab = tabId;
+      ['lab1', 'lab2', 'notes', 'game'].forEach(id => {
+        const panel = document.getElementById('tab-' + id);
+        const btn = document.getElementById('tab-btn-' + id);
+        if (id === tabId) {
+          panel.classList.remove('hidden');
+          btn.className = 'px-3 py-1.5 rounded-md text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] transition';
+        } else {
+          panel.classList.add('hidden');
+          btn.className = 'px-3 py-1.5 rounded-md text-xs font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition';
+        }
+      });
+      if (tabId === 'lab1') resizeAndDrawLab1();
+      if (tabId === 'lab2') resizeAndDrawLab2();
+      if (tabId === 'game') resizeAndDrawGame();
+    }
+
+    // ==================== MATH HELPERS ====================
+    function dot(u, v) {
+      return u.x * v.x + u.y * v.y + u.z * v.z;
+    }
+    function cross(u, v, rh = isRightHanded) {
+      const s = rh ? 1 : -1;
+      return {
+        x: s * (u.y * v.z - u.z * v.y),
+        y: s * (u.z * v.x - u.x * v.z),
+        z: s * (u.x * v.y - u.y * v.x)
+      };
+    }
+    function norm(u) {
+      return Math.sqrt(dot(u, u));
+    }
+    function normalize(u) {
+      const l = norm(u);
+      return l > 1e-6 ? { x: u.x / l, y: u.y / l, z: u.z / l } : { x: 0, y: 0, z: 0 };
+    }
+    function sphericalToVec(yawDeg, pitchDeg, radius = 1) {
+      const yaw = yawDeg * (Math.PI / 180);
+      const pitch = pitchDeg * (Math.PI / 180);
+      return {
+        x: radius * Math.cos(pitch) * Math.sin(yaw),
+        y: radius * Math.sin(pitch),
+        z: radius * Math.cos(pitch) * Math.cos(yaw)
+      };
+    }
+
+    function project3D(p, width, height, yaw, pitch, scaleFactor = 72) {
+      const zSign = isRightHanded ? 1 : -1;
+      const px = p.x;
+      const py = p.y;
+      const pz = p.z * zSign;
+
+      const cosY = Math.cos(yaw), sinY = Math.sin(yaw);
+      const x1 = px * cosY + pz * sinY;
+      const z1 = -px * sinY + pz * cosY;
+
+      const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+      const y2 = py * cosP - z1 * sinP;
+      const z2 = py * sinP + z1 * cosP;
+
+      const camDist = 9.0;
+      const perspective = camDist / Math.max(1.5, camDist - z2);
+      return {
+        x: width / 2 + x1 * scaleFactor * perspective,
+        y: height / 2 + 25 - y2 * scaleFactor * perspective,
+        depth: z2
+      };
+    }
+
+    function drawArrow2D(ctx, from, to, color, lineWidth = 2.5, label = '') {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 2) return;
+      const angle = Math.atan2(dy, dx);
+      const headLen = Math.min(11, Math.max(6, len * 0.22));
+
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(to.x, to.y);
+      ctx.lineTo(to.x - headLen * Math.cos(angle - Math.PI / 6), to.y - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(to.x - headLen * Math.cos(angle + Math.PI / 6), to.y - headLen * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+
+      if (label) {
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText(label, to.x + 8 * Math.cos(angle), to.y + 8 * Math.sin(angle));
+      }
+      ctx.restore();
+    }
+
+    // ==================== LAB 1: VECTOR SANDBOX ====================
+    function toggleHandedness() {
+      isRightHanded = !isRightHanded;
+      refreshDynamicLabels();
+      updateVectors();
+    }
+
+    function swapCrossOrder() {
+      isSwappedCross = !isSwappedCross;
+      refreshDynamicLabels();
+      updateVectors();
+    }
+
+    function applyPreset(name) {
+      if (name === 'lighting') {
+        vecA = { x: 1.5, y: 2.0, z: 0.8 };
+        vecB = { x: 2.2, y: 0.5, z: 1.5 };
+      } else if (name === 'orthogonal') {
+        vecA = { x: 2.2, y: 0.0, z: 0.0 };
+        vecB = { x: 0.0, y: 2.2, z: 0.0 };
+      } else if (name === 'backface') {
+        vecA = { x: -1.8, y: -1.2, z: -0.9 };
+        vecB = { x: 1.8, y: 1.0, z: 1.2 };
+      } else if (name === 'collinear') {
+        vecA = { x: 1.2, y: 1.6, z: 0.8 };
+        vecB = { x: 2.4, y: 3.2, z: 1.6 };
+      }
+      document.getElementById('ax').value = vecA.x;
+      document.getElementById('ay').value = vecA.y;
+      document.getElementById('az').value = vecA.z;
+      document.getElementById('bx').value = vecB.x;
+      document.getElementById('by').value = vecB.y;
+      document.getElementById('bz').value = vecB.z;
+      updateVectors();
+    }
+
+    function updateVectors() {
+      vecA.x = parseFloat(document.getElementById('ax').value);
+      vecA.y = parseFloat(document.getElementById('ay').value);
+      vecA.z = parseFloat(document.getElementById('az').value);
+      vecB.x = parseFloat(document.getElementById('bx').value);
+      vecB.y = parseFloat(document.getElementById('by').value);
+      vecB.z = parseFloat(document.getElementById('bz').value);
+
+      document.getElementById('vecA-label').textContent = `(${vecA.x.toFixed(1)}, ${vecA.y.toFixed(1)}, ${vecA.z.toFixed(1)})`;
+      document.getElementById('vecB-label').textContent = `(${vecB.x.toFixed(1)}, ${vecB.y.toFixed(1)}, ${vecB.z.toFixed(1)})`;
+
+      const d = dot(vecA, vecB);
+      const lenA = norm(vecA);
+      const lenB = norm(vecB);
+      const cosTheta = (lenA > 1e-5 && lenB > 1e-5) ? Math.max(-1, Math.min(1, d / (lenA * lenB))) : 0;
+      const thetaDeg = Math.acos(cosTheta) * (180 / Math.PI);
+      const lambert = Math.max(0, cosTheta);
+
+      document.getElementById('dot-val').textContent = d.toFixed(2);
+      document.getElementById('angle-val').textContent = thetaDeg.toFixed(1) + '°';
+      document.getElementById('lambert-val').textContent = lambert.toFixed(2);
+
+      const badge = document.getElementById('dot-badge');
+      if (currentLang === 'zh') {
+        if (Math.abs(d) < 0.05) badge.textContent = '正交垂直 (θ ≈ 90°)';
+        else if (d > 0) badge.textContent = '同向锐角 (正面受光)';
+        else badge.textContent = '反向钝角 (背面剔除/阴影)';
+      } else {
+        if (Math.abs(d) < 0.05) badge.textContent = 'Orthogonal (θ ≈ 90°)';
+        else if (d > 0) badge.textContent = 'Acute Angle (Front-Lit)';
+        else badge.textContent = 'Obtuse Angle (Back-Facing)';
+      }
+
+      const c = isSwappedCross ? cross(vecB, vecA) : cross(vecA, vecB);
+      const area = norm(c);
+      document.getElementById('cross-vec-badge').textContent = `(${c.x.toFixed(1)}, ${c.y.toFixed(1)}, ${c.z.toFixed(1)})`;
+      document.getElementById('area-val').textContent = area.toFixed(2);
+      document.getElementById('tri-area-val').textContent = (area * 0.5).toFixed(2);
+
+      drawVectorScene();
+    }
+
+    function drawFloorGrid(ctx, w, h) {
+      const isLight = document.documentElement.classList.contains('light');
+      ctx.save();
+      ctx.strokeStyle = isLight ? 'rgba(100,116,139,0.2)' : 'rgba(148,163,184,0.14)';
+      ctx.lineWidth = 1;
+      for (let i = -3; i <= 3; i++) {
+        const p1 = project3D({ x: i, y: 0, z: -3 }, w, h, camYaw, camPitch);
+        const p2 = project3D({ x: i, y: 0, z: 3 }, w, h, camYaw, camPitch);
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+
+        const p3 = project3D({ x: -3, y: 0, z: i }, w, h, camYaw, camPitch);
+        const p4 = project3D({ x: 3, y: 0, z: i }, w, h, camYaw, camPitch);
+        ctx.beginPath(); ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawVectorScene() {
+      const canvas = document.getElementById('vectorCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+
+      ctx.clearRect(0, 0, w, h);
+      drawFloorGrid(ctx, w, h);
+
+      const origin = project3D({ x: 0, y: 0, z: 0 }, w, h, camYaw, camPitch);
+      drawArrow2D(ctx, origin, project3D({ x: 3.1, y: 0, z: 0 }, w, h, camYaw, camPitch), '#ef4444', 1.5, '+X');
+      drawArrow2D(ctx, origin, project3D({ x: 0, y: 3.1, z: 0 }, w, h, camYaw, camPitch), '#22c55e', 1.5, '+Y');
+      drawArrow2D(ctx, origin, project3D({ x: 0, y: 0, z: 3.1 }, w, h, camYaw, camPitch), '#3b82f6', 1.5, isRightHanded ? '+Z (RH)' : '+Z (LH)');
+
+      const pA = project3D(vecA, w, h, camYaw, camPitch);
+      const pB = project3D(vecB, w, h, camYaw, camPitch);
+      const sumAB = { x: vecA.x + vecB.x, y: vecA.y + vecB.y, z: vecA.z + vecB.z };
+      const pSum = project3D(sumAB, w, h, camYaw, camPitch);
+
+      if (document.getElementById('showParallelogram').checked) {
+        ctx.save();
+        ctx.fillStyle = isSwappedCross ? 'rgba(236, 72, 153, 0.18)' : 'rgba(168, 85, 247, 0.18)';
+        ctx.strokeStyle = isSwappedCross ? 'rgba(236, 72, 153, 0.6)' : 'rgba(168, 85, 247, 0.6)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(origin.x, origin.y);
+        ctx.lineTo(pA.x, pA.y);
+        ctx.lineTo(pSum.x, pSum.y);
+        ctx.lineTo(pB.x, pB.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      const lenB2 = dot(vecB, vecB);
+      if (document.getElementById('showProjection').checked && lenB2 > 1e-4) {
+        const scaleProj = dot(vecA, vecB) / lenB2;
+        const projVec = { x: vecB.x * scaleProj, y: vecB.y * scaleProj, z: vecB.z * scaleProj };
+        const pProj = project3D(projVec, w, h, camYaw, camPitch);
+
+        ctx.save();
+        ctx.strokeStyle = '#f59e0b';
+        ctx.setLineDash([5, 4]);
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(pA.x, pA.y);
+        ctx.lineTo(pProj.x, pProj.y);
+        ctx.stroke();
+        ctx.restore();
+
+        drawArrow2D(ctx, origin, pProj, '#eab308', 3.5, 'proj_b(a)');
+      }
+
+      const cVec = isSwappedCross ? cross(vecB, vecA) : cross(vecA, vecB);
+      const cVisual = { x: cVec.x * 0.55, y: cVec.y * 0.55, z: cVec.z * 0.55 };
+      const pC = project3D(cVisual, w, h, camYaw, camPitch);
+      drawArrow2D(ctx, origin, pC, '#a855f7', 3.2, isSwappedCross ? 'b × a' : 'a × b');
+
+      drawArrow2D(ctx, origin, pA, '#f59e0b', 3.2, 'a');
+      drawArrow2D(ctx, origin, pB, '#06b6d4', 3.2, 'b');
+    }
+
+    function resizeAndDrawLab1() {
+      const canvas = document.getElementById('vectorCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 640;
+      canvas.height = rect.height || 410;
+      updateVectors();
+    }
+
+    // ==================== LAB 2: 4 PILLARS OF CG ====================
+    function selectPillar(num) {
+      activePillar = num;
+      [1, 2, 3].forEach(i => {
+        const card = document.getElementById('pillar-card-' + i);
+        if (i === num) {
+          card.className = 'w-full text-left p-3 rounded-lg border-2 border-[var(--primary)] bg-[var(--secondary)] transition';
+        } else {
+          card.className = 'w-full text-left p-3 rounded-lg border border-[var(--border)] bg-[var(--secondary)] hover:opacity-90 transition';
+        }
+      });
+
+      refreshDynamicLabels();
+
+      if (num === 3) {
+        if (!animFrameId) animatePillars();
+      } else {
+        if (animFrameId) {
+          cancelAnimationFrame(animFrameId);
+          animFrameId = null;
+        }
+        drawPillarsScene();
+      }
+    }
+
+    function setShape(shapeName) {
+      activeShape = shapeName;
+      document.getElementById('shape-ico').className = shapeName === 'icosahedron'
+        ? 'px-2.5 py-1 text-xs rounded bg-[var(--primary)] text-[var(--primary-foreground)]'
+        : 'px-2.5 py-1 text-xs rounded bg-[var(--secondary)] text-[var(--foreground)]';
+      document.getElementById('shape-torus').className = shapeName === 'torus'
+        ? 'px-2.5 py-1 text-xs rounded bg-[var(--primary)] text-[var(--primary-foreground)]'
+        : 'px-2.5 py-1 text-xs rounded bg-[var(--secondary)] text-[var(--foreground)]';
+      drawPillarsScene();
+    }
+
+    function updatePillarLight() {
+      lightAzimuthDeg = parseFloat(document.getElementById('lightAzimuth').value);
+      document.getElementById('light-angle-label').textContent = lightAzimuthDeg + '°';
+      drawPillarsScene();
+    }
+
+    function generateMesh(timeOffset = 0) {
+      let verts = [];
+      let faces = [];
+      if (activeShape === 'icosahedron') {
+        const t = (1 + Math.sqrt(5)) / 2;
+        const raw = [
+          [-1,  t,  0], [ 1,  t,  0], [-1, -t,  0], [ 1, -t,  0],
+          [ 0, -1,  t], [ 0,  1,  t], [ 0, -1, -t], [ 0,  1, -t],
+          [ t,  0, -1], [ t,  0,  1], [-t,  0, -1], [-t,  0,  1]
+        ];
+        verts = raw.map((v, idx) => {
+          const l = Math.hypot(v[0], v[1], v[2]);
+          let s = 1.85 / l;
+          if (activePillar === 3) {
+            s *= (1 + 0.18 * Math.sin(timeOffset * 3.2 + idx * 0.9));
+          }
+          return { x: v[0] * s, y: v[1] * s, z: v[2] * s };
+        });
+        faces = [
+          [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
+          [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
+          [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
+          [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]
+        ];
+      } else {
+        const R = 1.45, r = 0.62;
+        const segU = 14, segV = 10;
+        for (let i = 0; i < segU; i++) {
+          const u = (i / segU) * Math.PI * 2;
+          for (let j = 0; j < segV; j++) {
+            const v = (j / segV) * Math.PI * 2;
+            const wave = activePillar === 3 ? 0.22 * Math.sin(u * 2 + timeOffset * 3.5) : 0;
+            const x = (R + r * Math.cos(v)) * Math.cos(u);
+            const y = r * Math.sin(v) + wave;
+            const z = (R + r * Math.cos(v)) * Math.sin(u);
+            verts.push({ x, y, z });
+          }
+        }
+        for (let i = 0; i < segU; i++) {
+          const ni = (i + 1) % segU;
+          for (let j = 0; j < segV; j++) {
+            const nj = (j + 1) % segV;
+            const a = i * segV + j;
+            const b = ni * segV + j;
+            const c = ni * segV + nj;
+            const d = i * segV + nj;
+            faces.push([a, d, c]);
+            faces.push([a, c, b]);
+          }
+        }
+      }
+      return { verts, faces };
+    }
+
+    function drawPillarsScene() {
+      const canvas = document.getElementById('pillarsCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const { verts, faces } = generateMesh(animTime);
+      document.getElementById('pillar-hud-stats').textContent =
+        `Vertices: ${verts.length} | Triangles: ${faces.length} | Normals: (P₁-P₀)×(P₂-P₀)`;
+
+      const rad = lightAzimuthDeg * (Math.PI / 180);
+      const lightDir = normalize({ x: Math.cos(rad), y: 0.7, z: Math.sin(rad) });
+
+      const projectedVerts = verts.map(v => project3D(v, w, h, camYaw, camPitch, 86));
+
+      const triList = faces.map(f => {
+        const v0 = verts[f[0]], v1 = verts[f[1]], v2 = verts[f[2]];
+        const e1 = { x: v1.x - v0.x, y: v1.y - v0.y, z: v1.z - v0.z };
+        const e2 = { x: v2.x - v0.x, y: v2.y - v0.y, z: v2.z - v0.z };
+        const n = normalize(cross(e1, e2));
+        const center = {
+          x: (v0.x + v1.x + v2.x) / 3,
+          y: (v0.y + v1.y + v2.y) / 3,
+          z: (v0.z + v1.z + v2.z) / 3
+        };
+        const pCenter = project3D(center, w, h, camYaw, camPitch, 86);
+        return { f, n, center, depth: pCenter.depth };
+      });
+
+      triList.sort((a, b) => a.depth - b.depth);
+      const showNormals = document.getElementById('showFaceNormals').checked;
+
+      triList.forEach(tri => {
+        const p0 = projectedVerts[tri.f[0]];
+        const p1 = projectedVerts[tri.f[1]];
+        const p2 = projectedVerts[tri.f[2]];
+
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.closePath();
+
+        if (activePillar === 1) {
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        } else {
+          const ndotl = Math.max(0.12, dot(tri.n, lightDir));
+          const r = Math.round(35 + 65 * ndotl);
+          const g = Math.round(90 + 135 * ndotl);
+          const b = Math.round(145 + 105 * ndotl);
+          ctx.fillStyle = `rgb(${r},${g},${b})`;
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(15,23,42,0.35)';
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+
+        if (showNormals) {
+          const cProj = project3D(tri.center, w, h, camYaw, camPitch, 86);
+          const tip = {
+            x: tri.center.x + tri.n.x * 0.35,
+            y: tri.center.y + tri.n.y * 0.35,
+            z: tri.center.z + tri.n.z * 0.35
+          };
+          const tipProj = project3D(tip, w, h, camYaw, camPitch, 86);
+          drawArrow2D(ctx, cProj, tipProj, '#f43f5e', 1.4, '');
+        }
+      });
+
+      if (activePillar === 1) {
+        ctx.fillStyle = '#f59e0b';
+        projectedVerts.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+    }
+
+    function animatePillars() {
+      if (activePillar !== 3 || activeTab !== 'lab2') {
+        animFrameId = null;
+        return;
+      }
+      animTime += 0.025;
+      drawPillarsScene();
+      animFrameId = requestAnimationFrame(animatePillars);
+    }
+
+    function resizeAndDrawLab2() {
+      const canvas = document.getElementById('pillarsCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 640;
+      canvas.height = rect.height || 390;
+      drawPillarsScene();
+    }
+
+    // ==================== MINI-GAME ENGINE ====================
+    function selectMission(mNum) {
+      currentMission = mNum;
+      [1, 2, 3].forEach(i => {
+        const panel = document.getElementById('mission-panel-' + i);
+        const btn = document.getElementById('mission-btn-' + i);
+        if (i === mNum) {
+          panel.classList.remove('hidden');
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] transition';
+        } else {
+          panel.classList.add('hidden');
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--secondary)] text-[var(--foreground)] transition';
+        }
+      });
+      updateGameUI();
+    }
+
+    function randomizeCurrentMission() {
+      if (currentMission === 1) {
+        m1TargetYaw = Math.round((Math.random() * 240 - 120));
+        m1TargetPitch = Math.round((Math.random() * 110 - 45));
+      } else if (currentMission === 2) {
+        m2TargetTilt = Math.round((Math.random() * 100 - 50));
+        m2WindingCorrect = false;
+      } else if (currentMission === 3) {
+        m3SelectedFaces.clear();
+        camYaw = (Math.random() * 3.0 - 1.5);
+        camPitch = (Math.random() * 1.2 - 0.6);
+      }
+      updateGameUI();
+    }
+
+    function updateGameMission1() {
+      m1UserYaw = parseFloat(document.getElementById('m1-yaw').value);
+      m1UserPitch = parseFloat(document.getElementById('m1-pitch').value);
+      document.getElementById('m1-yaw-label').textContent = m1UserYaw + '°';
+      document.getElementById('m1-pitch-label').textContent = m1UserPitch + '°';
+      updateGameUI();
+    }
+
+    function updateGameMission2() {
+      m2UserSpread = parseFloat(document.getElementById('m2-spread').value);
+      m2UserLen = parseFloat(document.getElementById('m2-len').value);
+      m2UserTilt = parseFloat(document.getElementById('m2-tilt').value);
+      document.getElementById('m2-spread-label').textContent = m2UserSpread + '°';
+      document.getElementById('m2-len-label').textContent = m2UserLen.toFixed(2);
+      document.getElementById('m2-tilt-label').textContent = m2UserTilt + '°';
+      updateGameUI();
+    }
+
+    function toggleMission2Winding() {
+      m2WindingCorrect = !m2WindingCorrect;
+      updateGameUI();
+    }
+
+    function updateGameUI() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      drawFloorGrid(ctx, w, h);
+
+      const origin = project3D({ x: 0, y: 0, z: 0 }, w, h, camYaw, camPitch);
+
+      if (currentMission === 1) {
+        // Mission 1: Dot Product Solar Panel
+        const sunVec = sphericalToVec(m1TargetYaw, m1TargetPitch, 2.5);
+        const normVec = sphericalToVec(m1UserYaw, m1UserPitch, 2.2);
+        const sunUnit = normalize(sunVec);
+        const normUnit = normalize(normVec);
+        const eff = Math.max(0, dot(sunUnit, normUnit));
+        const pct = Math.round(eff * 100);
+
+        if (eff >= 0.97) missionsCleared[1] = true;
+
+        // Draw Solar Panel Quad perpendicular to normUnit
+        const upRef = Math.abs(normUnit.y) < 0.9 ? { x: 0, y: 1, z: 0 } : { x: 1, y: 0, z: 0 };
+        const tangentU = normalize(cross(upRef, normUnit, true));
+        const tangentV = normalize(cross(normUnit, tangentU, true));
+        const s = 1.15;
+        const corners = [
+          { x: (tangentU.x + tangentV.x) * s, y: (tangentU.y + tangentV.y) * s, z: (tangentU.z + tangentV.z) * s },
+          { x: (-tangentU.x + tangentV.x) * s, y: (-tangentU.y + tangentV.y) * s, z: (-tangentU.z + tangentV.z) * s },
+          { x: (-tangentU.x - tangentV.x) * s, y: (-tangentU.y - tangentV.y) * s, z: (-tangentU.z - tangentV.z) * s },
+          { x: (tangentU.x - tangentV.x) * s, y: (tangentU.y - tangentV.y) * s, z: (tangentU.z - tangentV.z) * s }
+        ].map(p => project3D(p, w, h, camYaw, camPitch));
+
+        ctx.save();
+        ctx.fillStyle = eff >= 0.97 ? 'rgba(16, 185, 129, 0.45)' : `rgba(56, 189, 248, ${0.15 + eff * 0.45})`;
+        ctx.strokeStyle = eff >= 0.97 ? '#10b981' : '#38bdf8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(corners[0].x, corners[0].y);
+        corners.slice(1).forEach(c => ctx.lineTo(c.x, c.y));
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        drawArrow2D(ctx, origin, project3D(sunVec, w, h, camYaw, camPitch), '#f59e0b', 3.5, 'Sun L');
+        drawArrow2D(ctx, origin, project3D(normVec, w, h, camYaw, camPitch), eff >= 0.97 ? '#10b981' : '#06b6d4', 3.5, 'Normal N');
+
+        document.getElementById('m1-power-text').textContent = (eff * 100).toFixed(1) + '%';
+        document.getElementById('m1-power-bar').style.width = `${pct}%`;
+
+        const hudMission = document.getElementById('game-hud-mission');
+        const hudTarget = document.getElementById('game-hud-target');
+        const statusPill = document.getElementById('game-status-pill');
+        const fb = document.getElementById('m1-feedback');
+
+        if (currentLang === 'zh') {
+          hudMission.textContent = '关卡 1: 太阳能帆板点积对准';
+          hudTarget.textContent = `目标光线角: Yaw=${m1TargetYaw}°, Pitch=${m1TargetPitch}° (要求 N̂·L̂ ≥ 97%)`;
+          statusPill.textContent = eff >= 0.97 ? `🎉 通关成功！充能 ${pct}%` : `⚡ 当前充能: ${pct}%`;
+          fb.textContent = eff >= 0.97
+            ? '✅ 完美对齐！当法向量 N 与光线 L 夹角趋近 0° 时，cos(θ) 达到最大值 1.0！快去挑战关卡 2 吧！'
+            : '继续调节滑块，让青色法线箭头 N 与金色太阳光箭头 L 重合！';
+        } else {
+          hudMission.textContent = 'Mission 1: Solar Panel Dot Alignment';
+          hudTarget.textContent = `Sun Target: Yaw=${m1TargetYaw}°, Pitch=${m1TargetPitch}° (Need N̂·L̂ ≥ 97%)`;
+          statusPill.textContent = eff >= 0.97 ? `🎉 MISSION CLEAR! ${pct}%` : `⚡ Efficiency: ${pct}%`;
+          fb.textContent = eff >= 0.97
+            ? '✅ Perfect alignment! When N and L point in the same direction, cos(θ) = 1.0! Proceed to Mission 2!'
+            : 'Adjust Yaw & Pitch until the cyan Normal N aligns with the golden Sun vector L!';
+        }
+      } else if (currentMission === 2) {
+        // Mission 2: Cross Product Plasma Shield
+        const halfSpread = (m2UserSpread / 2) * (Math.PI / 180);
+        const tiltRad = m2UserTilt * (Math.PI / 180);
+
+        // Construct rods a and b in tilted plane
+        const localA = { x: m2UserLen * Math.sin(halfSpread), y: 0, z: m2UserLen * Math.cos(halfSpread) };
+        const localB = { x: -m2UserLen * Math.sin(halfSpread), y: 0, z: m2UserLen * Math.cos(halfSpread) };
+
+        const rotX = (v) => ({
+          x: v.x,
+          y: v.y * Math.cos(tiltRad) - v.z * Math.sin(tiltRad),
+          z: v.y * Math.sin(tiltRad) + v.z * Math.cos(tiltRad)
+        });
+
+        const rodA = rotX(localA);
+        const rodB = rotX(localB);
+        const shieldCross = m2WindingCorrect ? cross(rodA, rodB, true) : cross(rodB, rodA, true);
+        const shieldArea = norm(shieldCross);
+        const shieldNorm = normalize(shieldCross);
+
+        // Threat vector T perpendicular to target tilt plane
+        const tRad = m2TargetTilt * (Math.PI / 180);
+        const threatUnit = normalize({ x: 0, y: Math.cos(tRad), z: Math.sin(tRad) });
+        const threatVec = { x: threatUnit.x * 2.5, y: threatUnit.y * 2.5, z: threatUnit.z * 2.5 };
+
+        const align = dot(shieldNorm, threatUnit);
+        const isClear = align >= 0.95 && shieldArea >= 3.2;
+        if (isClear) missionsCleared[2] = true;
+
+        // Draw Shield Parallelogram
+        const pA = project3D(rodA, w, h, camYaw, camPitch);
+        const pB = project3D(rodB, w, h, camYaw, camPitch);
+        const pSum = project3D({ x: rodA.x + rodB.x, y: rodA.y + rodB.y, z: rodA.z + rodB.z }, w, h, camYaw, camPitch);
+
+        ctx.save();
+        ctx.fillStyle = isClear ? 'rgba(16, 185, 129, 0.35)' : (align < 0 ? 'rgba(244, 63, 94, 0.25)' : 'rgba(168, 85, 247, 0.25)');
+        ctx.strokeStyle = isClear ? '#10b981' : '#a855f7';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(origin.x, origin.y);
+        ctx.lineTo(pA.x, pA.y);
+        ctx.lineTo(pSum.x, pSum.y);
+        ctx.lineTo(pB.x, pB.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        drawArrow2D(ctx, origin, pA, '#f59e0b', 3, 'Rod a');
+        drawArrow2D(ctx, origin, pB, '#06b6d4', 3, 'Rod b');
+        drawArrow2D(ctx, origin, project3D(threatVec, w, h, camYaw, camPitch), '#f43f5e', 3, 'Meteor T');
+        drawArrow2D(
+          ctx,
+          origin,
+          project3D({ x: shieldCross.x * 0.6, y: shieldCross.y * 0.6, z: shieldCross.z * 0.6 }, w, h, camYaw, camPitch),
+          isClear ? '#10b981' : '#a855f7',
+          3.5,
+          m2WindingCorrect ? 'N = a × b' : 'N = b × a'
+        );
+
+        document.getElementById('m2-align-val').textContent = align.toFixed(2);
+        document.getElementById('m2-area-val').textContent = `${shieldArea.toFixed(2)} / 3.20`;
+
+        const wBtn = document.getElementById('m2-winding-btn');
+        const fb = document.getElementById('m2-feedback');
+        if (currentLang === 'zh') {
+          wBtn.textContent = m2WindingCorrect
+            ? '🔄 当前环绕: a × b (正面朝上，点击可翻转测试)'
+            : '⚠️ 当前环绕: b × a (法线朝反了！点击切换为 a × b)';
+          document.getElementById('game-hud-mission').textContent = '关卡 2: 叉积等离子护盾';
+          document.getElementById('game-hud-target').textContent = `要求: 对准度 N̂·T̂ ≥ 0.95 且 面积 ||a×b|| ≥ 3.2`;
+          document.getElementById('game-status-pill').textContent = isClear
+            ? '🎉 护盾成功拦截陨石！'
+            : `🛡️ 对准: ${(align * 100).toFixed(0)}% | 面积: ${shieldArea.toFixed(1)}`;
+          if (isClear) {
+            fb.textContent = '✅ 漂亮！你同时利用了叉积的方向（右手定则）与模长（平行四边形面积 ||a||||b||sinθ）完成了护盾拦截！';
+          } else if (align < 0) {
+            fb.textContent = '⚠️ 护盾法线 N 与陨石方向 T 点积为负（背对陨石）！请先点击上方按钮翻转叉积顺序 a × b！';
+          } else if (shieldArea < 3.2) {
+            fb.textContent = '💡 方向快对准了，但护盾面积不足 3.2！请调大发生杆长度或让张角接近 90°（sin90°=1 面积最大）！';
+          } else {
+            fb.textContent = '💡 面积够大了！微调“护盾平面俯仰旋转”让紫色法线 N 与红色陨石向量 T 完全重合！';
+          }
+        } else {
+          wBtn.textContent = m2WindingCorrect
+            ? '🔄 Current Winding: a × b (Front-Facing)'
+            : '⚠️ Current Winding: b × a (Inverted! Click to flip to a × b)';
+          document.getElementById('game-hud-mission').textContent = 'Mission 2: Cross-Product Plasma Shield';
+          document.getElementById('game-hud-target').textContent = `Need: Alignment N̂·T̂ ≥ 0.95 & Area ||a×b|| ≥ 3.2`;
+          document.getElementById('game-status-pill').textContent = isClear
+            ? '🎉 SHIELD INTERCEPT SUCCESS!'
+            : `🛡️ Align: ${(align * 100).toFixed(0)}% | Area: ${shieldArea.toFixed(1)}`;
+          if (isClear) {
+            fb.textContent = '✅ Awesome! You used both Cross Product direction (Right-Hand Rule) and magnitude (parallelogram area) to block the meteor!';
+          } else if (align < 0) {
+            fb.textContent = '⚠️ Shield normal N points away from the meteor (N̂·T̂ < 0)! Click the Winding Order button above to flip b × a to a × b!';
+          } else if (shieldArea < 3.2) {
+            fb.textContent = '💡 Good direction, but area < 3.2! Increase Rod Length or bring Spread Angle closer to 90° (where sin(90°)=1 maximizes area)!';
+          } else {
+            fb.textContent = '💡 Area is large enough! Fine-tune Plane Pitch Tilt to align the purple normal N with the red meteor vector T!';
+          }
+        }
+      } else if (currentMission === 3) {
+        // Mission 3: Back-Face Culling Interactive Click Game
+        const octVerts = [
+          { x: 0, y: 2.1, z: 0 },  // 0 top
+          { x: 0, y: -2.1, z: 0 }, // 1 bottom
+          { x: 2.1, y: 0, z: 0 },  // 2 +X
+          { x: 0, y: 0, z: 2.1 },  // 3 +Z
+          { x: -2.1, y: 0, z: 0 }, // 4 -X
+          { x: 0, y: 0, z: -2.1 }  // 5 -Z
+        ];
+        const octFaces = [
+          [0, 3, 2], [0, 4, 3], [0, 5, 4], [0, 2, 5],
+          [1, 2, 3], [1, 3, 4], [1, 4, 5], [1, 5, 2]
+        ];
+
+        // Camera view vector in world space (pointing from origin towards viewer camera)
+        const viewVec = normalize({
+          x: -Math.cos(camPitch) * Math.sin(camYaw),
+          y: Math.sin(camPitch),
+          z: Math.cos(camPitch) * Math.cos(camYaw)
+        });
+
+        const projVerts = octVerts.map(v => project3D(v, w, h, camYaw, camPitch, 84));
+        const faceRecords = octFaces.map((f, idx) => {
+          const v0 = octVerts[f[0]], v1 = octVerts[f[1]], v2 = octVerts[f[2]];
+          const e1 = { x: v1.x - v0.x, y: v1.y - v0.y, z: v1.z - v0.z };
+          const e2 = { x: v2.x - v0.x, y: v2.y - v0.y, z: v2.z - v0.z };
+          const n = normalize(cross(e1, e2, true));
+          const ndotv = dot(n, viewVec);
+          const center = {
+            x: (v0.x + v1.x + v2.x) / 3,
+            y: (v0.y + v1.y + v2.y) / 3,
+            z: (v0.z + v1.z + v2.z) / 3
+          };
+          const pCenter = project3D(center, w, h, camYaw, camPitch, 84);
+          return {
+            idx,
+            f,
+            n,
+            ndotv,
+            isFront: ndotv > 0.02,
+            center,
+            depth: pCenter.depth,
+            poly2D: [projVerts[f[0]], projVerts[f[1]], projVerts[f[2]]]
+          };
+        });
+
+        // Sort back-to-front for rendering
+        faceRecords.sort((a, b) => a.depth - b.depth);
+        m3CachedScreenPolys = faceRecords;
+
+        const frontFaces = faceRecords.filter(r => r.isFront);
+        const lockedFrontCount = frontFaces.filter(r => m3SelectedFaces.has(r.idx)).length;
+        const allFrontFound = frontFaces.length > 0 && lockedFrontCount === frontFaces.length;
+        if (allFrontFound) missionsCleared[3] = true;
+
+        faceRecords.forEach(rec => {
+          const [p0, p1, p2] = rec.poly2D;
+          const isPicked = m3SelectedFaces.has(rec.idx);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.closePath();
+
+          if (isPicked) {
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.65)';
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = 2.5;
+          } else if (rec.isFront) {
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.28)';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1.6;
+          } else {
+            ctx.fillStyle = 'rgba(100, 116, 139, 0.1)';
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+            ctx.setLineDash([4, 4]);
+            ctx.lineWidth = 1;
+          }
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+
+          // Draw face normal needle
+          const cProj = project3D(rec.center, w, h, camYaw, camPitch, 84);
+          const tip = {
+            x: rec.center.x + rec.n.x * 0.45,
+            y: rec.center.y + rec.n.y * 0.45,
+            z: rec.center.z + rec.n.z * 0.45
+          };
+          const tipProj = project3D(tip, w, h, camYaw, camPitch, 84);
+          drawArrow2D(
+            ctx,
+            cProj,
+            tipProj,
+            rec.isFront ? '#10b981' : '#f43f5e',
+            1.6,
+            `#${rec.idx}`
+          );
+        });
+
+        document.getElementById('m3-progress-val').textContent = `${lockedFrontCount} / ${frontFaces.length}`;
+        if (currentLang === 'zh') {
+          document.getElementById('game-hud-mission').textContent = '关卡 3: 背面剔除雷达点击赛';
+          document.getElementById('game-hud-target').textContent = '直接点击所有绿色法线朝向你的正面晶面 (N · V > 0)';
+          document.getElementById('game-status-pill').textContent = allFrontFound
+            ? '🎉 全部正面已锁定！'
+            : `🎯 已锁定正面: ${lockedFrontCount}/${frontFaces.length}`;
+        } else {
+          document.getElementById('game-hud-mission').textContent = 'Mission 3: Back-Face Culling Radar';
+          document.getElementById('game-hud-target').textContent = 'Click all Front-Facing facets (green normal needles, N · V > 0)';
+          document.getElementById('game-status-pill').textContent = allFrontFound
+            ? '🎉 ALL FRONT FACES LOCKED!'
+            : `🎯 Front Faces: ${lockedFrontCount}/${frontFaces.length}`;
+        }
+      }
+
+      const clearedCount = Object.values(missionsCleared).filter(Boolean).length;
+      document.getElementById('game-score-badge').textContent =
+        currentLang === 'zh'
+          ? `已完成关卡: ${clearedCount} / 3`
+          : `Missions Cleared: ${clearedCount} / 3`;
+    }
+
+    function pointInTriangle2D(px, py, p0, p1, p2) {
+      const area = 0.5 * (-p1.y * p2.x + p0.y * (-p1.x + p2.x) + p0.x * (p1.y - p2.y) + p1.x * p2.y);
+      if (Math.abs(area) < 1e-5) return false;
+      const s = 1 / (2 * area) * (p0.y * p2.x - p0.x * p2.y + (p2.y - p0.y) * px + (p0.x - p2.x) * py);
+      const t = 1 / (2 * area) * (p0.x * p1.y - p0.y * p1.x + (p0.y - p1.y) * px + (p1.x - p0.x) * py);
+      return s >= 0 && t >= 0 && (s + t) <= 1;
+    }
+
+    function handleGameCanvasClick(e) {
+      if (currentMission !== 3) return;
+      const canvas = document.getElementById('gameCanvas');
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      // Check front-most hit polygon first (reverse of back-to-front list)
+      for (let i = m3CachedScreenPolys.length - 1; i >= 0; i--) {
+        const rec = m3CachedScreenPolys[i];
+        const [p0, p1, p2] = rec.poly2D;
+        if (pointInTriangle2D(mx, my, p0, p1, p2)) {
+          const msgEl = document.getElementById('m3-last-click');
+          if (rec.isFront) {
+            m3SelectedFaces.add(rec.idx);
+            msgEl.textContent = currentLang === 'zh'
+              ? `✅ 命中正面 #${rec.idx}！其法线点积 N · V = +${rec.ndotv.toFixed(2)} > 0，保留渲染！`
+              : `✅ Hit Front Face #${rec.idx}! Dot product N · V = +${rec.ndotv.toFixed(2)} > 0 (Kept by GPU)!`;
+            updateGameUI();
+            return;
+          } else {
+            msgEl.textContent = currentLang === 'zh'
+              ? `❌ 晶面 #${rec.idx} 是背面（N · V = ${rec.ndotv.toFixed(2)} ≤ 0），会被背面剔除丢弃！`
+              : `❌ Facet #${rec.idx} is Back-Facing (N · V = ${rec.ndotv.toFixed(2)} ≤ 0) and should be culled!`;
+          }
+        }
+      }
+    }
+
+    function resizeAndDrawGame() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 640;
+      canvas.height = rect.height || 410;
+      updateGameUI();
+    }
+
+    // ==================== MOUSE ORBIT INTERACTION ====================
+    function attachOrbitEvents(canvasId, redrawFn, clickFn = null) {
+      const canvas = document.getElementById(canvasId);
+      canvas.addEventListener('mousedown', e => {
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+      });
+      window.addEventListener('mousemove', e => {
+        if (!isDragging) return;
+        const dx = e.clientX - lastMouseX;
+        const dy = e.clientY - lastMouseY;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        camYaw += dx * 0.008;
+        camPitch = Math.max(-1.2, Math.min(1.2, camPitch + dy * 0.008));
+        if (activeTab === 'lab1') drawVectorScene();
+        if (activeTab === 'lab2') drawPillarsScene();
+        if (activeTab === 'game') updateGameUI();
+      });
+      window.addEventListener('mouseup', e => {
+        if (isDragging && clickFn) {
+          const moved = Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY);
+          if (moved < 5 && e.target === canvas) {
+            clickFn(e);
+          }
+        }
+        isDragging = false;
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      attachOrbitEvents('vectorCanvas', drawVectorScene);
+      attachOrbitEvents('pillarsCanvas', drawPillarsScene);
+      attachOrbitEvents('gameCanvas', updateGameUI, handleGameCanvasClick);
+      resizeAndDrawLab1();
+      window.addEventListener('resize', () => {
+        if (activeTab === 'lab1') resizeAndDrawLab1();
+        if (activeTab === 'lab2') resizeAndDrawLab2();
+        if (activeTab === 'game') resizeAndDrawGame();
+      });
+    });
+  </script>
+</body>
+</html>
