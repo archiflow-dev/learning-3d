@@ -21,11 +21,18 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
   onBackToPortal
 }) => {
   const isZh = lang === 'zh';
-  const [activeTab, setActiveTab] = useState<'lab1' | 'lab2' | 'videos' | 'game'>('lab1');
+  const [activeTab, setActiveTab] = useState<'deep' | 'lab1' | 'lab2' | 'videos' | 'game'>('deep');
   const [isRightHanded, setIsRightHanded] = useState(true);
   const [isSwappedCross, setIsSwappedCross] = useState(false);
   const [showParallelogram, setShowParallelogram] = useState(true);
   const [showProjection, setShowProjection] = useState(true);
+
+  // 3Blue1Brown Deep Intuition state
+  const [squish, setSquish] = useState(0);
+  const [uAngle, setUAngle] = useState(30);
+  const [vAngle, setVAngle] = useState(55);
+  const [probeHeight, setProbeHeight] = useState(1.4);
+  const [probeShear, setProbeShear] = useState(0.6);
 
   const [vecA, setVecA] = useState<Vec3>({ x: 1.5, y: 2.0, z: 0.8 });
   const [vecB, setVecB] = useState<Vec3>({ x: 2.2, y: 0.5, z: 1.5 });
@@ -41,7 +48,7 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
   const [lightAzimuth, setLightAzimuth] = useState(45);
   const [showNormals, setShowNormals] = useState(true);
 
-  // Mini-Game State (Tab 4)
+  // Mini-Game State
   const [currentMission, setCurrentMission] = useState<1 | 2 | 3>(1);
   const [missionsCleared, setMissionsCleared] = useState<Record<number, boolean>>({
     1: false,
@@ -68,6 +75,8 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
     }>
   >([]);
 
+  const dualityCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const volumeCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const vectorCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pillarsCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const gameCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -173,6 +182,206 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
     }
     ctx.restore();
   };
+
+  // Draw Tab 0: 3Blue1Brown Duality & Volume Canvases
+  useEffect(() => {
+    if (activeTab !== 'deep') return;
+
+    // 1. Duality Canvas (2D to 1D squish)
+    const c1 = dualityCanvasRef.current;
+    if (c1) {
+      const r1 = c1.parentElement?.getBoundingClientRect();
+      c1.width = r1?.width || 540;
+      c1.height = r1?.height || 310;
+      const ctx = c1.getContext('2d');
+      if (ctx) {
+        const w = c1.width;
+        const h = c1.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const uRad = uAngle * (Math.PI / 180);
+        const ux = Math.cos(uRad);
+        const uy = Math.sin(uRad);
+        const vRad = vAngle * (Math.PI / 180);
+        const vx = 1.9 * Math.cos(vRad);
+        const vy = 1.9 * Math.sin(vRad);
+
+        const cx = w / 2;
+        const cy = h / 2;
+        const scale = 68;
+
+        const transformPt = (x: number, y: number) => {
+          const d = x * ux + y * uy;
+          const px = d * ux;
+          const py = d * uy;
+          const curX = x * (1 - squish) + px * squish;
+          const curY = y * (1 - squish) + py * squish;
+          return { x: cx + curX * scale, y: cy - curY * scale };
+        };
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx - ux * 3.5 * scale, cy + uy * 3.5 * scale);
+        ctx.lineTo(cx + ux * 3.5 * scale, cy - uy * 3.5 * scale);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.2)';
+        ctx.lineWidth = 1;
+        for (let i = -3; i <= 3; i++) {
+          const p1 = transformPt(i, -3);
+          const p2 = transformPt(i, 3);
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+
+          const p3 = transformPt(-3, i);
+          const p4 = transformPt(3, i);
+          ctx.beginPath();
+          ctx.moveTo(p3.x, p3.y);
+          ctx.lineTo(p4.x, p4.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        const origin = { x: cx, y: cy };
+        const pU = { x: cx + ux * scale, y: cy - uy * scale };
+        const pI = transformPt(1, 0);
+        const pJ = transformPt(0, 1);
+        const pV = transformPt(vx, vy);
+
+        drawArrow2D(ctx, origin, pU, '#f59e0b', 3, 'û');
+        drawArrow2D(ctx, origin, pI, '#ef4444', 2.5, squish > 0.8 ? `T(î)=uₓ=${ux.toFixed(2)}` : 'î');
+        drawArrow2D(ctx, origin, pJ, '#22c55e', 2.5, squish > 0.8 ? `T(ĵ)=uᵧ=${uy.toFixed(2)}` : 'ĵ');
+        drawArrow2D(
+          ctx,
+          origin,
+          pV,
+          '#38bdf8',
+          3.2,
+          squish > 0.8 ? `T(v)=${(vx * ux + vy * uy).toFixed(2)}` : 'v'
+        );
+      }
+    }
+
+    // 2. Volume Canvas (3D Parallelepiped)
+    const c2 = volumeCanvasRef.current;
+    if (c2) {
+      const r2 = c2.parentElement?.getBoundingClientRect();
+      c2.width = r2?.width || 540;
+      c2.height = r2?.height || 310;
+      const ctx = c2.getContext('2d');
+      if (ctx) {
+        const w = c2.width;
+        const h = c2.height;
+        ctx.clearRect(0, 0, w, h);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(148,163,184,0.14)';
+        ctx.lineWidth = 1;
+        for (let i = -3; i <= 3; i++) {
+          const p1 = project3D({ x: i, y: 0, z: -3 }, w, h, camYaw, camPitch, 68);
+          const p2 = project3D({ x: i, y: 0, z: 3 }, w, h, camYaw, camPitch, 68);
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+
+          const p3 = project3D({ x: -3, y: 0, z: i }, w, h, camYaw, camPitch, 68);
+          const p4 = project3D({ x: 3, y: 0, z: i }, w, h, camYaw, camPitch, 68);
+          ctx.beginPath();
+          ctx.moveTo(p3.x, p3.y);
+          ctx.lineTo(p4.x, p4.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        const baseA: Vec3 = { x: 2.0, y: 0, z: 0.3 };
+        const baseB: Vec3 = { x: 0.2, y: 0, z: 1.55 };
+        const crossAB = cross(baseA, baseB, true);
+        const unitN = normalize(crossAB);
+
+        const probeX: Vec3 = {
+          x: unitN.x * probeHeight + probeShear * 0.8,
+          y: unitN.y * probeHeight,
+          z: unitN.z * probeHeight + probeShear * 0.5
+        };
+
+        const add3 = (u: Vec3, v: Vec3): Vec3 => ({ x: u.x + v.x, y: u.y + v.y, z: u.z + v.z });
+        const O: Vec3 = { x: 0, y: 0, z: 0 };
+        const AB = add3(baseA, baseB);
+        const XA = add3(probeX, baseA);
+        const XB = add3(probeX, baseB);
+        const XAB = add3(probeX, AB);
+
+        const pO = project3D(O, w, h, camYaw, camPitch, 68);
+        const pA = project3D(baseA, w, h, camYaw, camPitch, 68);
+        const pB = project3D(baseB, w, h, camYaw, camPitch, 68);
+        const pAB = project3D(AB, w, h, camYaw, camPitch, 68);
+
+        const pX = project3D(probeX, w, h, camYaw, camPitch, 68);
+        const pXA = project3D(XA, w, h, camYaw, camPitch, 68);
+        const pXB = project3D(XB, w, h, camYaw, camPitch, 68);
+        const pXAB = project3D(XAB, w, h, camYaw, camPitch, 68);
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.24)';
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(pO.x, pO.y);
+        ctx.lineTo(pA.x, pA.y);
+        ctx.lineTo(pAB.x, pAB.y);
+        ctx.lineTo(pB.x, pB.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = probeHeight >= 0 ? 'rgba(34, 197, 94, 0.22)' : 'rgba(244, 63, 94, 0.22)';
+        ctx.strokeStyle = probeHeight >= 0 ? '#22c55e' : '#f43f5e';
+        ctx.beginPath();
+        ctx.moveTo(pX.x, pX.y);
+        ctx.lineTo(pXA.x, pXA.y);
+        ctx.lineTo(pXAB.x, pXAB.y);
+        ctx.lineTo(pXB.x, pXB.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.setLineDash([3, 3]);
+        [
+          [pO, pX],
+          [pA, pXA],
+          [pB, pXB],
+          [pAB, pXAB]
+        ].forEach(([u, v]) => {
+          ctx.beginPath();
+          ctx.moveTo(u.x, u.y);
+          ctx.lineTo(v.x, v.y);
+          ctx.stroke();
+        });
+        ctx.restore();
+
+        drawArrow2D(ctx, pO, pA, '#f59e0b', 3, 'a');
+        drawArrow2D(ctx, pO, pB, '#06b6d4', 3, 'b');
+        drawArrow2D(ctx, pO, pX, '#22c55e', 3.2, 'Probe x');
+
+        const pCross = project3D(
+          { x: crossAB.x * 0.65, y: crossAB.y * 0.65, z: crossAB.z * 0.65 },
+          w,
+          h,
+          camYaw,
+          camPitch,
+          68
+        );
+        drawArrow2D(ctx, pO, pCross, '#a855f7', 3.5, 'p = a × b');
+      }
+    }
+  }, [activeTab, squish, uAngle, vAngle, probeHeight, probeShear, camYaw, camPitch]);
 
   // Draw Lab 1 Canvas
   useEffect(() => {
@@ -437,7 +646,6 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    // Floor Grid
     ctx.save();
     ctx.strokeStyle = 'rgba(148,163,184,0.14)';
     ctx.lineWidth = 1;
@@ -686,7 +894,6 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
   const crossVec = isSwappedCross ? cross(vecB, vecA) : cross(vecA, vecB);
   const areaVal = norm(crossVec);
 
-  // Mission 1 & 2 derived values
   const m1Eff = Math.max(
     0,
     dot(
@@ -788,7 +995,7 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
               <span>•</span>
               <span>Stage 1 · Lesson 01</span>
               <span>•</span>
-              <span>UC Davis Lec 01 + MIT 6.837 Lec 01</span>
+              <span>UC Davis Lec 01 + MIT 6.837 Lec 01 + 3Blue1Brown Intuition</span>
             </div>
             <h1 className="text-2xl font-bold text-white">
               {isZh
@@ -797,8 +1004,8 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
             </h1>
             <p className="text-sm text-slate-400 mt-1">
               {isZh
-                ? '通过拖拽 3D 向量探索点积与叉积，并在第 4 节通关 3 个星际图形学互动小游戏！'
-                : 'Drag 3D vectors to explore Dot & Cross Products, then beat the 3-Mission Vector Defense Mini-Game!'}
+                ? '从 3Blue1Brown 的“线性变换与对偶性 (Duality)”视角，彻底搞懂为什么点积的坐标相乘等于投影、为什么叉积的行列式必然生成垂直法向量！'
+                : 'Understand WHY coordinate multiplication equals geometric projection and WHY the cross-product determinant yields a perpendicular normal via 3Blue1Brown Duality!'}
             </p>
           </div>
 
@@ -823,14 +1030,20 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
         {/* Sub-navigation Tabs */}
         <div className="flex flex-wrap gap-2 mt-5 pt-4 border-t border-slate-800">
           {[
-            { id: 'lab1', label: isZh ? '1. 3D 向量与点积/叉积实验室' : '1. 3D Vector, Dot & Cross Lab' },
-            { id: 'lab2', label: isZh ? '2. 图形学四大支柱 3D 管线' : '2. The 4 Pillars of CG Pipeline' },
-            { id: 'videos', label: isZh ? '3. 嵌入课程视频与导读 (MIT + UC Davis)' : '3. Embedded Lecture Videos & Notes' },
+            {
+              id: 'deep',
+              label: isZh
+                ? '1. 🧠 深度几何原理与推导 (3Blue1Brown 视角)'
+                : '1. 🧠 Deep Intuition & Proofs (3B1B Style)'
+            },
+            { id: 'lab1', label: isZh ? '2. 🔬 3D 向量点积/叉积实验室' : '2. 🔬 3D Vector, Dot & Cross Lab' },
+            { id: 'lab2', label: isZh ? '3. 🏛️ 图形学四大支柱 3D 管线' : '3. 🏛️ The 4 Pillars of CG Pipeline' },
+            { id: 'videos', label: isZh ? '4. 🎥 嵌入课程视频与精要' : '4. 🎥 Lecture Videos & Notes' },
             {
               id: 'game',
               label: isZh
-                ? `🎮 4. 终极互动小游戏 (${clearedCount}/3 通关)`
-                : `🎮 4. Vector Mini-Game (${clearedCount}/3 Cleared)`
+                ? `5. 🎮 终极互动小游戏 (${clearedCount}/3 通关)`
+                : `5. 🎮 Vector Mini-Game (${clearedCount}/3 Cleared)`
             }
           ].map(tab => (
             <button
@@ -847,6 +1060,222 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
           ))}
         </div>
       </div>
+
+      {/* TAB 0: 3BLUE1BROWN DEEP INTUITION & DERIVATIONS */}
+      {activeTab === 'deep' && (
+        <div className="space-y-6">
+          {/* Part 1: Coordinate-Free vs Basis */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+            <h2 className="text-lg font-bold text-white">
+              {isZh
+                ? '1. 为什么说“自然界没有坐标轴”？点 (Point)、向量 (Vector) 与基向量的真相'
+                : '1. Why "Nature Has No Axes": Points, Vectors, and Basis Vectors'}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs leading-relaxed text-slate-300">
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="font-bold text-amber-400 text-sm">
+                  {isZh ? '① 点 vs 向量：位置与纯粹位移' : '① Point vs. Vector: Position vs. Displacement'}
+                </div>
+                <p>
+                  {isZh
+                    ? '三维空间里本来只有点（位置）和向量（有向位移箭头）。向量没有固定起点——在空间任意平移只要方向和长度不变就是同一个向量！因此：两点相减 (Q - P = v) 得到位移向量；点加向量 (P + v = Q) 移动到新点；而两点直接相加 (P + Q) 没有几何意义！'
+                    : 'Points represent locations; Vectors represent displacements with no fixed origin. Subtracting two points (Q - P = v) gives a displacement vector; adding a vector to a point (P + v = Q) moves to a new point; adding two points (P + Q) is undefined!'}
+                </p>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="font-bold text-cyan-400 text-sm">
+                  {isZh ? '② 坐标 (x, y, z) 是缩放基向量的配方' : '② Coordinates Are a Recipe for Scaling Basis Vectors'}
+                </div>
+                <p>
+                  {isZh
+                    ? '按 3Blue1Brown 的视角，写下 v = (2, 3, -1) 其实是对三个单位基向量 î, ĵ, k̂ 的线性缩放与拼接指令：v = 2·î + 3·ĵ + (-1)·k̂。坐标系只是我们为了把几何箭头翻译成数字而选定的一套基向量标架！'
+                    : 'Writing v = (2, 3, -1) is a recipe for scaling and adding three unit basis vectors: v = 2·î + 3·ĵ + (-1)·k̂.'}
+                </p>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="font-bold text-purple-400 text-sm">
+                  {isZh ? '③ 线性性 (Linearity) 的威力' : '③ The Power of Linearity'}
+                </div>
+                <p>
+                  {isZh
+                    ? '因为任何线性变换都满足 L(x·î + y·ĵ + z·k̂) = x·L(î) + y·L(ĵ) + z·L(k̂)，只要知道三个基向量 î, ĵ, k̂ 变换后落在了哪里，空间中任意向量变换后的结果就等于“坐标乘以基向量落点再相加”！'
+                    : 'By linearity, L(x·î + y·ĵ + z·k̂) = x·L(î) + y·L(ĵ) + z·L(k̂). Knowing where î, ĵ, k̂ land tells us where every vector lands!'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Part 2: Dot Product Duality */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5">
+            <div>
+              <h2 className="text-lg font-bold text-white">
+                {isZh
+                  ? '2. 点积的灵魂拷问：为什么“对应坐标相乘再相加 (uₓvₓ + uᵧvᵧ + u_zv_z)”恰好等于“几何投影 ||u||||v||cos(θ)”？'
+                  : '2. Dot Product Deep Dive: Why Does "uₓvₓ + uᵧvᵧ + u_zv_z" Equal Geometric Projection "||u||||v||cos(θ)"?'}
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              <div className="lg:col-span-6 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div className="text-sm font-bold text-indigo-300">
+                  {isZh
+                    ? '🔬 3Blue1Brown 对偶性交互演示：把二维空间线性挤压到一维数轴'
+                    : '🔬 3Blue1Brown Duality Explorer: Squishing 2D Space onto a 1D Line'}
+                </div>
+                <div className="relative w-full rounded-lg overflow-hidden border border-slate-800 bg-slate-900" style={{ height: 310 }}>
+                  <canvas ref={dualityCanvasRef} className="w-full h-full" />
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <div className="flex justify-between font-semibold mb-1 text-amber-300">
+                      <span>{isZh ? '✨ 拖动体验空间向一维数轴投影坍缩 (Squish t):' : '✨ Drag to Squish 2D Space onto 1D Line:'}</span>
+                      <span className="font-mono">{Math.round(squish * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={squish}
+                      onChange={e => setSquish(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <span className="text-slate-400">{isZh ? '数轴倾角 (û Angle)' : '1D Line Angle'}</span>
+                      <input
+                        type="range"
+                        min="-75"
+                        max="75"
+                        value={uAngle}
+                        onChange={e => setUAngle(parseFloat(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-slate-400">{isZh ? '旋转测试向量 v' : 'Rotate Vector v'}</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        value={vAngle}
+                        onChange={e => setVAngle(parseFloat(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-6 space-y-3 text-xs leading-relaxed text-slate-300">
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                  <div className="font-bold text-white text-sm">
+                    {isZh ? '第一层：几何投影与对称性 (为什么 u · v = v · u)' : 'Layer 1: Geometric Projection & Symmetry'}
+                  </div>
+                  <p>
+                    {isZh
+                      ? '当 ||u|| = ||v|| 时，两个等长向量关于它们的角平分线完全镜像对称，把 v 投到 u 上的长度与把 u 投到 v 上的长度必然相等！如果把其中一个向量 u 拉长 k 倍，投影本身不变但乘数放大了 k 倍，两边依然严格相等。'
+                      : 'When ||u|| = ||v||, the vectors are mirror-symmetric across their bisector, so projecting v onto u equals projecting u onto v. Scaling u by k scales both sides equally!'}
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                  <div className="font-bold text-amber-400 text-sm">
+                    {isZh
+                      ? '第二层（3Blue1Brown 灵魂洞见）：对偶性 (Duality) —— 为什么坐标相乘等于投影？'
+                      : 'Layer 2 (3Blue1Brown Duality): Why Coordinate Multiplication Equals Projection'}
+                  </div>
+                  <p>
+                    {isZh
+                      ? '请拖动左侧滑块把 2D 网格挤压到单位向量 û = (uₓ, uᵧ) 的数轴上！因为投影是线性的，任意向量 v = vₓî + vᵧĵ 在数轴上的落点 T(v) = vₓT(î) + vᵧT(ĵ)。而根据对称性，X 轴单位向量 î=(1,0) 在 û 数轴上的投影刻度 T(î)，完全等于把 û 投影回 X 轴的坐标——也就是 uₓ！同理 T(ĵ) = uᵧ。所以 T(v) = uₓvₓ + uᵧvᵧ！原来“坐标相乘再相加”就是在执行向一维数轴的线性投影变换！'
+                      : 'Drag the Squish slider on the left! By linearity, projecting v = vₓî + vᵧĵ onto the û line gives T(v) = vₓT(î) + vᵧT(ĵ). By symmetry, where î=(1,0) lands on the û line is identical to projecting û onto the X-axis—which is literally uₓ! Similarly T(ĵ) = uᵧ. Thus T(v) = uₓvₓ + uᵧvᵧ!'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Part 3: Cross Product Volume Duality */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5">
+            <h2 className="text-lg font-bold text-white">
+              {isZh
+                ? '3. 叉积的终极解密：为什么 3×3 行列式 (aᵧb_z - a_zbᵧ, ...) 一定垂直于 a 和 b，且长度恰好是平行四边形面积？'
+                : '3. Cross Product Deep Dive: Why Must the Determinant Formula Be Perpendicular to a & b with Length Equal to Area?'}
+            </h2>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              <div className="lg:col-span-6 space-y-3 text-xs leading-relaxed text-slate-300">
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                  <div className="font-bold text-purple-400 text-sm">
+                    {isZh
+                      ? '3Blue1Brown 皇冠证明：三维平行六面体体积 V(x) = det([x, a, b]) = (a × b) · x'
+                      : '3Blue1Brown Proof: 3D Parallelepiped Volume V(x) = det([x, a, b]) = (a × b) · x'}
+                  </div>
+                  <p>
+                    {isZh
+                      ? '固定底面向量 a 和 b，引入可变探针向量 x = (x, y, z)，计算它们张成的三维平行六面体有向体积 V(x) = det([x, a, b])：① 按第一列代数展开行列式：V(x) = x(aᵧb_z - a_zbᵧ) + y(a_zbₓ - aₓb_z) + z(aₓbᵧ - aᵧbₓ) = p · x。② 从立体几何看：斜棱柱体积 = 底面积 Area × 探针 x 在底面单位法线 n̂ 上的投影高度 (n̂ · x) = (Area · n̂) · x。③ 既然对任意向量 x 都有 p · x = (Area · n̂) · x，那么那个由行列式算出来的向量 p 必然垂直于底面 a, b，且模长必然等于底面平行四边形面积 Area！'
+                      : 'Fix base vectors a and b, and let probe vector x=(x,y,z) vary. The signed volume V(x) = det([x, a, b]) expands algebraically to p · x where p = (aᵧb_z - a_zbᵧ, ...). Geometrically, Volume = BaseArea × Height = BaseArea × (n̂ · x) = (BaseArea · n̂) · x. Since p · x = (BaseArea · n̂) · x for ALL x, vector p MUST equal BaseArea · n̂!'}
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                  <div className="font-bold text-cyan-400 text-sm">
+                    {isZh
+                      ? '为什么叉积的 X 分量 (aᵧb_z - a_zbᵧ) 偏偏不含 X？'
+                      : 'Why Does the X-Component (aᵧb_z - a_zbᵧ) Exclude X?'}
+                  </div>
+                  <p>
+                    {isZh
+                      ? '因为 aᵧb_z - a_zbᵧ 正好是三维平行四边形投影到 YZ 墙面（垂直于 X 轴）上的 2D 阴影面积！一个平面越是正对着 X 轴（法向量 X 分量越大），它在 YZ 墙面上的投影面积就越大！'
+                      : 'Because aᵧb_z - a_zbᵧ is the 2D signed shadow area projected onto the YZ wall (perpendicular to X)!'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="lg:col-span-6 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div className="text-sm font-bold text-purple-300">
+                  {isZh
+                    ? '🔬 3D 平行六面体体积探针：水平切变 (Shear) 不改变体积！'
+                    : '🔬 3D Parallelepiped Volume Probe: Horizontal Shear Preserves Volume!'}
+                </div>
+                <div
+                  className="relative w-full rounded-lg overflow-hidden border border-slate-800 bg-slate-900"
+                  style={{ height: 310 }}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                >
+                  <canvas ref={volumeCanvasRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-400">{isZh ? '探针垂直高度 h (沿 a×b)' : 'Orthogonal Height h'}</span>
+                    <input
+                      type="range"
+                      min="-1.8"
+                      max="2.0"
+                      step="0.1"
+                      value={probeHeight}
+                      onChange={e => setProbeHeight(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-slate-400">{isZh ? '水平切变 (Shear, 不改体积!)' : 'Horizontal Shear'}</span>
+                    <input
+                      type="range"
+                      min="-1.5"
+                      max="1.5"
+                      step="0.1"
+                      value={probeShear}
+                      onChange={e => setProbeShear(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TAB 1: VECTOR SANDBOX */}
       {activeTab === 'lab1' && (
@@ -1072,14 +1501,6 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
                   </div>
                   <div className="text-lg font-bold font-mono text-purple-400">{(areaVal * 0.5).toFixed(2)}</div>
                 </div>
-              </div>
-              <div className="pt-2 flex justify-end">
-                <button
-                  onClick={() => setActiveTab('game')}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition"
-                >
-                  {isZh ? '🎮 去玩向量通关小游戏 →' : '🎮 Play Vector Mini-Game →'}
-                </button>
               </div>
             </div>
           </div>
@@ -1467,6 +1888,12 @@ export const Lesson01Vectors: React.FC<Lesson01Props> = ({
                       <span>{isZh ? '护盾面积 ||a × b|| (需 ≥ 3.20):' : 'Shield Area ||a × b|| (≥ 3.20):'}</span>
                       <span className="font-mono font-bold">{m2ShieldArea.toFixed(2)}</span>
                     </div>
+                    <button
+                      onClick={() => setM2TargetTilt(Math.round(Math.random() * 100 - 50))}
+                      className="w-full py-1.5 mt-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200"
+                    >
+                      {isZh ? '🎲 随机新陨石来袭倾角' : '🎲 Randomize Meteor Angle'}
+                    </button>
                   </div>
                 </div>
               )}
