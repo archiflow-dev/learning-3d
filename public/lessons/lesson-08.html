@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 08: 样条曲线进阶：连续性 (Cⁿ/Gⁿ)、Catmull-Rom 与 B-Splines | 3Blue1Brown + MIT 6.837 + UC Davis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #020617;
+      color: #f8fafc;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    canvas {
+      touch-action: none;
+    }
+    input[type="range"] {
+      accent-color: #10b981;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white">
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 transition">
+          ← <span data-i18n="Portal Index">课程总目录 (Index)</span>
+        </a>
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 via-emerald-500 to-cyan-500 flex items-center justify-center font-black text-white shadow">
+          L8
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold text-white tracking-tight" data-i18n="L08: Splines, Continuity (Cⁿ / Gⁿ), Catmull-Rom & Uniform Cubic B-Splines">
+            L08: 样条曲线进阶：连续性 (Cⁿ / Gⁿ)、Catmull-Rom 与均匀三次 B-Splines
+          </h1>
+          <p class="text-[11px] text-slate-400" data-i18n="3Blue1Brown / Freya Holmér Continuity Physics • MIT 6.837 Lec 03 (Justin Solomon) • UC Davis Lec 13">
+            3Blue1Brown 连续性与曲率梳物理直觉 • MIT 6.837 Lec 03 (Justin Solomon) • UC Davis Lec 13
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <span class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 text-xs font-semibold">
+          <span>●</span>
+          <span data-i18n="Stage 2: Curves, Surfaces & 3D Geometry">Stage 2: 曲线、曲面与 3D 几何表示</span>
+        </span>
+        <button id="langToggleBtn" onclick="toggleLanguage()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition shadow-sm">
+          <span>🌐</span>
+          <span id="langBtnLabel">EN / English</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <!-- Hero Intro Banner -->
+    <section class="rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-teal-950/40 to-indigo-950/30 p-6">
+      <div class="space-y-2 max-w-4xl">
+        <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-teal-500/15 border border-teal-400/30 text-teal-300 text-xs font-semibold">
+          <span>🎢 Piecewise Cubic Splines & Curvature Combs</span>
+          <span>•</span>
+          <span data-i18n="Why C¹ looks smooth but still jerks your neck — and how B-Splines achieve automatic C² continuity">为什么 C¹ 看起来光滑却依然会闪断乘客的脖子？B-Spline 如何实现全自动 C² 连续？</span>
+        </div>
+        <h2 class="text-xl sm:text-2xl font-extrabold text-white" data-i18n="Stitching Curves Without Seams: C⁰/C¹/C² vs. G¹/G², Catmull-Rom & B-Splines">
+          无缝拼接的艺术：从 Cⁿ/Gⁿ 连续性与曲率梳，到 Catmull-Rom 穿点样条与 B-Spline 滑动窗口
+        </h2>
+        <p class="text-xs sm:text-sm text-slate-300 leading-relaxed" data-i18n="In Lesson 07, a single Cubic Bézier curve had only 4 control points. What if a roller coaster or font outline needs 50 points? A degree-50 polynomial wiggles wildly and has zero local control! Instead, we stitch many cubic segments together. Discover the physical difference between C¹ and G¹, inspect Curvature Combs, and compare Catmull-Rom vs. Uniform Cubic B-Splines!">
+          在 Lesson 07 中，一段三次 Bézier 曲线只有 4 个控制点。如果要画一条有 50 个控制点的过山车轨道怎么办？直接用 50 次多项式不仅会剧烈震荡（龙格现象），而且“牵一发而动全身”（无局部控制性）！工程界的标准答案是**分段三次样条 (Piecewise Cubic Splines)**：用每段 4 个点的局部滑动窗口，拼出无限长、局部可控且具备 $C^1$ 或 $C^2$ 光滑度的完美曲线！
+        </p>
+      </div>
+
+      <!-- 4 Main Navigation Tabs -->
+      <div class="mt-6 flex flex-wrap gap-2 border-t border-slate-800/80 pt-4">
+        <button onclick="switchTab('concepts')" id="tabBtn-concepts" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600 text-white shadow">
+          1. <span data-i18n="C⁰/G¹/C¹/C² Continuity & Curvature Microscope">Cⁿ/Gⁿ 连续性物理直觉与曲率梳显微镜</span>
+        </button>
+        <button onclick="switchTab('lab')" id="tabBtn-lab" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+          2. <span data-i18n="Multi-Point Spline Arena (Bézier / Catmull-Rom / B-Spline)">多点样条竞技场 (Bézier vs Catmull-Rom vs B-Spline)</span>
+        </button>
+        <button onclick="switchTab('videos')" id="tabBtn-videos" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+          3. <span data-i18n="MIT 6.837 Lec 03 & UC Davis Lec 13">名校公开课视频与精要笔记</span>
+        </button>
+        <button onclick="switchTab('game')" id="tabBtn-game" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/40">
+          🎮 4. <span data-i18n="3-Mission Game: Maglev Coaster Track Engineer">3 关实战游戏：磁悬浮过山车连续性工程师</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 1: CONTINUITY & CURVATURE COMB MICROSCOPE ==================== -->
+    <section id="tab-concepts" class="space-y-8">
+      <!-- Part 1: C0, G1, C1, C2 Continuity & Curvature Combs -->
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider" data-i18n="Part 1 • Parametric Continuity (Cⁿ) vs. Geometric Continuity (Gⁿ)">Part 1 • 参数连续性 (Cⁿ) vs 几何连续性 (Gⁿ) 与曲率梳物理直觉</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Why Does a Road That Looks Smooth (G¹) Still Jerk Your Steering Wheel Without C² / G²?">
+              为什么两段看起来平滑相接的轨道 (G¹/C¹)，依然会让过山车乘客脖子闪断或让跑车外壳高光折断？
+            </h3>
+          </div>
+          <span class="px-3 py-1 rounded-lg bg-emerald-950 border border-emerald-700/50 text-xs mono text-emerald-300">
+            κ(t) = (x'y'' - y'x'') / (x'² + y'²)^(3/2)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5 text-xs text-slate-300 leading-relaxed">
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-rose-500/30 space-y-1.5">
+            <div class="font-bold text-rose-300 text-sm">C⁰ / G⁰：位置连续 (Position)</div>
+            <div class="p-1.5 rounded bg-slate-900 mono text-[11px] text-rose-200">S₀(1) = S₁(0) = P₃</div>
+            <p class="text-slate-400" data-i18n="Segments touch at P₃, but handles P₂ and P₄ form a sharp corner. Velocity direction jumps instantaneously!">
+              两段曲线在接口 $\mathbf{P}_3$ 相连不断裂，但左右切柄 $\mathbf{P}_2\mathbf{P}_3$ 与 $\mathbf{P}_3\mathbf{P}_4$ 折出尖角，速度方向瞬间突变！
+            </p>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-amber-500/30 space-y-1.5">
+            <div class="font-bold text-amber-300 text-sm">G¹：切线方向连续 (Collinear)</div>
+            <div class="p-1.5 rounded bg-slate-900 mono text-[11px] text-amber-200">P₄ - P₃ = k·(P₃ - P₂), k &gt; 0</div>
+            <p class="text-slate-400" data-i18n="P₂, P₃, P₄ are collinear (180° straight line), so the static shape has no corner! However, if k ≠ 1, a moving camera suddenly lurches in speed!">
+              $\mathbf{P}_2, \mathbf{P}_3, \mathbf{P}_4$ <strong>三点共线</strong>，静态图形完全没有折角！但如果左右手柄一长一短 ($k\neq 1$)，匀速运动经过接口时<strong>车速会突然跳变</strong>！
+            </p>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-cyan-500/30 space-y-1.5">
+            <div class="font-bold text-cyan-300 text-sm">C¹：一阶速度连续 (Velocity)</div>
+            <div class="p-1.5 rounded bg-slate-900 mono text-[11px] text-cyan-200">P₄ - P₃ = P₃ - P₂ (k = 1)</div>
+            <p class="text-slate-400" data-i18n="Handles P₂P₃ and P₃P₄ are collinear AND equal length! Velocity vector S'(t) is continuous, yet acceleration S''(t) and curvature κ(t) still jump!">
+              左右手柄<strong>共线且等长</strong> ($\mathbf{P}_3$ 是 $\mathbf{P}_2\mathbf{P}_4$ 中点)。速度向量平滑过渡，但<strong>二阶加速度与曲率梳 $\kappa(t)$ 在接口处依然发生断崖跳变</strong>！
+            </p>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-emerald-500/30 space-y-1.5">
+            <div class="font-bold text-emerald-300 text-sm">C²：二阶加速度连续 (A-Class)</div>
+            <div class="p-1.5 rounded bg-slate-900 mono text-[11px] text-emerald-200">S₀''(1) = S₁''(0)</div>
+            <p class="text-slate-400" data-i18n="Both velocity S'(t) and acceleration S''(t) match at the joint: P₁ - 2P₂ + P₃ = P₃ - 2P₄ + P₅. The Curvature Comb envelope is completely unbroken!">
+              接口处不仅速度相等，加速度也相等（满足 $\mathbf{P}_1 - 2\mathbf{P}_2 + \mathbf{P}_3 = \mathbf{P}_3 - 2\mathbf{P}_4 + \mathbf{P}_5$）。<strong>曲率梳包络线丝滑连续，方向盘零顿挫！</strong>
+            </p>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer 1: Joint Continuity & Curvature Comb Microscope -->
+        <div class="rounded-xl border border-emerald-500/30 bg-slate-950 p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-bold text-white" data-i18n="Interactive Visualizer 1: Two-Segment Joint Continuity & Curvature Comb Microscope">
+                🔬 交互透视镜 1：两段拼接点 ($\mathbf{P}_3$) 的 $C^0 \to G^1 \to C^1 \to C^2$ 连续性与曲率梳 ($\kappa$) 显微镜
+              </h4>
+              <p class="text-xs text-slate-400" data-i18n="Click the 4 Continuity Modes below or drag handle P₄ on the canvas to watch how the magenta Curvature Comb teeth behave across the joint P₃!">
+                点击右侧 4 种连续性锁定模式（或在画布上直接拖拽控制点 $\mathbf{P}_4$），重点观察紫色**曲率梳 (Curvature Comb)** 在接头 $\mathbf{P}_3$ 处是断裂还是连续！
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              <button onclick="setJointMode('C0')" id="jModeBtnC0" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">
+                1. C⁰ (尖角折断)
+              </button>
+              <button onclick="setJointMode('G1')" id="jModeBtnG1" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">
+                2. G¹ (共线不等长 k=1.8)
+              </button>
+              <button onclick="setJointMode('C1')" id="jModeBtnC1" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">
+                3. C¹ (对称等长，但曲率跳变!)
+              </button>
+              <button onclick="setJointMode('C2')" id="jModeBtnC2" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow">
+                4. C² (加速度锁死，曲率梳无缝!)
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-7">
+              <canvas id="jointCanvas" width="600" height="350" class="w-full rounded-xl border border-slate-800 bg-slate-900 cursor-pointer"></canvas>
+            </div>
+            <div class="lg:col-span-5 space-y-3 text-xs">
+              <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2.5 mono">
+                <div class="text-slate-400 font-sans font-bold">接头 P₃ 两侧物理量跳变遥测 (At Joint P₃):</div>
+                <div class="flex justify-between p-2 rounded bg-slate-950">
+                  <span class="text-slate-400">切线方向夹角 Δθ:</span>
+                  <span id="jointAngleJump" class="font-bold text-emerald-300">0.0°</span>
+                </div>
+                <div class="flex justify-between p-2 rounded bg-slate-950">
+                  <span class="text-slate-400">速度跳跃 ||S₁'(0) - S₀'(1)||:</span>
+                  <span id="jointVelJump" class="font-bold text-cyan-300">0.0</span>
+                </div>
+                <div class="flex justify-between p-2 rounded bg-slate-950">
+                  <span class="text-slate-400">加速度跳跃 ||S₁''(0) - S₀''(1)||:</span>
+                  <span id="jointAccJump" class="font-bold text-amber-300">0.0</span>
+                </div>
+              </div>
+
+              <div id="jointExplainBox" class="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-slate-200 leading-relaxed">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Catmull-Rom vs Uniform Cubic B-Spline Matrix Derivations -->
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider" data-i18n="Part 2 • MIT 6.837 Lec 03: Automatic Tangents & Sliding Window Matrices">Part 2 • MIT 6.837 Lec 03：两大经典样条的 4×4 基矩阵推导</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Catmull-Rom (C¹ Interpolating) vs. Uniform Cubic B-Spline (C² Approximating)">
+              如何摆脱手动调切柄？Catmull-Rom（自动穿点 C¹）vs 均匀三次 B-Spline（全自动 C²）
+            </h3>
+          </div>
+          <span class="px-3 py-1 rounded-lg bg-cyan-950 border border-cyan-700/50 text-xs mono text-cyan-300">
+            4-Point Sliding Window [Pᵢ₋₁, Pᵢ, Pᵢ₊₁, Pᵢ₊₂]
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs text-slate-300 leading-relaxed">
+          <div class="p-5 rounded-xl bg-slate-950 border border-amber-500/30 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-amber-300 text-sm">1. Catmull-Rom 样条：用邻居连线自动生成切向量</span>
+              <span class="px-2 py-0.5 rounded bg-amber-950 text-amber-300 mono text-[10px]">C¹ • 严格穿点</span>
+            </div>
+            <p class="text-slate-400">
+              假设给定一串必经航点 $\dots, \mathbf{P}_{i-1}, \mathbf{P}_i, \mathbf{P}_{i+1}, \mathbf{P}_{i+2}, \dots$。为了连接 $\mathbf{P}_i \to \mathbf{P}_{i+1}$ 且无需人工摆弄切线手柄，Catmull 与 Rom 规定：<strong>点 $\mathbf{P}_i$ 处的切向量直接取它前后两个邻居连线的一半！</strong>
+            </p>
+            <div class="p-2.5 rounded bg-slate-900 mono text-[11px] text-amber-200">
+              vᵢ = ½(Pᵢ₊₁ - Pᵢ₋₁), &nbsp;&nbsp; vᵢ₊₁ = ½(Pᵢ₊₂ - Pᵢ)<br/>
+              ⇒ 等价 Bézier 内控制点:<br/>
+              B₁ = Pᵢ + (1/6)(Pᵢ₊₁ - Pᵢ₋₁), &nbsp;&nbsp; B₂ = Pᵢ₊₁ - (1/6)(Pᵢ₊₂ - Pᵢ)
+            </div>
+            <div class="p-2.5 rounded bg-slate-900 mono text-[11px] text-slate-300">
+              M_CatmullRom = (1/2) · [<br/>
+              &nbsp;&nbsp; 0, -1,  2, -1;<br/>
+              &nbsp;&nbsp; 2,  0, -5,  3;<br/>
+              &nbsp;&nbsp; 0,  1,  4, -3;<br/>
+              &nbsp;&nbsp; 0,  0, -1,  1 ]
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl bg-slate-950 border border-emerald-500/30 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-emerald-300 text-sm">2. 均匀三次 B-Spline：放弃穿点，换取完美 C² 与凸包</span>
+              <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 mono text-[10px]">C² • 1/6:4/6:1/6 加权</span>
+            </div>
+            <p class="text-slate-400">
+              为什么 Catmull-Rom 无法做到 $C^2$ 连续？因为强迫曲线穿过每一个点会限制曲率的自由度！如果允许分段接头位于连续三个控制点的 <strong>$\frac{1}{6} : \frac{4}{6} : \frac{1}{6}$ 加权质心</strong>处，就能解出唯一满足 $C^0+C^1+C^2$ 全连续的 <strong>B-Spline 基矩阵</strong>：
+            </p>
+            <div class="p-2.5 rounded bg-slate-900 mono text-[11px] text-emerald-200">
+              接头位置 Sᵢ(0) = (1/6)Pᵢ₋₁ + (4/6)Pᵢ + (1/6)Pᵢ₊₁<br/>
+              接头速度 Sᵢ'(0) = ½(Pᵢ₊₁ - Pᵢ₋₁)<br/>
+              接头加速度 Sᵢ''(0) = Pᵢ₋₁ - 2Pᵢ + Pᵢ₊₁ (只与这3个点有关，完美交接!)
+            </div>
+            <div class="p-2.5 rounded bg-slate-900 mono text-[11px] text-slate-300">
+              M_BSpline = (1/6) · [<br/>
+              &nbsp;&nbsp; 1, -3,  3, -1;<br/>
+              &nbsp;&nbsp; 4,  0, -6,  3;<br/>
+              &nbsp;&nbsp; 1,  3,  3, -3;<br/>
+              &nbsp;&nbsp; 0,  0,  0,  1 ]
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: MULTI-POINT SPLINE ARENA ==================== -->
+    <section id="tab-lab" class="hidden space-y-6">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Multi-Point Spline Comparison & Local Control Workbench</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Same 7 Control Points: Overlay Catmull-Rom (C¹) vs. Uniform B-Spline (C²) & Inspect Local Support!">
+              同一组 7 个控制点 P₀..P₆：同屏对比 Catmull-Rom (穿点 C¹) 与均匀 B-Spline (逼近 C²) 的曲率梳与局部控制区间！
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="resetArenaPoints('wave')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">
+              🌊 <span data-i18n="Wave Track">波浪轨道</span>
+            </button>
+            <button onclick="resetArenaPoints('sharp')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">
+              ⚡ <span data-i18n="Sharp Zigzag (Overshoot Test)">急转折线 (测试过冲)</span>
+            </button>
+            <button onclick="resetArenaPoints('canyon')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">
+              🏔️ <span data-i18n="Canyon Valley">深谷回旋</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-8 space-y-3">
+            <div class="relative">
+              <canvas id="arenaCanvas" width="760" height="430" class="w-full rounded-xl border border-slate-800 bg-slate-950 cursor-pointer"></canvas>
+              <div class="absolute top-3 left-3 px-3 py-1.5 rounded-lg bg-slate-950/85 border border-slate-800 text-[11px] text-slate-300 pointer-events-none">
+                🖱️ <span data-i18n="Drag any control point P₀..P₆! Notice only adjacent segments change (Local Control)!">拖动任意控制点 P₀..P₆！注意只有相邻的局部曲線段发生变化（局部控制性）！</span>
+              </div>
+            </div>
+
+            <!-- Toggles & Tension Slider -->
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
+              <div class="flex flex-wrap gap-4">
+                <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" id="chkShowCR" checked onchange="drawArenaCanvas()" />
+                  <span class="font-bold text-amber-300">● Catmull-Rom (C¹ 穿点插值)</span>
+                </label>
+                <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" id="chkShowBS" checked onchange="drawArenaCanvas()" />
+                  <span class="font-bold text-emerald-300">● Uniform Cubic B-Spline (C² 平滑逼近)</span>
+                </label>
+                <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" id="chkShowComb" checked onchange="drawArenaCanvas()" />
+                  <span class="font-bold text-fuchsia-300" data-i18n="Curvature Comb κ(t)">显示曲率梳 κ(t)</span>
+                </label>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span class="text-slate-400">滑动窗口高亮段 (Segment i):</span>
+                <input id="arenaSegSlider" type="range" min="0" max="3" step="1" value="1" oninput="drawArenaCanvas()" class="w-28" />
+                <span id="arenaSegLabel" class="mono font-bold text-cyan-300">Seg #1 [P₁,P₂,P₃,P₄]</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-4 space-y-4 text-xs">
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+              <h4 class="font-bold text-cyan-300 uppercase tracking-wider" data-i18n="Active 4-Point Sliding Window">
+                🪟 当前激活的 4 点滑动窗口分析
+              </h4>
+              <div id="arenaWindowInfo" class="p-3 rounded-lg bg-slate-900 border border-slate-800 mono text-[11px] space-y-1.5 text-slate-300">
+              </div>
+              <p class="text-slate-400 leading-relaxed" data-i18n="Why is Local Control so important? With 7 points P₀..P₆, there are 4 cubic segments: Seg 0 uses [P₀,P₁,P₂,P₃], Seg 1 uses [P₁,P₂,P₃,P₄], Seg 2 uses [P₂,P₃,P₄,P₅], and Seg 3 uses [P₃,P₄,P₅,P₆]. Dragging P₀ NEVER affects Seg 1, 2, or 3!">
+                <strong>什么是局部控制性 (Local Control)？</strong> 7 个控制点共生成 4 段三次曲线：第 0 段只读 <span class="mono">[P₀,P₁,P₂,P₃]</span>，第 1 段只读 <span class="mono">[P₁,P₂,P₃,P₄]</span>……当你拖动 <span class="mono text-rose-300">P₀</span> 时，第 1、2、3 段曲线纹丝不动！
+              </p>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-950 border border-emerald-500/30 space-y-2">
+              <div class="font-bold text-emerald-300" data-i18n="Compare the Two Curves on Screen:">
+                👀 观察画布上两条曲线的核心差异：
+              </div>
+              <ul class="list-disc pl-4 space-y-1.5 text-slate-300 leading-relaxed">
+                <li><strong class="text-amber-300">琥珀色 Catmull-Rom</strong>：老老实实穿过中间每一个控制点 $\mathbf{P}_1..\mathbf{P}_5$，但在急转弯处容易向外“过冲 (Overshoot)”，且接头处曲率会发生跳变。</li>
+                <li><strong class="text-emerald-300">翠绿色 B-Spline</strong>：虽然不穿过控制点（接头位于 $\frac{1}{6}\mathbf{P}_{i-1}+\frac{4}{6}\mathbf{P}_i+\frac{1}{6}\mathbf{P}_{i+1}$），但它的紫色曲率梳包络线如丝绸般顺滑不断裂！</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: UNIVERSITY LECTURES & NOTES ==================== -->
+    <section id="tab-videos" class="hidden space-y-6">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+          <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Course References • MIT 6.837 Lecture 03 & UC Davis Lecture 13</span>
+          <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="MIT 6.837 Lecture 03: Curves II / Splines (Prof. Justin Solomon)">
+            配套名校公开课：MIT 6.837 Lecture 03 (Splines & B-Splines) 与五大曲线家族全对比表
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 text-xs sm:text-sm text-slate-300">
+          <div class="lg:col-span-6 rounded-xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-rose-950 border border-rose-700/50 text-xs font-bold text-rose-300">MIT 6.837 • Fall 2021 • Lecture 03</span>
+              <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">
+                YouTube Playlist ↗
+              </a>
+            </div>
+            <h4 class="text-base font-bold text-white">Prof. Justin Solomon — Curves II: Splines, Continuity & B-Splines</h4>
+            <div class="aspect-video rounded-xl overflow-hidden border border-slate-800 bg-slate-900">
+              <iframe class="w-full h-full" src="https://www.youtube.com/embed/videoseries?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi&index=3" title="MIT 6.837 Lecture 03: Splines" allowfullscreen></iframe>
+            </div>
+          </div>
+
+          <!-- Comparison Matrix Table -->
+          <div class="lg:col-span-6 rounded-xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+            <h4 class="text-base font-bold text-white" data-i18n="Master Comparison Table: Cubic Curve Families">
+              📊 三次曲线与样条家族终极对比表 (MIT 6.837 核心考纲)
+            </h4>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400">
+                    <th class="py-2 pr-2">样条类型 (Type)</th>
+                    <th class="py-2 px-2">穿过控制点?</th>
+                    <th class="py-2 px-2">自动连续性</th>
+                    <th class="py-2 px-2">凸包性质?</th>
+                    <th class="py-2 pl-2">典型应用场景</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/80 text-slate-300">
+                  <tr>
+                    <td class="py-2.5 pr-2 font-bold text-indigo-300">Piecewise Bézier</td>
+                    <td class="py-2.5 px-2">首尾穿点 ($\mathbf{P}_0,\mathbf{P}_3$)</td>
+                    <td class="py-2.5 px-2">$C^0$ (需手动对齐手柄得 $G^1/C^1$)</td>
+                    <td class="py-2.5 px-2 text-emerald-400">✓ 是 ($B_i \ge 0$)</td>
+                    <td class="py-2.5 pl-2">SVG/字体/Illustrator 钢笔工具</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2.5 pr-2 font-bold text-cyan-300">Cubic Hermite</td>
+                    <td class="py-2.5 px-2">穿两端点</td>
+                    <td class="py-2.5 px-2">共享 $(P, v)$ 即自动 $C^1$</td>
+                    <td class="py-2.5 px-2 text-rose-400">✗ 否</td>
+                    <td class="py-2.5 pl-2">动画关键帧曲线编辑器 (K-frame)</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2.5 pr-2 font-bold text-amber-300">Catmull-Rom</td>
+                    <td class="py-2.5 px-2 text-emerald-400">✓ 穿过全部内点</td>
+                    <td class="py-2.5 px-2 text-amber-300">全自动 $C^1$</td>
+                    <td class="py-2.5 px-2 text-rose-400">✗ 否 (可轻微过冲)</td>
+                    <td class="py-2.5 pl-2">相机漫游路径、游戏轨迹规划</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2.5 pr-2 font-bold text-emerald-300">Uniform B-Spline</td>
+                    <td class="py-2.5 px-2 text-amber-300">✗ 逼近 ($\frac{1}{6},\frac{4}{6},\frac{1}{6}$)</td>
+                    <td class="py-2.5 px-2 text-emerald-400 font-bold">全自动 $C^2$</td>
+                    <td class="py-2.5 px-2 text-emerald-400">✓ 强凸包性质</td>
+                    <td class="py-2.5 pl-2">汽车 A 级曲面、NURBS 工业造型</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 leading-relaxed">
+              💡 <strong>如何把任意样条变成 Bézier 来渲染？(Basis Conversion Formula)</strong><br/>
+              只要令 $G_{\text{Bezier}} = G_{\text{Spline}} \cdot M_{\text{Spline}} \cdot M_{\text{Bezier}}^{-1}$，任何 B-Spline 或 Catmull-Rom 段都能瞬间转换成 4 个等效的 Bézier 控制点，直接交给显卡的 Bézier 细分管线绘制！
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-game" class="hidden space-y-6">
+      <div class="rounded-2xl border border-indigo-500/40 bg-slate-900/90 p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider">🎮 Interactive 3-Mission Challenge</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Maglev Coaster Continuity & Spline Track Engineer">
+              3 关实战小游戏：磁悬浮过山车连续性修复、Catmull-Rom 穿点导航与 B-Spline 零冲击调校
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="selectGameMission(1)" id="gBtn1" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white">
+              Mission 1: <span data-i18n="Mirror C¹ Handle Rescue">镜像手柄修复 C¹ 脱轨</span>
+            </button>
+            <button onclick="selectGameMission(2)" id="gBtn2" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 2: <span data-i18n="Catmull-Rom Canyon Chord">Catmull-Rom 弦切线穿环</span>
+            </button>
+            <button onclick="selectGameMission(3)" id="gBtn3" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 3: <span data-i18n="B-Spline 1/6:4/6:1/6 Station">B-Spline (1/6:4/6:1/6) 零冲击进站</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- Left: Game Canvas -->
+          <div class="lg:col-span-7 space-y-3">
+            <canvas id="gameCanvas" width="640" height="400" class="w-full rounded-xl border border-slate-800 bg-slate-950 cursor-pointer"></canvas>
+            <div class="grid grid-cols-3 gap-3 text-xs">
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-slate-400" data-i18n="Active Control Handle">当前调节坐标</div>
+                <div id="gCoordReadout" class="mono font-bold text-cyan-300 mt-0.5">(0, 0)</div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-slate-400" data-i18n="Joint / Target Error">接头速度跳变 / 位置误差</div>
+                <div id="gErrorReadout" class="mono font-bold text-amber-300 mt-0.5">0.0 px</div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-slate-400" data-i18n="Track Continuity Grade">轨道连续性评级</div>
+                <div id="gGradeReadout" class="mono font-bold text-emerald-300 mt-0.5">C⁰ ONLY</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Briefing & Sliders -->
+          <div class="lg:col-span-5 space-y-4">
+            <div class="p-4 rounded-xl bg-slate-950 border border-indigo-500/40 space-y-2">
+              <div class="flex items-center justify-between">
+                <span id="gMissionTitle" class="text-sm font-bold text-indigo-300">Mission 1</span>
+                <span id="gMissionBadge" class="px-2.5 py-0.5 rounded-full bg-amber-950 border border-amber-500/40 text-amber-300 text-xs font-bold">IN PROGRESS</span>
+              </div>
+              <p id="gMissionDesc" class="text-xs text-slate-300 leading-relaxed"></p>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+              <div>
+                <div class="flex justify-between">
+                  <span id="gSlider1Label" class="text-amber-300 font-semibold">Control X</span>
+                  <span id="gSlider1Val" class="mono text-amber-300">410</span>
+                </div>
+                <input id="gSlider1" type="range" min="280" max="540" value="410" oninput="updateGameFromSliders()" class="w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between">
+                  <span id="gSlider2Label" class="text-cyan-300 font-semibold">Control Y</span>
+                  <span id="gSlider2Val" class="mono text-cyan-300">290</span>
+                </div>
+                <input id="gSlider2" type="range" min="40" max="360" value="290" oninput="updateGameFromSliders()" class="w-full" />
+              </div>
+            </div>
+
+            <div id="gFeedbackBox" class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-relaxed">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== BILINGUAL SUPPORT ====================
+    let currentLang = 'zh';
+    const zhCache = new Map();
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.getElementById('langBtnLabel').textContent = currentLang === 'zh' ? 'EN / English' : '中文 / Chinese';
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        if (!zhCache.has(el)) zhCache.set(el, el.innerHTML);
+        el.innerHTML = currentLang === 'en' ? el.getAttribute('data-i18n') : zhCache.get(el);
+      });
+      drawJointCanvas();
+      drawArenaCanvas();
+      drawGameCanvas();
+    }
+
+    function switchTab(tabId) {
+      ['concepts', 'lab', 'videos', 'game'].forEach((id) => {
+        const sec = document.getElementById('tab-' + id);
+        const btn = document.getElementById('tabBtn-' + id);
+        if (id === tabId) {
+          sec.classList.remove('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600 text-white shadow';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = id === 'game'
+            ? 'px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/40'
+            : 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800';
+        }
+      });
+      if (tabId === 'concepts') drawJointCanvas();
+      else if (tabId === 'lab') drawArenaCanvas();
+      else if (tabId === 'game') drawGameCanvas();
+    }
+
+    // ==================== CUBIC SPLINE EVALUATION & CURVATURE COMB MATH ====================
+    function evalBezierSegment(P0, P1, P2, P3, t) {
+      const u = 1 - t;
+      const b0 = u * u * u;
+      const b1 = 3 * u * u * t;
+      const b2 = 3 * u * t * t;
+      const b3 = t * t * t;
+      const pos = [
+        b0 * P0[0] + b1 * P1[0] + b2 * P2[0] + b3 * P3[0],
+        b0 * P0[1] + b1 * P1[1] + b2 * P2[1] + b3 * P3[1]
+      ];
+      const d1 = [
+        3 * u * u * (P1[0] - P0[0]) + 6 * u * t * (P2[0] - P1[0]) + 3 * t * t * (P3[0] - P2[0]),
+        3 * u * u * (P1[1] - P0[1]) + 6 * u * t * (P2[1] - P1[1]) + 3 * t * t * (P3[1] - P2[1])
+      ];
+      const d2 = [
+        6 * u * (P2[0] - 2 * P1[0] + P0[0]) + 6 * t * (P3[0] - 2 * P2[0] + P1[0]),
+        6 * u * (P2[1] - 2 * P1[1] + P0[1]) + 6 * t * (P3[1] - 2 * P2[1] + P1[1])
+      ];
+      return { pos, d1, d2 };
+    }
+
+    function catmullRomToBezier(Pm1, P0, P1, P2) {
+      const B0 = P0;
+      const B1 = [P0[0] + (P1[0] - Pm1[0]) / 6, P0[1] + (P1[1] - Pm1[1]) / 6];
+      const B2 = [P1[0] - (P2[0] - P0[0]) / 6, P1[1] - (P2[1] - P0[1]) / 6];
+      const B3 = P1;
+      return [B0, B1, B2, B3];
+    }
+
+    function bSplineToBezier(Pm1, P0, P1, P2) {
+      const B0 = [(Pm1[0] + 4 * P0[0] + P1[0]) / 6, (Pm1[1] + 4 * P0[1] + P1[1]) / 6];
+      const B1 = [(4 * P0[0] + 2 * P1[0]) / 6, (4 * P0[1] + 2 * P1[1]) / 6];
+      const B2 = [(2 * P0[0] + 4 * P1[0]) / 6, (2 * P0[1] + 4 * P1[1]) / 6];
+      const B3 = [(P0[0] + 4 * P1[0] + P2[0]) / 6, (P0[1] + 4 * P1[1] + P2[1]) / 6];
+      return [B0, B1, B2, B3];
+    }
+
+    function drawCurvatureCombOnBezier(ctx, B0, B1, B2, B3, scale = 4200, combColor = 'rgba(232, 121, 249, 0.55)') {
+      const steps = 28;
+      const tipPts = [];
+      ctx.strokeStyle = combColor;
+      ctx.lineWidth = 1.2;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const { pos, d1, d2 } = evalBezierSegment(B0, B1, B2, B3, t);
+        const speed = Math.hypot(d1[0], d1[1]);
+        if (speed < 1e-3) continue;
+        const kappa = (d1[0] * d2[1] - d1[1] * d2[0]) / Math.pow(speed, 3);
+        const nx = -d1[1] / speed;
+        const ny = d1[0] / speed;
+        const len = Math.max(-95, Math.min(95, kappa * scale));
+        const tx = pos[0] + nx * len;
+        const ty = pos[1] + ny * len;
+        tipPts.push([tx, ty]);
+        ctx.beginPath();
+        ctx.moveTo(pos[0], pos[1]);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+      }
+      if (tipPts.length > 1) {
+        ctx.strokeStyle = '#e879f9';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        tipPts.forEach((p, idx) => (idx === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1])));
+        ctx.stroke();
+      }
+    }
+
+    // ==================== VISUALIZER 1: JOINT CONTINUITY MICROSCOPE ====================
+    let jointMode = 'C2';
+    // Segment 0: P0, P1, P2, P3
+    const jP0 = [65, 275];
+    const jP1 = [130, 85];
+    const jP2 = [235, 130];
+    const jP3 = [310, 175]; // Shared Joint!
+    // Segment 1: P3, P4, P5, P6
+    let jP4 = [385, 220];
+    let jP5 = [465, 220];
+    const jP6 = [545, 95];
+
+    function setJointMode(mode) {
+      jointMode = mode;
+      ['C0', 'G1', 'C1', 'C2'].forEach((m) => {
+        const btn = document.getElementById('jModeBtn' + m);
+        btn.className = m === mode
+          ? 'px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow'
+          : 'px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      const dx = jP3[0] - jP2[0]; // 75
+      const dy = jP3[1] - jP2[1]; // 45
+      if (mode === 'C0') {
+        jP4 = [375, 85]; // Sharp corner!
+        jP5 = [475, 250];
+      } else if (mode === 'G1') {
+        jP4 = [jP3[0] + dx * 1.75, jP3[1] + dy * 1.75]; // Collinear, k=1.75
+        jP5 = [480, 260];
+      } else if (mode === 'C1') {
+        jP4 = [jP3[0] + dx, jP3[1] + dy]; // Symmetric k=1, but P5 arbitrary so C2 broken!
+        jP5 = [485, 295];
+      } else if (mode === 'C2') {
+        jP4 = [jP3[0] + dx, jP3[1] + dy]; // [385, 220]
+        // For C2: P1 - 2*P2 + P3 = P3 - 2*P4 + P5 => P5 = 2*P4 - 2*P2 + P1
+        jP5 = [
+          2 * jP4[0] - 2 * jP2[0] + jP1[0],
+          2 * jP4[1] - 2 * jP2[1] + jP1[1]
+        ];
+      }
+      drawJointCanvas();
+    }
+
+    function drawJointCanvas() {
+      const canvas = document.getElementById('jointCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+      // Draw Curvature Combs on both segments
+      drawCurvatureCombOnBezier(ctx, jP0, jP1, jP2, jP3, 5500);
+      drawCurvatureCombOnBezier(ctx, jP3, jP4, jP5, jP6, 5500);
+
+      // Control polygons
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      [jP0, jP1, jP2, jP3, jP4, jP5, jP6].forEach((p, i) => (i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1])));
+      ctx.stroke();
+
+      // Highlight P2 - P3 - P4 tangent bridge
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(jP2[0], jP2[1]);
+      ctx.lineTo(jP3[0], jP3[1]);
+      ctx.lineTo(jP4[0], jP4[1]);
+      ctx.stroke();
+
+      // Draw Segment 0 (Cyan) & Segment 1 (Emerald)
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      for (let s = 0; s <= 80; s++) {
+        const p = evalBezierSegment(jP0, jP1, jP2, jP3, s / 80).pos;
+        if (s === 0) ctx.moveTo(p[0], p[1]);
+        else ctx.lineTo(p[0], p[1]);
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      for (let s = 0; s <= 80; s++) {
+        const p = evalBezierSegment(jP3, jP4, jP5, jP6, s / 80).pos;
+        if (s === 0) ctx.moveTo(p[0], p[1]);
+        else ctx.lineTo(p[0], p[1]);
+      }
+      ctx.stroke();
+
+      // Draw Control Points
+      const allPts = [jP0, jP1, jP2, jP3, jP4, jP5, jP6];
+      allPts.forEach((p, idx) => {
+        ctx.fillStyle = idx === 3 ? '#ffffff' : idx === 4 ? '#fbbf24' : '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], idx === 3 || idx === 4 ? 7.5 : 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = 'bold 11px JetBrains Mono';
+        ctx.fillText(`P${idx}`, p[0] - 8, p[1] - 11);
+      });
+
+      // Compute Joint Jumps at P3
+      const end0 = evalBezierSegment(jP0, jP1, jP2, jP3, 1.0);
+      const start1 = evalBezierSegment(jP3, jP4, jP5, jP6, 0.0);
+
+      const v0 = end0.d1, v1 = start1.d1;
+      const dot = (v0[0] * v1[0] + v0[1] * v1[1]) / (Math.hypot(v0[0], v0[1]) * Math.hypot(v1[0], v1[1]) + 1e-6);
+      const angJump = (Math.acos(Math.max(-1, Math.min(1, dot))) * 180) / Math.PI;
+      const velJump = Math.hypot(v1[0] - v0[0], v1[1] - v0[1]) / 3;
+      const accJump = Math.hypot(start1.d2[0] - end0.d2[0], start1.d2[1] - end0.d2[1]) / 6;
+
+      document.getElementById('jointAngleJump').textContent = `${angJump.toFixed(1)}°`;
+      document.getElementById('jointVelJump').textContent = velJump.toFixed(1);
+      document.getElementById('jointAccJump').textContent = accJump.toFixed(1);
+
+      const explain = document.getElementById('jointExplainBox');
+      if (jointMode === 'C0') {
+        explain.innerHTML = currentLang === 'zh'
+          ? '⚠️ <strong>[C⁰ 模式]</strong> 左右手柄 <span class="mono">P₂P₃</span> 与 <span class="mono">P₃P₄</span> 形成折角！不仅切线方向突变，两侧紫色曲率梳更是完全断开。'
+          : '⚠️ <strong>[C⁰ Mode]</strong> Handles form a sharp corner at P₃! Both tangent direction and Curvature Comb break.';
+      } else if (jointMode === 'G1') {
+        explain.innerHTML = currentLang === 'zh'
+          ? '🧭 <strong>[G¹ 模式]</strong> <span class="mono">P₂, P₃, P₄</span> 三点共线（Δθ = 0°），静态曲线看起来很平滑！但因为右侧手柄长了 1.75 倍，参数速度在 <span class="mono">P₃</span> 瞬间暴增！'
+          : '🧭 <strong>[G¹ Mode]</strong> P₂, P₃, P₄ are collinear (Δθ = 0°), so the curve looks smooth, but speed jumps by 1.75x across P₃!';
+      } else if (jointMode === 'C1') {
+        explain.innerHTML = currentLang === 'zh'
+          ? '⚡ <strong>[C¹ 模式]</strong> <span class="mono">P₂P₃ = P₃P₄</span> 对称等长，速度跳变为 0！<strong>但请看 P₃ 处的紫色曲率梳：左右两根刺的长度明显错位跳变！</strong>这就是为什么 C¹ 弯道仍会闪断脖子！'
+          : '⚡ <strong>[C¹ Mode]</strong> Symmetric handles give 0 velocity jump, <strong>but look at the magenta Curvature Comb at P₃: it still jumps!</strong>';
+      } else {
+        explain.innerHTML = currentLang === 'zh'
+          ? '✨ <strong>[C² 模式]</strong> 同时锁死 <span class="mono">P₄</span> 与 <span class="mono">P₅</span> 使二阶导数 <span class="mono">S₀\'\'(1) = S₁\'\'(0)</span>！看 <span class="mono">P₃</span> 处的紫色曲率梳包络线：<strong>左右两侧高度分毫不差、完美无缝衔接！</strong>'
+          : '✨ <strong>[C² Mode]</strong> Acceleration S₀\'\'(1) = S₁\'\'(0) is locked! Notice the magenta Curvature Comb at P₃ is <strong>completely continuous and unbroken!</strong>';
+      }
+    }
+
+    // ==================== TAB 2: MULTI-POINT SPLINE ARENA ====================
+    let arenaPts = [
+      [70, 290],
+      [165, 110],
+      [280, 320],
+      [390, 95],
+      [505, 315],
+      [615, 120],
+      [700, 275]
+    ];
+    let draggingArenaIdx = -1;
+
+    function resetArenaPoints(preset) {
+      if (preset === 'wave') {
+        arenaPts = [[70, 290], [165, 110], [280, 320], [390, 95], [505, 315], [615, 120], [700, 275]];
+      } else if (preset === 'sharp') {
+        arenaPts = [[80, 330], [190, 80], [225, 80], [390, 340], [540, 85], [575, 85], [690, 330]];
+      } else if (preset === 'canyon') {
+        arenaPts = [[75, 110], [185, 105], [295, 355], [390, 360], [495, 355], [600, 105], [700, 110]];
+      }
+      drawArenaCanvas();
+    }
+
+    function drawArenaCanvas() {
+      const canvas = document.getElementById('arenaCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+      const showCR = document.getElementById('chkShowCR').checked;
+      const showBS = document.getElementById('chkShowBS').checked;
+      const showComb = document.getElementById('chkShowComb').checked;
+      const activeSeg = parseInt(document.getElementById('arenaSegSlider').value, 10);
+
+      document.getElementById('arenaSegLabel').textContent =
+        `Seg #${activeSeg} [P${activeSeg}, P${activeSeg + 1}, P${activeSeg + 2}, P${activeSeg + 3}]`;
+
+      // Control polygon
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      arenaPts.forEach((p, i) => (i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1])));
+      ctx.stroke();
+
+      // There are 4 segments for 7 points: i = 0, 1, 2, 3 using [P_i, P_{i+1}, P_{i+2}, P_{i+3}]
+      for (let seg = 0; seg < 4; seg++) {
+        const P_m1 = arenaPts[seg];
+        const P_0 = arenaPts[seg + 1];
+        const P_1 = arenaPts[seg + 2];
+        const P_2 = arenaPts[seg + 3];
+        const isHi = seg === activeSeg;
+
+        if (showCR) {
+          const [B0, B1, B2, B3] = catmullRomToBezier(P_m1, P_0, P_1, P_2);
+          ctx.strokeStyle = isHi ? '#fbbf24' : 'rgba(245, 158, 11, 0.55)';
+          ctx.lineWidth = isHi ? 4.5 : 2.5;
+          ctx.beginPath();
+          for (let s = 0; s <= 50; s++) {
+            const p = evalBezierSegment(B0, B1, B2, B3, s / 50).pos;
+            if (s === 0) ctx.moveTo(p[0], p[1]);
+            else ctx.lineTo(p[0], p[1]);
+          }
+          ctx.stroke();
+        }
+
+        if (showBS) {
+          const [B0, B1, B2, B3] = bSplineToBezier(P_m1, P_0, P_1, P_2);
+          if (showComb) {
+            drawCurvatureCombOnBezier(ctx, B0, B1, B2, B3, 4800, 'rgba(232, 121, 249, 0.45)');
+          }
+          ctx.strokeStyle = isHi ? '#10b981' : 'rgba(16, 185, 129, 0.55)';
+          ctx.lineWidth = isHi ? 4.5 : 2.5;
+          ctx.beginPath();
+          for (let s = 0; s <= 50; s++) {
+            const p = evalBezierSegment(B0, B1, B2, B3, s / 50).pos;
+            if (s === 0) ctx.moveTo(p[0], p[1]);
+            else ctx.lineTo(p[0], p[1]);
+          }
+          ctx.stroke();
+
+          // Draw B-Spline joint dot S_seg(0)
+          ctx.fillStyle = '#10b981';
+          ctx.beginPath();
+          ctx.arc(B0[0], B0[1], 4.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Draw Control Points P0..P6, highlighting the 4 in the active sliding window
+      arenaPts.forEach((p, idx) => {
+        const inWin = idx >= activeSeg && idx <= activeSeg + 3;
+        ctx.fillStyle = inWin ? '#0f172a' : '#1e293b';
+        ctx.strokeStyle = inWin ? '#22d3ee' : '#64748b';
+        ctx.lineWidth = inWin ? 3 : 1.5;
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], inWin ? 8 : 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = inWin ? '#22d3ee' : '#94a3b8';
+        ctx.font = 'bold 11px JetBrains Mono';
+        ctx.fillText(`P${idx}`, p[0] - 8, p[1] - 12);
+      });
+
+      const wPts = [arenaPts[activeSeg], arenaPts[activeSeg + 1], arenaPts[activeSeg + 2], arenaPts[activeSeg + 3]];
+      const bsStart = bSplineToBezier(wPts[0], wPts[1], wPts[2], wPts[3])[0];
+      document.getElementById('arenaWindowInfo').innerHTML = `
+        <div class="text-cyan-300 font-bold">Window: [P${activeSeg}, P${activeSeg+1}, P${activeSeg+2}, P${activeSeg+3}]</div>
+        <div>Catmull-Rom S(0) = P${activeSeg+1} = (${Math.round(wPts[1][0])}, ${Math.round(wPts[1][1])})</div>
+        <div>B-Spline S(0) = (P${activeSeg}+4P${activeSeg+1}+P${activeSeg+2})/6 = (${bsStart[0].toFixed(1)}, ${bsStart[1].toFixed(1)})</div>
+      `;
+    }
+
+    // ==================== TAB 4: 3-MISSION MINI-GAME ====================
+    let gameMission = 1;
+    let gVal1 = 410, gVal2 = 290;
+
+    function selectGameMission(m) {
+      gameMission = m;
+      [1, 2, 3].forEach((id) => {
+        document.getElementById('gBtn' + id).className = id === m
+          ? 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white'
+          : 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      const s1 = document.getElementById('gSlider1');
+      const s2 = document.getElementById('gSlider2');
+      if (m === 1) {
+        // Mirror handle P4 to match P3 + (P3 - P2) = (320, 200) + (80, -60) = (400, 140)
+        s1.min = 320; s1.max = 480; s1.value = 435;
+        s2.min = 60; s2.max = 320; s2.value = 275;
+        document.getElementById('gSlider1Label').textContent = 'Handle P₄.x (右侧切柄 X)';
+        document.getElementById('gSlider2Label').textContent = 'Handle P₄.y (右侧切柄 Y)';
+      } else if (m === 2) {
+        // Catmull-Rom: place P2 at (320, 140) and P3 at (460, 140) so chord P3-P1 is horizontal!
+        s1.min = 60; s1.max = 340; s1.value = 260;
+        s2.min = 60; s2.max = 340; s2.value = 290;
+        document.getElementById('gSlider1Label').textContent = 'Waypoint P₂.y (必经航点 P₂ 高度)';
+        document.getElementById('gSlider2Label').textContent = 'Neighbor P₃.y (邻居点 P₃ 高度 — 控制 P₂ 切线!)';
+      } else {
+        // B-Spline: S(0) = (P1 + 4*P2 + P3)/6. With P1.y=260, P3.y=260, to make S(0).y = 140, we need (260 + 4*P2.y + 260)/6 = 140 => 4*P2.y = 320 => P2.y = 80!
+        s1.min = 240; s1.max = 400; s1.value = 320;
+        s2.min = 40; s2.max = 320; s2.value = 220;
+        document.getElementById('gSlider1Label').textContent = 'B-Spline Control P₂.x';
+        document.getElementById('gSlider2Label').textContent = 'B-Spline Control P₂.y (需拉高以补偿 4/6 权重!)';
+      }
+      updateGameFromSliders();
+    }
+
+    function updateGameFromSliders() {
+      gVal1 = parseFloat(document.getElementById('gSlider1').value);
+      gVal2 = parseFloat(document.getElementById('gSlider2').value);
+      document.getElementById('gSlider1Val').textContent = Math.round(gVal1);
+      document.getElementById('gSlider2Val').textContent = Math.round(gVal2);
+      drawGameCanvas();
+    }
+
+    function drawGameCanvas() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+      let passed = false;
+
+      if (gameMission === 1) {
+        const P0 = [80, 310], P1 = [150, 120], P2 = [240, 260], P3 = [320, 200];
+        const P4 = [gVal1, gVal2], P5 = [500, 110], P6 = [575, 280];
+        const targetP4 = [400, 140]; // 2*P3 - P2
+
+        // Draw target mirror box at (400, 140)
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(targetP4[0] - 14, targetP4[1] - 14, 28, 28);
+
+        // Draw handles P2 - P3 - P4
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]); ctx.lineTo(P4[0], P4[1]);
+        ctx.stroke();
+
+        // Draw segments
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        for (let s = 0; s <= 60; s++) {
+          const p = evalBezierSegment(P0, P1, P2, P3, s / 60).pos;
+          if (s === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]);
+        }
+        ctx.stroke();
+
+        const err = Math.hypot(P4[0] - targetP4[0], P4[1] - targetP4[1]);
+        passed = err < 16;
+
+        ctx.strokeStyle = passed ? '#10b981' : '#f43f5e';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        for (let s = 0; s <= 60; s++) {
+          const p = evalBezierSegment(P3, P4, P5, P6, s / 60).pos;
+          if (s === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]);
+        }
+        ctx.stroke();
+
+        [P2, P3, P4].forEach((p, i) => {
+          ctx.fillStyle = i === 2 ? '#fbbf24' : '#ffffff';
+          ctx.beginPath(); ctx.arc(p[0], p[1], 7, 0, Math.PI * 2); ctx.fill();
+        });
+
+        document.getElementById('gCoordReadout').textContent = `P₄ = (${Math.round(P4[0])}, ${Math.round(P4[1])})`;
+        document.getElementById('gErrorReadout').textContent = `Δv Error: ${err.toFixed(1)} px`;
+        document.getElementById('gGradeReadout').textContent = passed ? '★ C¹ LOCKED' : '⚠️ C⁰ CORNER';
+
+        document.getElementById('gMissionTitle').textContent = currentLang === 'zh'
+          ? '第 1 关：镜像切柄修复 C¹ 连续 — 令 P₄ = 2P₃ - P₂ 消除接头折角'
+          : 'Mission 1: Mirror Handle C¹ Rescue — Set P₄ = 2P₃ - P₂';
+        document.getElementById('gMissionDesc').textContent = currentLang === 'zh'
+          ? '已知接头 P₃=(320, 200)，左侧切柄 P₂=(240, 260)。为实现 C¹ 速度连续 (P₄ - P₃ = P₃ - P₂)，请将右侧切柄 P₄ 调至对称点 (400, 140) 绿色方框内！'
+          : 'Given joint P₃=(320, 200) and left handle P₂=(240, 260), place P₄ at the symmetric mirror point (400, 140) inside the green box!';
+      } else if (gameMission === 2) {
+        // Catmull-Rom: P0=(80,280), P1=(200,140), P2=(320, gVal1), P3=(440, gVal2), P4=(560,280)
+        // At P2, tangent is 0.5*(P3 - P1). For P2 to sit at gate (320, 140) with a horizontal tangent, we need P2.y = 140 AND P3.y = P1.y = 140!
+        const pts = [[80, 280], [200, 140], [320, gVal1], [440, gVal2], [560, 280]];
+        const gate = [320, 140];
+
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(gate[0], gate[1], 18, 0, Math.PI * 2); ctx.stroke();
+
+        // Draw chord P1 -> P3
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.moveTo(pts[1][0], pts[1][1]);
+        ctx.lineTo(pts[3][0], pts[3][1]);
+        ctx.stroke();
+        ctx.restore();
+
+        for (let seg = 0; seg < 2; seg++) {
+          const [B0, B1, B2, B3] = catmullRomToBezier(pts[seg], pts[seg + 1], pts[seg + 2], pts[seg + 3]);
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          for (let s = 0; s <= 50; s++) {
+            const p = evalBezierSegment(B0, B1, B2, B3, s / 50).pos;
+            if (s === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]);
+          }
+          ctx.stroke();
+        }
+
+        pts.forEach((p, idx) => {
+          ctx.fillStyle = idx === 2 ? '#fbbf24' : idx === 3 ? '#22d3ee' : '#94a3b8';
+          ctx.beginPath(); ctx.arc(p[0], p[1], 7, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 11px JetBrains Mono';
+          ctx.fillText(`P${idx}`, p[0] - 8, p[1] - 12);
+        });
+
+        const posErr = Math.abs(gVal1 - 140);
+        const tanErr = Math.abs(gVal2 - 140);
+        passed = posErr < 16 && tanErr < 18;
+
+        document.getElementById('gCoordReadout').textContent = `P₂.y=${Math.round(gVal1)}, P₃.y=${Math.round(gVal2)}`;
+        document.getElementById('gErrorReadout').textContent = `Pos:${posErr.toFixed(0)} | Slope:${tanErr.toFixed(0)}`;
+        document.getElementById('gGradeReadout').textContent = passed ? '★ C¹ HORIZONTAL' : '● TILTED CHORD';
+
+        document.getElementById('gMissionTitle').textContent = currentLang === 'zh'
+          ? '第 2 关：Catmull-Rom 邻点弦切线 — 让轨道水平穿过 P₂ 峡谷环'
+          : 'Mission 2: Catmull-Rom Neighbor Chord — Horizontal Gate Pass';
+        document.getElementById('gMissionDesc').textContent = currentLang === 'zh'
+          ? '在 Catmull-Rom 样条中，P₂ 处的切向量由前后邻居决定：v₂ = ½(P₃ - P₁)！已知左邻居 P₁.y = 140，请将 P₂.y 调至 140 穿过绿环，同时将右邻居 P₃.y 也调至 140 使虚线弦 P₁P₃ 水平！'
+          : 'In Catmull-Rom, the tangent at P₂ is ½(P₃ - P₁)! Since P₁.y = 140, set both P₂.y = 140 and P₃.y = 140 so the curve passes horizontally through the green ring!';
+      } else {
+        // Mission 3: Uniform Cubic B-Spline 1/6:4/6:1/6 station lock
+        const P1 = [180, 260], P2 = [gVal1, gVal2], P3 = [460, 260], P4 = [560, 310];
+        const station = [320, 140];
+
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(station[0], station[1], 18, 0, Math.PI * 2); ctx.stroke();
+
+        const [B0, B1, B2, B3] = bSplineToBezier(P1, P2, P3, P4);
+        drawCurvatureCombOnBezier(ctx, B0, B1, B2, B3, 5000);
+
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        [P1, P2, P3, P4].forEach((p, i) => (i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1])));
+        ctx.stroke();
+
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 4.5;
+        ctx.beginPath();
+        for (let s = 0; s <= 60; s++) {
+          const p = evalBezierSegment(B0, B1, B2, B3, s / 60).pos;
+          if (s === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]);
+        }
+        ctx.stroke();
+
+        // Joint B0 = (P1 + 4*P2 + P3)/6
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath(); ctx.arc(B0[0], B0[1], 7.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fde047';
+        ctx.font = 'bold 11px JetBrains Mono';
+        ctx.fillText('S(0) = (P₁+4P₂+P₃)/6', B0[0] + 10, B0[1] - 8);
+
+        [P1, P2, P3, P4].forEach((p, idx) => {
+          ctx.fillStyle = idx === 1 ? '#22d3ee' : '#94a3b8';
+          ctx.beginPath(); ctx.arc(p[0], p[1], 7, 0, Math.PI * 2); ctx.fill();
+        });
+
+        const err = Math.hypot(B0[0] - station[0], B0[1] - station[1]);
+        passed = err < 16;
+
+        document.getElementById('gCoordReadout').textContent = `S(0)=(${B0[0].toFixed(0)}, ${B0[1].toFixed(0)})`;
+        document.getElementById('gErrorReadout').textContent = `Station Err: ${err.toFixed(1)} px`;
+        document.getElementById('gGradeReadout').textContent = passed ? '★ C² LOCKED' : '● C² SMOOTH';
+
+        document.getElementById('gMissionTitle').textContent = currentLang === 'zh'
+          ? '第 3 关：B-Spline (1/6 : 4/6 : 1/6) 质心补偿 — 零冲击对接磁悬浮站台'
+          : 'Mission 3: B-Spline (1/6 : 4/6 : 1/6) Weight Compensation';
+        document.getElementById('gMissionDesc').textContent = currentLang === 'zh'
+          ? 'B-Spline 为保证 C² 连续不直接穿过 P₂，其节点位置为 S(0) = (P₁ + 4P₂ + P₃)/6！已知 P₁.y = P₃.y = 260，要让黄色节点 S(0) 升至站台高度 Y = 140，请利用公式算出 P₂.y = 80（X = 320）并拉高 P₂！'
+          : 'Since S(0) = (P₁ + 4P₂ + P₃)/6 and P₁.y = P₃.y = 260, pull P₂ higher to (320, 80) so S(0) lands right on the station at (320, 140)!';
+      }
+
+      const badge = document.getElementById('gMissionBadge');
+      const fb = document.getElementById('gFeedbackBox');
+      if (passed) {
+        badge.className = 'px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-400 text-emerald-300 text-xs font-bold';
+        badge.textContent = '★ MISSION CLEARED!';
+        fb.className = 'p-4 rounded-xl bg-emerald-950/50 border border-emerald-500/50 text-xs text-emerald-200 leading-relaxed';
+        fb.innerHTML = currentLang === 'zh'
+          ? `🎉 <strong>第 ${gameMission} 关校准完成！</strong> 磁悬浮轨道连续性与几何约束已锁定！`
+          : `🎉 <strong>Mission ${gameMission} Cleared!</strong> Maglev spline continuity locked!`;
+      } else {
+        badge.className = 'px-2.5 py-0.5 rounded-full bg-amber-950 border border-amber-500/40 text-amber-300 text-xs font-bold';
+        badge.textContent = 'IN PROGRESS';
+        fb.className = 'p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-relaxed';
+        fb.innerHTML = currentLang === 'zh'
+          ? '💡 <strong>提示</strong>：调节上方两个滑块观察轨道接头与曲率梳的实时反馈，使误差小于 16 px 即可过关！'
+          : '💡 <strong>Tip</strong>: Adjust the two sliders above until the joint error is under 16 px!';
+      }
+    }
+
+    // Canvas Dragging for Tab 2 Arena
+    window.addEventListener('DOMContentLoaded', () => {
+      const arenaC = document.getElementById('arenaCanvas');
+      if (arenaC) {
+        arenaC.addEventListener('pointerdown', (e) => {
+          const rect = arenaC.getBoundingClientRect();
+          const mx = (e.clientX - rect.left) * (arenaC.width / rect.width);
+          const my = (e.clientY - rect.top) * (arenaC.height / rect.height);
+          arenaPts.forEach((p, idx) => {
+            if (Math.hypot(p[0] - mx, p[1] - my) < 22) draggingArenaIdx = idx;
+          });
+        });
+        window.addEventListener('pointermove', (e) => {
+          if (draggingArenaIdx < 0) return;
+          const rect = arenaC.getBoundingClientRect();
+          arenaPts[draggingArenaIdx][0] = Math.max(25, Math.min(arenaC.width - 25, (e.clientX - rect.left) * (arenaC.width / rect.width)));
+          arenaPts[draggingArenaIdx][1] = Math.max(25, Math.min(arenaC.height - 25, (e.clientY - rect.top) * (arenaC.height / rect.height)));
+          drawArenaCanvas();
+        });
+        window.addEventListener('pointerup', () => { draggingArenaIdx = -1; });
+      }
+
+      setJointMode('C2');
+      drawArenaCanvas();
+      selectGameMission(1);
+    });
+  </script>
+</body>
+</html>
