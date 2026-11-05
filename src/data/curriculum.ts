@@ -161,9 +161,10 @@ export const LESSONS: LessonItem[] = [
     stageId: 1,
     title: '四元数 (Quaternions) 深度解密与球面插值',
     subtitle: 'Quaternions, Hamilton Product & SLERP',
-    concepts: ['复数旋转到四元数', '半角公式 q=(cos(θ/2), sin(θ/2)u)', '四元数共轭与乘积', 'LERP vs SLERP 球面测地线插值'],
-    playgroundTitle: 'Quaternion & SLERP 球面轨迹对比仪',
-    playgroundDescription: '在单位超球面投影上对比欧拉角插值与四元数 SLERP 插值，直观理解无死锁平滑旋转。',
+    concepts: ['复数旋转到四元数', '半角三明治公式 qpq⁻¹ 4D 几何证明', '双重覆盖 (q ≡ -q) 与 720° 拓扑', 'LERP vs SLERP 超球面大圆测地线插值'],
+    playgroundTitle: '4D 三明治分步透视器 + S³ 超球面 SLERP/欧拉轨迹对比仪 + 3关星际对接游戏',
+    playgroundDescription: '亲手拆解左乘 q 与右乘 q⁻¹ 如何在第 4 维 w 中相互抵消并叠加出 2(θ/2)=θ 旋转，在 S³ 超球面上对比 SLERP 大圆测地线与欧拉角插值，并畅玩 3 关太空舱姿态对接小游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',

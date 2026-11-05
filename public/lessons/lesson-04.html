@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 04: 四元数 (Quaternions) 深度解密与球面插值 SLERP | 3Blue1Brown Intuition</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --background: #0b1020;
+      --foreground: #f8fafc;
+      --card: #111827;
+      --card-foreground: #f8fafc;
+      --muted: #1e293b;
+      --muted-foreground: #94a3b8;
+      --border: #1e293b;
+      --primary: #6366f1;
+      --primary-foreground: #ffffff;
+      --secondary: #0f172a;
+      --secondary-foreground: #e2e8f0;
+      --accent: #f59e0b;
+    }
+    body {
+      background-color: var(--background);
+      color: var(--foreground);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    canvas {
+      touch-action: none;
+    }
+    input[type="range"] {
+      accent-color: #6366f1;
+    }
+    .tab-active {
+      background-color: var(--primary);
+      color: var(--primary-foreground);
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+    }
+    .math-box {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    html[lang="zh-CN"] [data-lang="en"] { display: none !important; }
+    html[lang="en"] [data-lang="zh"] { display: none !important; }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+
+  <!-- Header Banner with Top-Right Language Switcher -->
+  <header class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-lg">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="space-y-1.5">
+        <div class="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wider text-indigo-400">
+          <a href="../index.html" class="px-2.5 py-1 rounded-lg bg-[var(--secondary)] border border-[var(--border)] hover:border-indigo-500 text-indigo-300 transition">
+            <span data-lang="zh">🏠 课程总目录 (Index)</span>
+            <span data-lang="en">🏠 Course Index</span>
+          </a>
+          <a href="./lesson-03.html" class="px-2.5 py-1 rounded-lg bg-[var(--secondary)] border border-[var(--border)] hover:border-indigo-500 text-[var(--muted-foreground)] hover:text-white transition">
+            <span data-lang="zh">← L03 万向节死锁与罗德里格斯公式</span>
+            <span data-lang="en">← L03 Gimbal Lock &amp; Rodrigues</span>
+          </a>
+          <span>•</span>
+          <span>Stage 1 · Lesson 04 / 32</span>
+          <span>•</span>
+          <span>UC Davis Lec 09 + MIT 6.837 + 3Blue1Brown Quaternions</span>
+        </div>
+        <h1 class="text-2xl md:text-3xl font-bold tracking-tight">
+          <span data-lang="zh">Lesson 04: 四元数 (Quaternions) 深度解密与球面插值 (SLERP)</span>
+          <span data-lang="en">Lesson 04: Quaternions Deep Dive, Half-Angle Sandwich &amp; SLERP</span>
+        </h1>
+        <p class="text-sm text-[var(--muted-foreground)] max-w-3xl leading-relaxed">
+          <span data-lang="zh">用 3Blue1Brown 的四维几何视角解开四元数最神秘的三大谜团：为什么四元数乘法同时诞生了点积与叉积？为什么三维旋转必须用“半角 θ/2”并写成“双侧三明治乘积 q·p·q⁻¹”？为什么 q 和 -q 代表同一个三维朝向（双重覆盖），以及 SLERP 如何实现恒速最短路径插值？</span>
+          <span data-lang="en">Unravel the deepest mysteries of Quaternions via 3Blue1Brown's 4D lens: How does Hamilton's product unify dot and cross products? Why must 3D rotation use half-angles (θ/2) and the double-sided sandwich product q·p·q⁻¹? Why do q and -q represent the same 3D rotation, and how does SLERP achieve constant-speed geodesic interpolation?</span>
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="langToggleBtn" onclick="toggleLanguage()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[var(--secondary)] hover:bg-[var(--muted)] border border-indigo-500/40 text-indigo-300 transition shadow-sm">
+          <span>🌐</span>
+          <span id="langBtnLabel">EN / English</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex flex-wrap gap-2 mt-6 pt-4 border-t border-[var(--border)]">
+      <button id="tabBtn0" onclick="switchTab(0)" class="tab-active px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all">
+        <span data-lang="zh">1. 🧠 深度几何原理与推导 (3Blue1Brown 视角)</span>
+        <span data-lang="en">1. 🧠 Deep Intuition &amp; Proofs (3B1B Style)</span>
+      </button>
+      <button id="tabBtn1" onclick="switchTab(1)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
+        <span data-lang="zh">2. 🔬 四元数三明治旋转与双重覆盖 (q vs -q)</span>
+        <span data-lang="en">2. 🔬 Quaternion Sandwich &amp; Double Cover (q vs -q)</span>
+      </button>
+      <button id="tabBtn2" onclick="switchTab(2)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
+        <span data-lang="zh">3. 🌐 LERP vs NLERP vs SLERP 球面插值对比仪</span>
+        <span data-lang="en">3. 🌐 LERP vs NLERP vs SLERP Arena</span>
+      </button>
+      <button id="tabBtn3" onclick="switchTab(3)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
+        <span data-lang="zh">4. 🎥 名校公开课视频与精要</span>
+        <span data-lang="en">4. 🎥 Lecture Videos &amp; Notes</span>
+      </button>
+      <button id="tabBtn4" onclick="switchTab(4)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
+        <span data-lang="zh">5. 🎮 终极互动小游戏：四维超球面领航员</span>
+        <span data-lang="en">5. 🎮 Mini-Game: 4D Hypersphere Navigator</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 0: 3BLUE1BROWN DEEP GEOMETRIC INTUITION & DERIVATIONS                               -->
+  <!-- ======================================================================================== -->
+  <section id="tab0" class="space-y-6">
+
+    <!-- 1. From 2D Complex Numbers to 4D Quaternions -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-5">
+      <div class="border-b border-[var(--border)] pb-3">
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+          <span data-lang="zh">第一性原理 1 · 从 2D 复数旋转到 4D 汉密尔顿乘积</span>
+          <span data-lang="en">First Principle 1 · From 2D Complex Rotation to 4D Hamilton Product</span>
+        </span>
+        <h2 class="text-xl font-bold mt-1">
+          <span data-lang="zh">为什么复数乘法天生是 2D 旋转？为什么四元数乘法同时生出了“点积”和“叉积”？</span>
+          <span data-lang="en">Why Is Complex Multiplication 2D Rotation, and How Does Quaternion Multiplication Birth Dot &amp; Cross Products?</span>
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div class="lg:col-span-6 space-y-3 text-xs leading-relaxed">
+          <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-1.5">
+            <div class="font-bold text-amber-400 text-sm">
+              <span data-lang="zh">① 先看懂二维哥哥：为什么乘以 i 就是逆时针旋转 90°？</span>
+              <span data-lang="en">① 2D Complex Numbers: Why Multiplying by i Rotates +90° Counterclockwise</span>
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-lang="zh">
+              在复平面上，实轴为 <code>1</code>，虚轴为 <code>i</code>（<code>i² = -1</code>）。对任意复数向量 <code>z = x + i·y</code> 乘以 <code>i</code>，得到 <code>i·z = -y + i·x</code>，正好逆时针转了 90°！因此，乘以单位复数 <code>c = cos(θ) + i·sin(θ)</code> 就是：
+            </p>
+            <p class="text-[var(--muted-foreground)]" data-lang="en">
+              In the complex plane, multiplying <code>z = x + i·y</code> by <code>i</code> gives <code>i·z = -y + i·x</code> (a +90° rotation!). Thus multiplying by unit complex number <code>c = cos(θ) + i·sin(θ)</code> is literally:
+            </p>
+            <div class="math-box p-2 rounded bg-black/50 text-amber-300 text-center">
+              (cos θ + i·sin θ)·z = cos(θ)·z + sin(θ)·(i·z)
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-lang="zh">
+              这不就是第 3 课罗德里格斯公式里“<code>cos(θ)</code> 倍的原向量 + <code>sin(θ)</code> 倍的逆时针 90° 伙伴向量”吗！
+            </p>
+            <p class="text-[var(--muted-foreground)]" data-lang="en">
+              That's the exact same linear combination of <code>z</code> and its +90° rotated partner <code>i·z</code> from Lesson 03!
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-1.5">
+            <div class="font-bold text-cyan-400 text-sm">
+              <span data-lang="zh">② 汉密尔顿的 4D 顿悟：i² = j² = k² = ijk = -1 如何统一了点积与叉积？</span>
+              <span data-lang="en">② Hamilton's 4D Epiphany: How i² = j² = k² = ijk = -1 Unifies Dot &amp; Cross Products</span>
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-lang="zh">
+              三维空间有三个旋转平面，必须引入<b>三个虚轴 i, j, k</b>，加上实部 w 构成四维超复数 <code>q = (w, v) = w + x·i + y·j + z·k</code>。<br/>
+              • 当同轴虚部相乘：因为 <code>i² = j² = k² = -1</code>，<code>x₁i·x₂i + y₁j·y₂j + z₁k·z₂k = -(x₁x₂ + y₁y₂ + z₁z₂) = -v₁ · v₂</code>（<b>实部自动出现负点积！</b>）<br/>
+              • 当异轴虚部交叉相乘：因为 <code>ij = k, ji = -k</code>，交叉项恰恰合并为 <code>v₁ × v₂</code>（<b>虚部自动出现叉积！</b>）
+            </p>
+            <p class="text-[var(--muted-foreground)]" data-lang="en">
+              With three imaginary axes <code>i, j, k</code>, multiplying two quaternions <code>q₁ = (w₁, v₁)</code> and <code>q₂ = (w₂, v₂)</code> produces:<br/>
+              • Same-axis products <code>i² = j² = k² = -1</code> yield the <b>negative dot product <code>-v₁ · v₂</code></b> in the real part!<br/>
+              • Cross-axis products <code>ij = k, ji = -k</code> yield the <b>cross product <code>v₁ × v₂</code></b> in the vector part!
+            </p>
+            <div class="math-box p-2 rounded bg-black/50 text-cyan-300 text-center">
+              (w₁, v₁)(w₂, v₂) = ( w₁w₂ - v₁·v₂ ,  w₁v₂ + w₂v₁ + v₁ × v₂ )
+            </div>
+          </div>
+        </div>
+
+        <!-- Visualizer 1: 2D Complex Rotation vs 4D Half-Angle Sandwich -->
+        <div class="lg:col-span-6 bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-indigo-300">
+              <span data-lang="zh">🔬 3Blue1Brown 终极解密沙盒：为什么单侧左乘 q·p 会泄漏到第 4 维 w，而右乘 q⁻¹ 刚好抵消泄漏并把角度翻倍？</span>
+              <span data-lang="en">🔬 3B1B Sandwich Explorer: Why Single-Sided q·p Leaks into 4D w, While Right-Multiplying q⁻¹ Cancels w and Doubles the Angle!</span>
+            </span>
+          </div>
+
+          <div class="relative w-full rounded-lg overflow-hidden border border-[var(--border)] bg-[#070b14]" style="height: 315px;">
+            <canvas id="sandwichCanvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+            <div class="absolute top-2.5 left-2.5 bg-black/80 backdrop-blur px-2.5 py-1.5 rounded border border-slate-800 text-[11px] space-y-0.5 pointer-events-none">
+              <div id="sandwichModeHud" class="font-bold text-emerald-400">Mode: Full Sandwich q · p · q⁻¹ (w = 0.00, 100% Pure 3D!)</div>
+              <div id="sandwichAngleHud" class="math-box text-amber-300">Half-Angle α = θ/2 = 45° ⇒ Total Disk Rotation = 2α = 90°</div>
+            </div>
+          </div>
+
+          <div class="space-y-2.5 text-xs">
+            <div class="flex gap-2">
+              <button id="btnSingleLeft" onclick="setSandwichMode(false)" class="flex-1 py-1.5 px-2 rounded-lg font-semibold bg-[var(--card)] border border-[var(--border)] text-rose-300">
+                <span data-lang="zh">① 只看左乘 q · p (转 θ/2 + 第4维 w 泄漏!)</span>
+                <span data-lang="en">① Left-Only q · p (Rotates θ/2 + Leaks into 4D w!)</span>
+              </button>
+              <button id="btnFullSandwich" onclick="setSandwichMode(true)" class="flex-1 py-1.5 px-2 rounded-lg font-semibold bg-indigo-600 text-white">
+                <span data-lang="zh">② 完整三明治 q · p · q⁻¹ (w 抵消归零 + 满 θ 角!)</span>
+                <span data-lang="en">② Full Sandwich q · p · q⁻¹ (w=0 + Full θ Rotation!)</span>
+              </button>
+            </div>
+            <div>
+              <div class="flex justify-between mb-0.5">
+                <span data-lang="zh">目标 3D 旋转角 θ (四元数内部使用半角 θ/2):</span>
+                <span data-lang="en">Target 3D Rotation θ (Quaternion uses half-angle θ/2):</span>
+                <span id="swThetaLabel" class="math-box text-amber-300 font-bold">θ = 90° (θ/2 = 45°)</span>
+              </div>
+              <input id="swThetaSlider" type="range" min="0" max="360" step="2" value="90" oninput="drawSandwichCanvas()" class="w-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Complete Proof of Why Half-Angle theta/2 and Sandwich q*p*q^-1 -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-4">
+      <div class="border-b border-[var(--border)] pb-3">
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30">
+          <span data-lang="zh">第一性原理 2 · 为什么必须是“半角 θ/2”与“三明治乘积 q · p · q⁻¹”？</span>
+          <span data-lang="en">First Principle 2 · Why Half-Angle θ/2 and Sandwich Product q · p · q⁻¹?</span>
+        </span>
+        <h2 class="text-xl font-bold mt-1">
+          <span data-lang="zh">一步步看清：左乘 q 和右乘 q⁻¹ 对“轴向分量 p_∥”与“圆盘分量 p_⊥”截然相反的作用！</span>
+          <span data-lang="en">Step-by-Step Proof: How Left-Multiplying q and Right-Multiplying q⁻¹ Act on p_∥ vs. p_⊥</span>
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs leading-relaxed">
+        <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
+          <div class="font-bold text-rose-400 text-sm">
+            <span data-lang="zh">① 如果只左乘一次 q = (cos α, sin α · û) 会怎样？</span>
+            <span data-lang="en">① What Happens If We Only Left-Multiply q · p?</span>
+          </div>
+          <p class="text-[var(--muted-foreground)]" data-lang="zh">
+            把纯三维向量 <code>p = (0, p_∥ + p_⊥)</code> 代入乘法公式：<br/>
+            • <b>对垂直圆盘分量 p_⊥</b>（因为 <code>û · p_⊥ = 0</code>）：<br/>
+            <code>q · p_⊥ = (0, cos(α)p_⊥ + sin(α)(û × p_⊥))</code> —— 它在圆盘内完美旋转了 <code>+α</code> 角！<br/>
+            • <b>但对平行轴向分量 p_∥</b>（因为 <code>û × p_∥ = 0</code> 而 <code>û · p_∥ ≠ 0</code>）：<br/>
+            <code>q · p_∥ = (-sin(α)(û·p_∥), cos(α)p_∥)</code> —— <b>糟糕！<code>p_∥</code> 被踢出了三维空间，泄漏到了第四维实部 w 上！</b>（点击上方画布按钮①即可亲眼看到红色的第 4 维 w 泄漏条！）
+          </p>
+          <p class="text-[var(--muted-foreground)]" data-lang="en">
+            Split <code>p = (0, p_∥ + p_⊥)</code> relative to unit axis <code>û</code>:<br/>
+            • <b>Perpendicular part p_⊥</b> (<code>û · p_⊥ = 0</code>): <code>q · p_⊥</code> rotates cleanly by <code>+α</code> in the 3D disk.<br/>
+            • <b>Parallel part p_∥</b> (<code>û × p_∥ = 0</code>): <code>q · p_∥ = (-sin(α)(û·p_∥), cos(α)p_∥)</code>—<b>it leaks out of 3D space into the 4th real dimension w!</b>
+          </p>
+        </div>
+
+        <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
+          <div class="font-bold text-emerald-400 text-sm">
+            <span data-lang="zh">② 为什么右乘逆四元数 q⁻¹ = (cos α, -sin α · û) 是神来之笔？</span>
+            <span data-lang="en">② Why Right-Multiplying by q⁻¹ = (cos α, -sin α · û) Fixes Everything!</span>
+            </div>
+          <p class="text-[var(--muted-foreground)]" data-lang="zh">
+            现在在右边再乘一个方向相反的共轭 <code>q⁻¹ = (cos α, -sin α · û)</code>：<br/>
+            • <b>对平行分量 p_∥（正负抵消！）</b>：因为 <code>p_∥</code> 与 <code>û</code> 平行，叉积为 0，乘法可交换：<code>q · p_∥ · q⁻¹ = p_∥ · (q · q⁻¹) = p_∥</code>！左乘转出的第 4 维分量被右乘 <code>q⁻¹</code> <b>100% 反向抵消，拉回了 3D 轴上</b>！<br/>
+            • <b>对垂直分量 p_⊥（负负得正，双倍叠加！）</b>：因为右边乘的时候叉积顺序反过来 <code>p_⊥ × (-û) = +(û × p_⊥)</code>，两次负号抵消！右乘 <code>q⁻¹</code> 非但没有把 <code>p_⊥</code> 转回来，反而<b>又同向转了第二个 +α 角，总共转了 2α 角</b>！
+          </p>
+          <p class="text-[var(--muted-foreground)]" data-lang="en">
+            Right-multiplying by <code>q⁻¹ = (cos α, -sin α · û)</code>:<br/>
+            • <b>On p_∥ (Cancellation!)</b>: Since <code>p_∥</code> is parallel to <code>û</code>, it commutes with <code>q</code>: <code>q · p_∥ · q⁻¹ = p_∥(q q⁻¹) = p_∥</code>! The 4D w-leakage is completely cancelled!<br/>
+            • <b>On p_⊥ (Double Reinforcement!)</b>: Because cross products are anti-commutative, <code>p_⊥ × (-û) = +(û × p_⊥)</code>! Right-multiplying by <code>q⁻¹</code> rotates <code>p_⊥</code> by an <b>additional +α in the SAME direction, totaling 2α</b>!
+          </p>
+        </div>
+
+        <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
+          <div class="font-bold text-purple-400 text-sm">
+            <span data-lang="zh">③ 结论：因为 2α = θ，所以 α = θ/2！且 q 与 -q 完全等价！</span>
+            <span data-lang="en">③ Conclusion: α = θ/2, and Double Cover (q ≡ -q)!</span>
+          </div>
+          <p class="text-[var(--muted-foreground)]" data-lang="zh">
+            既然左乘贡献了 <code>+α</code>，右乘又贡献了 <code>+α</code>，为了让最终 3D 旋转角等于 <code>θ</code>，每个四元数里的角度就必须取半角 <b><code>α = θ / 2</code></b>：<br/>
+            <code>q = (cos(θ/2), sin(θ/2)·û)</code><br/>
+            而且如果把 <code>q</code> 变成 <code>-q</code>（对应 <code>θ</code> 增加 360°，半角增加 180°），在三明治乘积中 <code>(-q)·p·(-q)⁻¹ = (-1)² q·p·q⁻¹ = q·p·q⁻¹</code>！所以在 4D 超球面上对径相反的两个点 <b><code>q</code> 和 <code>-q</code> 代表完全相同的 3D 姿态</b>！
+          </p>
+          <p class="text-[var(--muted-foreground)]" data-lang="en">
+            Since left and right multiplications each rotate <code>p_⊥</code> by <code>α</code>, achieving a total 3D rotation of <code>θ</code> requires <b><code>α = θ / 2</code></b>! Moreover, <code>(-q)·p·(-q)⁻¹ = q·p·q⁻¹</code>, meaning antipodal points <b><code>q</code> and <code>-q</code> on the 4D hypersphere represent the exact same 3D orientation</b>!
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 1: QUATERNION HYPERSPHERE & DOUBLE COVER (q vs -q) SANDBOX                           -->
+  <!-- ======================================================================================== -->
+  <section id="tab1" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div class="lg:col-span-7 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-lg font-bold">
+            <span data-lang="zh">3D 四元数姿态沙盒：体验 q = (cos(θ/2), sin(θ/2)û) 与双重覆盖 (q vs -q)</span>
+            <span data-lang="en">3D Quaternion Attitude Lab: q = (cos(θ/2), sin(θ/2)û) &amp; Double Cover (q vs -q)</span>
+          </h2>
+          <p class="text-xs text-[var(--muted-foreground)]">
+            <span data-lang="zh">点击右侧“翻转 q → -q”，观察 4 个四元数分量全部变号，但 3D 飞船姿态分毫不差！</span>
+            <span data-lang="en">Click "Flip q → -q" to see all 4 quaternion components negate while the 3D spacecraft attitude stays 100% identical!</span>
+          </p>
+        </div>
+
+        <button id="negateQBtn" onclick="toggleNegateQ()" class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">
+          Current Sign: +q (Click to Flip to -q)
+        </button>
+      </div>
+
+      <div class="relative flex-1 min-h-[420px] bg-[#070b14] rounded-xl overflow-hidden border border-[var(--border)]">
+        <canvas id="quatLabCanvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+        <div class="absolute top-3 left-3 bg-black/80 backdrop-blur px-3.5 py-2 rounded-lg border border-slate-800 text-xs space-y-1 pointer-events-none">
+          <div id="quatTupleHud" class="math-box font-bold text-emerald-400">q = (w: +0.71, x: +0.35, y: +0.50, z: +0.35)</div>
+          <div id="quatNormHud" class="math-box text-amber-300">||q||² = w² + x² + y² + z² = 1.000 (Unit Hypersphere S³)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lg:col-span-5 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 text-xs">
+      <h3 class="text-sm font-bold border-b border-[var(--border)] pb-2">
+        <span data-lang="zh">调节单位四元数参数 (Axis û &amp; Angle θ)</span>
+        <span data-lang="en">Adjust Unit Quaternion Parameters (Axis û &amp; Angle θ)</span>
+      </h3>
+
+      <div>
+        <div class="flex justify-between mb-1">
+          <span data-lang="zh">旋转轴方位角 (Azimuth φ)</span>
+          <span data-lang="en">Axis Azimuth φ</span>
+          <span id="qlAzVal" class="math-box text-cyan-300">45°</span>
+        </div>
+        <input id="qlAzSlider" type="range" min="-180" max="180" step="1" value="45" oninput="drawQuatLab()" class="w-full" />
+      </div>
+
+      <div>
+        <div class="flex justify-between mb-1">
+          <span data-lang="zh">旋转轴仰角 (Elevation ψ)</span>
+          <span data-lang="en">Axis Elevation ψ</span>
+          <span id="qlElVal" class="math-box text-cyan-300">45°</span>
+        </div>
+        <input id="qlElSlider" type="range" min="-89" max="89" step="1" value="45" oninput="drawQuatLab()" class="w-full" />
+      </div>
+
+      <div>
+        <div class="flex justify-between mb-1 font-bold text-amber-300">
+          <span data-lang="zh">3D 旋转角 θ (试着从 0° 拉到 360° 和 720°!)</span>
+          <span data-lang="en">3D Angle θ (Drag from 0° to 360° and 720°!)</span>
+          <span id="qlThetaVal" class="math-box">90° (θ/2 = 45°)</span>
+        </div>
+        <input id="qlThetaSlider" type="range" min="0" max="720" step="2" value="90" oninput="drawQuatLab()" class="w-full" />
+      </div>
+
+      <div class="grid grid-cols-4 gap-2 text-center math-box pt-2">
+        <div class="p-2.5 rounded-xl bg-amber-950/30 border border-amber-700/40">
+          <div class="text-[10px] text-amber-300">w = cos(θ/2)</div>
+          <div id="qBoxW" class="text-sm font-bold text-white mt-0.5">0.71</div>
+        </div>
+        <div class="p-2.5 rounded-xl bg-red-950/30 border border-red-700/40">
+          <div class="text-[10px] text-red-300">x = uₓsin(θ/2)</div>
+          <div id="qBoxX" class="text-sm font-bold text-white mt-0.5">0.35</div>
+        </div>
+        <div class="p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-700/40">
+          <div class="text-[10px] text-emerald-300">y = uᵧsin(θ/2)</div>
+          <div id="qBoxY" class="text-sm font-bold text-white mt-0.5">0.50</div>
+        </div>
+        <div class="p-2.5 rounded-xl bg-sky-950/30 border border-sky-700/40">
+          <div class="text-[10px] text-sky-300">z = u_zsin(θ/2)</div>
+          <div id="qBoxZ" class="text-sm font-bold text-white mt-0.5">0.35</div>
+        </div>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-[var(--secondary)] border border-[var(--border)] text-[var(--muted-foreground)] leading-relaxed">
+        <span data-lang="zh">💡 <b>观察 360° vs 720° 现象</b>：把上方滑块拉到 <code>θ = 360°</code> 时，3D 飞船转了一整圈回到了原位，但因为半角是 <code>180°</code>，此时 <code>w = cos(180°) = -1</code>（变成了 <code>-q</code>）！继续拉到 <code>θ = 720°</code>（转满两圈），四元数才回到 <code>w = +1</code>！</span>
+        <span data-lang="en">💡 <b>360° vs 720° Plate Trick</b>: At <code>θ = 360°</code>, the 3D ship completes one full turn, but <code>θ/2 = 180°</code> so <code>w = cos(180°) = -1</code>! Only at <code>θ = 720°</code> (two full turns) does <code>q</code> return to <code>+1</code>!</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 2: LERP vs NLERP vs SLERP SPHERICAL INTERPOLATION ARENA                              -->
+  <!-- ======================================================================================== -->
+  <section id="tab2" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div class="lg:col-span-7 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-lg font-bold">
+            <span data-lang="zh">球面插值竞技场：弦线 LERP vs 归一化 NLERP vs 测地线 SLERP</span>
+            <span data-lang="en">Spherical Interpolation Arena: LERP vs. NLERP vs. Geodesic SLERP</span>
+          </h2>
+          <p class="text-xs text-[var(--muted-foreground)]">
+            <span data-lang="zh">红色: LERP (走球内弦线，中途模型缩水!) ｜ 蓝色: NLERP (中途角速度过快) ｜ 绿色: SLERP (完美恒定角速度!)</span>
+            <span data-lang="en">Red: LERP (Shrinks inside sphere!) ｜ Blue: NLERP (Uneven speed) ｜ Green: SLERP (Exact constant angular speed!)</span>
+          </p>
+        </div>
+
+        <button id="shortPathBtn" onclick="toggleShortestPath()" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition">
+          ✅ Shortest Path Check (dot &lt; 0 Flip): ON
+        </button>
+      </div>
+
+      <div class="relative flex-1 min-h-[420px] bg-[#070b14] rounded-xl overflow-hidden border border-[var(--border)]">
+        <canvas id="slerpCanvas" class="w-full h-full block"></canvas>
+      </div>
+    </div>
+
+    <div class="lg:col-span-5 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 text-xs">
+      <h3 class="text-sm font-bold border-b border-[var(--border)] pb-2">
+        <span data-lang="zh">SLERP 插值进度 t 与球面夹角 Ω 控制</span>
+        <span data-lang="en">SLERP Parameter t &amp; Hypersphere Angle Ω</span>
+      </h3>
+
+      <div>
+        <div class="flex justify-between mb-1 font-bold text-emerald-400">
+          <span data-lang="zh">✨ 插值时间参数 t ∈ [0, 1] (重点观察 t = 0.50 中点!):</span>
+          <span data-lang="en">✨ Interpolation Parameter t ∈ [0, 1] (Check t = 0.50!):</span>
+          <span id="slerpTVal" class="math-box">t = 0.50</span>
+        </div>
+        <input id="slerpTSlider" type="range" min="0" max="1" step="0.01" value="0.50" oninput="drawSlerpArena()" class="w-full" />
+      </div>
+
+      <div>
+        <div class="flex justify-between mb-1">
+          <span data-lang="zh">终点四元数角度 Ω (超过 90° 时测试右上角 Shortest Path 按钮!):</span>
+          <span data-lang="en">Target Angle Ω (Push past 90° to test Shortest Path flip!):</span>
+          <span id="slerpOmegaVal" class="math-box text-amber-300">130°</span>
+        </div>
+        <input id="slerpOmegaSlider" type="range" min="30" max="170" step="2" value="130" oninput="drawSlerpArena()" class="w-full" />
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2 math-box">
+        <div class="text-indigo-300 font-bold">SLERP(q₁, q₂, t) = [sin((1-t)Ω)/sin Ω]·q₁ + [sin(tΩ)/sin Ω]·q₂</div>
+        <div id="lerpScaleHud" class="text-rose-400">❌ LERP Length ||q_lerp|| = 0.42 (Model shrinks to 42%!)</div>
+        <div id="slerpWeightsHud" class="text-emerald-400">✅ SLERP Weights: w₁ = 0.55, w₂ = 0.55 (||q_slerp|| = 1.00)</div>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-[var(--secondary)] border border-[var(--border)] text-[var(--muted-foreground)] leading-relaxed">
+        <span data-lang="zh">💡 <b>为什么必须做 <code>if (dot(q₁, q₂) &lt; 0) q₂ = -q₂</code>？</b><br/>将上方 <code>Ω</code> 滑块推到 <code>130°</code>，然后点击右上角按钮关闭 <code>Shortest Path Check</code> —— 你会看到插值轨迹绕着球面背面的大圈狂转了 230°！开启后自动把 <code>q₂</code> 翻转为等价的 <code>-q₂</code>，立即走 50° 的最短圆弧！</span>
+        <span data-lang="en">💡 <b>Why check <code>if (dot(q₁, q₂) &lt; 0) q₂ = -q₂</code>?</b><br/>Set <code>Ω = 130°</code> and toggle OFF the Shortest Path button above—notice how interpolation takes the long way around the sphere! Turning it ON negates <code>q₂</code> to <code>-q₂</code> so it takes the short geodesic arc!</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 3: EMBEDDED LECTURE VIDEOS & NOTES                                                   -->
+  <!-- ======================================================================================== -->
+  <section id="tab3" class="hidden space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            UC Davis ECS 175 · Fall 2009 · Lecture 09
+          </span>
+          <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+9+Quaternions+Kenneth+Joy" target="_blank" rel="noreferrer" class="text-xs text-amber-400 hover:underline">
+            <span data-lang="zh">在 YouTube 搜索/观看本讲 ↗</span>
+            <span data-lang="en">Watch on YouTube ↗</span>
+          </a>
+        </div>
+        <h3 class="text-lg font-bold">UC Davis Lecture 9: Quaternions (Prof. Kenneth Joy)</h3>
+        <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-3 text-xs leading-relaxed">
+          <p class="text-[var(--muted-foreground)]" data-lang="zh">
+            1. <b>为什么游戏引擎与骨骼动画内部一律用四元数存储旋转？</b><br/>
+            • 仅需 4 个浮点数（相比 3×3 矩阵的 9 个数节省一半显存）；<br/>
+            • 连续相乘出现浮点误差时，四元数只需除以模长 <code>q / ||q||</code> 即可瞬间恢复正交性（而 3×3 矩阵正交化需要昂贵的 Gram-Schmidt）；<br/>
+            • 彻底根除万向节死锁（Gimbal Lock），且支持平滑的球面测地线插值（SLERP）！
+          </p>
+          <p class="text-[var(--muted-foreground)]" data-lang="en">
+            1. <b>Why Game Engines Store Rotations as Quaternions</b>:<br/>
+            • Compact (4 floats vs. 9 for a 3×3 matrix);<br/>
+            • Trivial to re-normalize (<code>q / ||q||</code>) to prevent floating-point drift;<br/>
+            • Immune to Gimbal Lock and enables smooth SLERP!
+          </p>
+        </div>
+      </div>
+
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            3Blue1Brown · Essence of Linear Algebra / Quaternions
+          </span>
+          <a href="https://www.youtube.com/watch?v=d4EgbgTm0Bg" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">
+            <span data-lang="zh">在 YouTube 观看 3Blue1Brown 四元数专讲 ↗</span>
+            <span data-lang="en">Watch 3Blue1Brown Quaternions on YouTube ↗</span>
+          </a>
+        </div>
+        <h3 class="text-lg font-bold">3Blue1Brown: Visualizing Quaternions (4D Stereographic Projection)</h3>
+        <div class="aspect-video w-full rounded-xl overflow-hidden bg-black border border-[var(--border)]">
+          <iframe class="w-full h-full" src="https://www.youtube.com/embed/d4EgbgTm0Bg" title="3Blue1Brown Visualizing Quaternions" allowfullscreen></iframe>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 4: PLAYABLE MINI-GAME: 4D HYPERSPHERE NAVIGATOR (3 MISSIONS)                         -->
+  <!-- ======================================================================================== -->
+  <section id="tab4" class="hidden space-y-6">
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              🎮 Play to Learn · Interactive Mini-Game
+            </span>
+            <span id="gameScoreBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              Cleared: 0 / 3 Missions
+            </span>
+          </div>
+          <h2 class="text-xl font-bold mt-1">
+            <span data-lang="zh">四维超球面星际领航员 (4D Hypersphere Navigator · 3 关四元数实战)</span>
+            <span data-lang="en">4D Hypersphere Navigator (3-Mission Quaternion &amp; SLERP Challenge)</span>
+          </h2>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <button id="mBtn1" onclick="selectMission(1)" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white transition">
+            <span data-lang="zh">关卡 1: 半角 θ/2 与三明治校准</span>
+            <span data-lang="en">Mission 1: Half-Angle θ/2 Calibration</span>
+          </button>
+          <button id="mBtn2" onclick="selectMission(2)" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)] border border-[var(--border)] transition">
+            <span data-lang="zh">关卡 2: 双重覆盖最短路径救援</span>
+            <span data-lang="en">Mission 2: Shortest-Path Flip (-q₂)</span>
+          </button>
+          <button id="mBtn3" onclick="selectMission(3)" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)] border border-[var(--border)] transition">
+            <span data-lang="zh">关卡 3: SLERP 恒速激光对接</span>
+            <span data-lang="en">Mission 3: SLERP Geodesic Docking</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div class="lg:col-span-7">
+          <div class="relative min-h-[400px] bg-[#070b14] rounded-xl overflow-hidden border border-[var(--border)]">
+            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+            <div class="absolute top-3 left-3 right-3 flex justify-between items-center pointer-events-none">
+              <div id="gameHudLeft" class="bg-black/75 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-800 text-xs math-box">
+                Mission 1
+              </div>
+              <div id="gameStatusPill" class="bg-amber-500/20 border border-amber-500/40 text-amber-300 px-3 py-1 rounded-full text-xs font-bold">
+                IN PROGRESS
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-5 space-y-4">
+          <!-- Mission 1 -->
+          <div id="missionPanel1" class="bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-5 space-y-3 text-xs">
+            <div class="font-bold text-sm text-amber-400">
+              <span data-lang="zh">🎯 任务 1：目标需要将飞船旋转 θ = 120°！请设置正确的四元数内部半角 α = θ/2 并开启右乘 q⁻¹！</span>
+              <span data-lang="en">🎯 Mission 1: Target Requires a θ = 120° 3D Turn! Set Quaternion Half-Angle α = θ/2 = 60° and Enable Right-Multiply q⁻¹!</span>
+            </div>
+            <p class="text-[var(--muted-foreground)] leading-relaxed">
+              <span data-lang="zh">很多新手想转 120° 就直接往四元数里填 120°（结果转了 240°！）。请把下方四元数内部半角调到 <b><code>α = 60°</code></b>，并点击开启 <b><code>右乘 q⁻¹ 护盾</code></b> 消除第四维泄漏！</span>
+              <span data-lang="en">Set the quaternion's internal half-angle slider to <b><code>α = 60°</code></b> (so <code>2α = 120°</code>) and enable the <b><code>Right-Multiply q⁻¹</code></b> button!</span>
+            </p>
+            <button id="m1RightBtn" onclick="toggleM1Sandwich()" class="w-full py-2 rounded-lg font-bold bg-rose-600 text-white">
+              ❌ Right-Multiply q⁻¹: OFF (4D Leakage!) — Click to Enable
+            </button>
+            <div>
+              <label class="flex justify-between"><span>Quaternion Internal Angle α (Target: 60°)</span><span id="m1AlphaVal" class="math-box">120°</span></label>
+              <input id="m1Alpha" type="range" min="0" max="180" step="5" value="120" oninput="updateGame()" class="w-full" />
+            </div>
+          </div>
+
+          <!-- Mission 2 -->
+          <div id="missionPanel2" class="hidden bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-5 space-y-3 text-xs">
+            <div class="font-bold text-sm text-cyan-400">
+              <span data-lang="zh">🛸 任务 2：q₁ · q₂ = -0.77 &lt; 0！翻转 -q₂ 避开红色危险星云带！</span>
+              <span data-lang="en">🛸 Mission 2: q₁ · q₂ &lt; 0! Flip to -q₂ to Avoid the Red Hazard Nebula!</span>
+            </div>
+            <p class="text-[var(--muted-foreground)] leading-relaxed">
+              <span data-lang="zh">当前目标四元数 <code>q₂</code> 与起点 <code>q₁</code> 点积为负，飞船正在绕球面背面长弧穿越红色危险区！请点击下方按钮将 <code>q₂</code> 翻转为等价的 <b><code>-q₂</code></b>，并推进插值滑块 <code>t = 1.00</code> 抵达终点！</span>
+              <span data-lang="en">Click to negate <code>q₂ → -q₂</code> so the ship takes the short safe arc, then push slider <code>t</code> to <code>1.00</code>!</span>
+            </p>
+            <button id="m2FlipBtn" onclick="toggleM2Flip()" class="w-full py-2 rounded-lg font-bold bg-rose-600 text-white">
+              ⚠️ Using +q₂ (Long Path Through Hazard!) — Click to Flip to -q₂
+            </button>
+            <div>
+              <label class="flex justify-between"><span>Flight Progress t (Push to 1.00)</span><span id="m2TVal" class="math-box">0.50</span></label>
+              <input id="m2T" type="range" min="0" max="1" step="0.05" value="0.50" oninput="updateGame()" class="w-full" />
+            </div>
+          </div>
+
+          <!-- Mission 3 -->
+          <div id="missionPanel3" class="hidden bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-5 space-y-3 text-xs">
+            <div class="font-bold text-sm text-emerald-400">
+              <span data-lang="zh">⚡ 任务 3：切换为 SLERP 测地线模式并将激光转到 t = 0.50 中点靶心！</span>
+              <span data-lang="en">⚡ Mission 3: Switch from Shrinking LERP to Exact SLERP at t = 0.50!</span>
+            </div>
+            <p class="text-[var(--muted-foreground)] leading-relaxed">
+              <span data-lang="zh">当前处于弦线 <code>LERP</code> 模式，在 <code>t = 0.50</code> 处激光长度严重缩水无法触及外圈靶心！请点击切换为 <b><code>SLERP 恒模长测地线模式</code></b>，并将 <code>t</code> 对准 <code>0.50</code>！</span>
+              <span data-lang="en">Switch from chordal <code>LERP</code> to unit-length <b><code>SLERP</code></b> and align <code>t = 0.50</code> to hit the outer target!</span>
+            </p>
+            <button id="m3ModeBtn" onclick="toggleM3Slerp()" class="w-full py-2 rounded-lg font-bold bg-rose-600 text-white">
+              ❌ Mode: Chordal LERP (Shrinks at Midpoint!) — Click for SLERP
+            </button>
+            <div>
+              <label class="flex justify-between"><span>Interpolation t (Target: 0.50)</span><span id="m3TVal" class="math-box">0.20</span></label>
+              <input id="m3T" type="range" min="0" max="1" step="0.05" value="0.20" oninput="updateGame()" class="w-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    let currentLang = 'zh';
+    let currentTab = 0;
+    let camYaw = -0.55;
+    let camPitch = 0.40;
+    let isDragging = false;
+    let lastMouse = { x: 0, y: 0 };
+
+    // Tab 0 State
+    let isFullSandwich = true;
+
+    // Tab 1 State
+    let negateQ = false;
+
+    // Tab 2 State
+    let useShortestPath = true;
+
+    // Tab 4 Game State
+    let currentMission = 1;
+    let missionsCleared = { 1: false, 2: false, 3: false };
+    let m1UseRight = false;
+    let m2Flipped = false;
+    let m3UseSlerp = false;
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
+      document.getElementById('langBtnLabel').textContent = currentLang === 'zh' ? 'EN / English' : '中文 / Chinese';
+      drawSandwichCanvas();
+      drawQuatLab();
+      drawSlerpArena();
+      updateGame();
+    }
+
+    function switchTab(idx) {
+      currentTab = idx;
+      for (let i = 0; i < 5; i++) {
+        const btn = document.getElementById('tabBtn' + i);
+        const sec = document.getElementById('tab' + i);
+        if (i === idx) {
+          btn.className = 'tab-active px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all';
+          sec.classList.remove('hidden');
+        } else {
+          btn.className = 'bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90';
+          sec.classList.add('hidden');
+        }
+      }
+      setTimeout(() => {
+        if (idx === 0) drawSandwichCanvas();
+        if (idx === 1) drawQuatLab();
+        if (idx === 2) drawSlerpArena();
+        if (idx === 4) updateGame();
+      }, 20);
+    }
+
+    function norm3(v) {
+      const l = Math.hypot(v.x, v.y, v.z) || 1;
+      return { x: v.x / l, y: v.y / l, z: v.z / l };
+    }
+    function dot3(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+    function cross3(a, b) {
+      return {
+        x: a.y * b.z - a.z * b.y,
+        y: a.z * b.x - a.x * b.z,
+        z: a.x * b.y - a.y * b.x
+      };
+    }
+    function rodriguesRotate(v, kUnit, thetaRad) {
+      const c = Math.cos(thetaRad), s = Math.sin(thetaRad);
+      const kv = dot3(kUnit, v);
+      const kxv = cross3(kUnit, v);
+      return {
+        x: v.x * c + kUnit.x * kv * (1 - c) + kxv.x * s,
+        y: v.y * c + kUnit.y * kv * (1 - c) + kxv.y * s,
+        z: v.z * c + kUnit.z * kv * (1 - c) + kxv.z * s
+      };
+    }
+
+    function project3D(p, width, height, scale = 76) {
+      const cosY = Math.cos(camYaw), sinY = Math.sin(camYaw);
+      const x1 = p.x * cosY + p.z * sinY;
+      const z1 = -p.x * sinY + p.z * cosY;
+      const cosP = Math.cos(camPitch), sinP = Math.sin(camPitch);
+      const y2 = p.y * cosP - z1 * sinP;
+      const z2 = p.y * sinP + z1 * cosP;
+      const camDist = 9.5;
+      const persp = camDist / Math.max(1.5, camDist - z2);
+      return {
+        x: width / 2 + x1 * scale * persp,
+        y: height / 2 + 15 - y2 * scale * persp,
+        depth: z2
+      };
+    }
+
+    function drawArrow2D(ctx, from, to, color, lineWidth = 2.5, label = '') {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 2) return;
+      const angle = Math.atan2(dy, dx);
+      const headLen = Math.min(11, Math.max(6, len * 0.22));
+
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(to.x, to.y);
+      ctx.lineTo(to.x - headLen * Math.cos(angle - Math.PI / 6), to.y - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(to.x - headLen * Math.cos(angle + Math.PI / 6), to.y - headLen * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+      if (label) {
+        ctx.font = 'bold 11px ui-monospace, monospace';
+        ctx.fillText(label, to.x + 10 * Math.cos(angle) - 8, to.y + 10 * Math.sin(angle) + 4);
+      }
+      ctx.restore();
+    }
+
+    function setupOrbitCanvas(canvasId, redrawFn) {
+      const c = document.getElementById(canvasId);
+      if (!c) return;
+      c.addEventListener('pointerdown', e => {
+        isDragging = true;
+        lastMouse = { x: e.clientX, y: e.clientY };
+        c.setPointerCapture(e.pointerId);
+      });
+      c.addEventListener('pointermove', e => {
+        if (!isDragging) return;
+        const dx = e.clientX - lastMouse.x;
+        const dy = e.clientY - lastMouse.y;
+        lastMouse = { x: e.clientX, y: e.clientY };
+        camYaw += dx * 0.008;
+        camPitch = Math.max(-1.2, Math.min(1.2, camPitch + dy * 0.008));
+        redrawFn();
+      });
+      c.addEventListener('pointerup', () => { isDragging = false; });
+    }
+
+    // ============================================================================
+    // TAB 0: HALF-ANGLE SANDWICH EXPLORER
+    // ============================================================================
+    function setSandwichMode(full) {
+      isFullSandwich = full;
+      document.getElementById('btnSingleLeft').className = !full
+        ? 'flex-1 py-1.5 px-2 rounded-lg font-semibold bg-rose-600 text-white'
+        : 'flex-1 py-1.5 px-2 rounded-lg font-semibold bg-[var(--card)] border border-[var(--border)] text-rose-300';
+      document.getElementById('btnFullSandwich').className = full
+        ? 'flex-1 py-1.5 px-2 rounded-lg font-semibold bg-indigo-600 text-white'
+        : 'flex-1 py-1.5 px-2 rounded-lg font-semibold bg-[var(--card)] border border-[var(--border)] text-indigo-300';
+      drawSandwichCanvas();
+    }
+
+    function drawSandwichCanvas() {
+      const canvas = document.getElementById('sandwichCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 540;
+      canvas.height = rect.height || 315;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const thetaDeg = parseFloat(document.getElementById('swThetaSlider').value);
+      const halfDeg = thetaDeg / 2;
+      document.getElementById('swThetaLabel').textContent = `θ = ${thetaDeg}° (θ/2 = ${halfDeg.toFixed(0)}°)`;
+
+      const kUnit = { x: 0, y: 1, z: 0 };
+      const pStart = { x: 1.5, y: 1.1, z: 0.4 };
+      const alphaRad = halfDeg * Math.PI / 180;
+
+      // Active rotation angle on p_perp is alphaRad if single-left, or 2*alphaRad = thetaRad if full sandwich!
+      const activeDiskAngle = isFullSandwich ? 2 * alphaRad : alphaRad;
+      // 4D w leakage is -sin(alpha)*(k·p) if single-left, or 0 if full sandwich!
+      const wLeak = isFullSandwich ? 0 : -Math.sin(alphaRad) * pStart.y;
+      const pParY = isFullSandwich ? pStart.y : pStart.y * Math.cos(alphaRad);
+
+      const pDiskRot = rodriguesRotate({ x: pStart.x, y: 0, z: pStart.z }, kUnit, activeDiskAngle);
+      const pOut3D = { x: pDiskRot.x, y: pParY, z: pDiskRot.z };
+
+      const o = project3D({ x: 0, y: 0, z: 0 }, w, h, 72);
+      drawArrow2D(ctx, o, project3D({ x: 0, y: 2.3, z: 0 }, w, h, 72), '#06b6d4', 2.5, 'Axis û (Y)');
+      drawArrow2D(ctx, o, project3D(pStart, w, h, 72), 'rgba(148,163,184,0.5)', 2, 'Original p');
+      drawArrow2D(
+        ctx,
+        o,
+        project3D(pOut3D, w, h, 72),
+        isFullSandwich ? '#10b981' : '#f43f5e',
+        3.5,
+        isFullSandwich ? `q·p·q⁻¹ (Rot=${thetaDeg}°)` : `q·p (Only ${halfDeg}°, Leaked!)`
+      );
+
+      // Draw 4D w-Leakage Gauge on the right side of canvas
+      const gx = w - 65, gy = h / 2 + 15, gh = 90;
+      ctx.save();
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(gx - 12, gy - gh, 24, gh * 2);
+      ctx.fillStyle = Math.abs(wLeak) > 0.02 ? '#f43f5e' : '#10b981';
+      const barH = wLeak * gh * 0.8;
+      ctx.fillRect(gx - 10, gy, 20, -barH);
+      ctx.font = 'bold 10px monospace';
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillText('4D w-Leak', gx - 28, gy - gh - 8);
+      ctx.fillText(`w=${wLeak.toFixed(2)}`, gx - 22, gy + gh + 15);
+      ctx.restore();
+
+      const mHud = document.getElementById('sandwichModeHud');
+      if (isFullSandwich) {
+        mHud.textContent = `✅ Full Sandwich q·p·q⁻¹: 4D Leakage w = 0.00 (Cancelled!)`;
+        mHud.className = 'font-bold text-emerald-400';
+      } else {
+        mHud.textContent = `⚠️ Left-Only q·p: 4D Leakage w = ${wLeak.toFixed(2)} (p_∥ kicked into 4th dim!)`;
+        mHud.className = 'font-bold text-rose-400';
+      }
+      document.getElementById('sandwichAngleHud').textContent = isFullSandwich
+        ? `Left (+${halfDeg}°) + Right (+${halfDeg}°) ⇒ Total 3D Rotation = ${thetaDeg}°`
+        : `Left-Only rotates disk by only θ/2 = ${halfDeg}°!`;
+    }
+
+    // ============================================================================
+    // TAB 1: QUATERNION HYPERSPHERE & DOUBLE COVER (q vs -q)
+    // ============================================================================
+    function toggleNegateQ() {
+      negateQ = !negateQ;
+      const btn = document.getElementById('negateQBtn');
+      btn.textContent = negateQ
+        ? 'Current Sign: -q (All 4 Components Negated — Same 3D Attitude!)'
+        : 'Current Sign: +q (Click to Flip to -q)';
+      btn.className = negateQ
+        ? 'px-3.5 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-500 text-white transition'
+        : 'px-3.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition';
+      drawQuatLab();
+    }
+
+    function drawQuatLab() {
+      const canvas = document.getElementById('quatLabCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 680;
+      canvas.height = rect.height || 420;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const az = parseFloat(document.getElementById('qlAzSlider').value);
+      const el = parseFloat(document.getElementById('qlElSlider').value);
+      const theta = parseFloat(document.getElementById('qlThetaSlider').value);
+
+      document.getElementById('qlAzVal').textContent = az + '°';
+      document.getElementById('qlElVal').textContent = el + '°';
+      document.getElementById('qlThetaVal').textContent = `${theta}° (θ/2 = ${(theta / 2).toFixed(0)}°)`;
+
+      const azRad = az * Math.PI / 180;
+      const elRad = el * Math.PI / 180;
+      const u = norm3({
+        x: Math.cos(elRad) * Math.sin(azRad),
+        y: Math.sin(elRad),
+        z: Math.cos(elRad) * Math.cos(azRad)
+      });
+
+      const halfRad = (theta / 2) * Math.PI / 180;
+      const sign = negateQ ? -1 : 1;
+      const qw = sign * Math.cos(halfRad);
+      const qx = sign * u.x * Math.sin(halfRad);
+      const qy = sign * u.y * Math.sin(halfRad);
+      const qz = sign * u.z * Math.sin(halfRad);
+
+      document.getElementById('qBoxW').textContent = (qw >= 0 ? '+' : '') + qw.toFixed(2);
+      document.getElementById('qBoxX').textContent = (qx >= 0 ? '+' : '') + qx.toFixed(2);
+      document.getElementById('qBoxY').textContent = (qy >= 0 ? '+' : '') + qy.toFixed(2);
+      document.getElementById('qBoxZ').textContent = (qz >= 0 ? '+' : '') + qz.toFixed(2);
+
+      document.getElementById('quatTupleHud').textContent =
+        `${negateQ ? '-q' : '+q'} = (w: ${qw.toFixed(2)}, x: ${qx.toFixed(2)}, y: ${qy.toFixed(2)}, z: ${qz.toFixed(2)})`;
+
+      // Rotate 3D spacecraft using q*p*q^-1 (which is identical for +q and -q!)
+      const thetaRad = theta * Math.PI / 180;
+      const o = project3D({ x: 0, y: 0, z: 0 }, w, h, 82);
+      drawArrow2D(ctx, project3D({ x: -u.x * 2.4, y: -u.y * 2.4, z: -u.z * 2.4 }, w, h, 82), project3D({ x: u.x * 2.4, y: u.y * 2.4, z: u.z * 2.4 }, w, h, 82), '#06b6d4', 3, 'Axis û');
+
+      const shipVerts = [
+        { x: 0, y: 0, z: 1.6 },
+        { x: -1.1, y: 0, z: -0.9 },
+        { x: 1.1, y: 0, z: -0.9 },
+        { x: 0, y: 0.6, z: -0.6 }
+      ].map(v => project3D(rodriguesRotate(v, u, thetaRad), w, h, 82));
+
+      const faces = [[0,1,2], [0,1,3], [0,2,3], [1,2,3]];
+      ctx.save();
+      ctx.fillStyle = 'rgba(99, 102, 241, 0.35)';
+      ctx.strokeStyle = '#818cf8';
+      ctx.lineWidth = 2.2;
+      faces.forEach(([i, j, k]) => {
+        ctx.beginPath();
+        ctx.moveTo(shipVerts[i].x, shipVerts[i].y);
+        ctx.lineTo(shipVerts[j].x, shipVerts[j].y);
+        ctx.lineTo(shipVerts[k].x, shipVerts[k].y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    // ============================================================================
+    // TAB 2: LERP vs NLERP vs SLERP ARENA
+    // ============================================================================
+    function toggleShortestPath() {
+      useShortestPath = !useShortestPath;
+      const btn = document.getElementById('shortPathBtn');
+      btn.textContent = useShortestPath
+        ? '✅ Shortest Path Check (dot < 0 Flip): ON'
+        : '⚠️ Shortest Path Check: OFF (Long Arc when Ω > 90°!)';
+      btn.className = useShortestPath
+        ? 'px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition'
+        : 'px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-600 hover:bg-rose-500 text-white transition';
+      drawSlerpArena();
+    }
+
+    function drawSlerpArena() {
+      const canvas = document.getElementById('slerpCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 680;
+      canvas.height = rect.height || 420;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const t = parseFloat(document.getElementById('slerpTSlider').value);
+      const omegaDeg = parseFloat(document.getElementById('slerpOmegaSlider').value);
+      document.getElementById('slerpTVal').textContent = `t = ${t.toFixed(2)}`;
+      document.getElementById('slerpOmegaVal').textContent = omegaDeg + '°';
+
+      const cx = w / 2, cy = h / 2 + 10, R = 145;
+
+      // Draw Unit Hypersphere Cross-Section Circle
+      ctx.save();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      const q1 = { x: 1, y: 0 };
+      const omRad = omegaDeg * Math.PI / 180;
+      const rawQ2 = { x: Math.cos(omRad), y: Math.sin(omRad) };
+      const dotVal = q1.x * rawQ2.x + q1.y * rawQ2.y;
+
+      // If useShortestPath and dot < 0, flip q2 to -q2!
+      const q2 = (useShortestPath && dotVal < 0)
+        ? { x: -rawQ2.x, y: -rawQ2.y }
+        : rawQ2;
+
+      const toScr = pt => ({ x: cx + pt.x * R, y: cy - pt.y * R });
+
+      // Draw Chord between q1 and q2
+      const sQ1 = toScr(q1), sQ2 = toScr(q2);
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.55)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(sQ1.x, sQ1.y); ctx.lineTo(sQ2.x, sQ2.y); ctx.stroke();
+      ctx.restore();
+
+      // 1. LERP
+      const qLerp = { x: (1 - t) * q1.x + t * q2.x, y: (1 - t) * q1.y + t * q2.y };
+      const lerpLen = Math.hypot(qLerp.x, qLerp.y);
+
+      // 2. NLERP
+      const qNlerp = { x: qLerp.x / (lerpLen || 1), y: qLerp.y / (lerpLen || 1) };
+
+      // 3. SLERP
+      const effCos = Math.max(-1, Math.min(1, q1.x * q2.x + q1.y * q2.y));
+      const effOmega = Math.acos(effCos);
+      const sinOm = Math.sin(effOmega);
+      const w1 = sinOm > 1e-4 ? Math.sin((1 - t) * effOmega) / sinOm : 1 - t;
+      const w2 = sinOm > 1e-4 ? Math.sin(t * effOmega) / sinOm : t;
+      const qSlerp = { x: w1 * q1.x + w2 * q2.x, y: w1 * q1.y + w2 * q2.y };
+
+      const orig = { x: cx, y: cy };
+      drawArrow2D(ctx, orig, sQ1, '#94a3b8', 2, 'q₁ (Start)');
+      drawArrow2D(ctx, orig, sQ2, '#f59e0b', 2.5, (useShortestPath && dotVal < 0) ? '-q₂ (Flipped Short!)' : 'q₂ (Target)');
+
+      drawArrow2D(ctx, orig, toScr(qLerp), '#f43f5e', 3, `LERP (||q||=${lerpLen.toFixed(2)})`);
+      drawArrow2D(ctx, orig, toScr(qNlerp), '#38bdf8', 2.8, 'NLERP');
+      drawArrow2D(ctx, orig, toScr(qSlerp), '#10b981', 3.6, 'SLERP (Geodesic)');
+
+      document.getElementById('lerpScaleHud').textContent =
+        `❌ LERP Length ||q_lerp|| = ${lerpLen.toFixed(2)} (Shrinks to ${Math.round(lerpLen * 100)}%!)`;
+      document.getElementById('slerpWeightsHud').textContent =
+        `✅ SLERP Weights: w₁ = ${w1.toFixed(2)}, w₂ = ${w2.toFixed(2)} (||q_slerp|| = 1.00)`;
+    }
+
+    // ============================================================================
+    // TAB 4: 3-MISSION QUATERNION MINI-GAME
+    // ============================================================================
+    function selectMission(m) {
+      currentMission = m;
+      for (let i = 1; i <= 3; i++) {
+        document.getElementById('missionPanel' + i).classList.toggle('hidden', i !== m);
+        const btn = document.getElementById('mBtn' + i);
+        btn.className = i === m
+          ? 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white transition'
+          : 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)] border border-[var(--border)] transition';
+      }
+      updateGame();
+    }
+
+    function toggleM1Sandwich() {
+      m1UseRight = !m1UseRight;
+      const btn = document.getElementById('m1RightBtn');
+      btn.textContent = m1UseRight
+        ? '✅ Right-Multiply q⁻¹: ON (Full Sandwich q·p·q⁻¹!)'
+        : '❌ Right-Multiply q⁻¹: OFF (4D Leakage!) — Click to Enable';
+      btn.className = m1UseRight
+        ? 'w-full py-2 rounded-lg font-bold bg-emerald-600 text-white'
+        : 'w-full py-2 rounded-lg font-bold bg-rose-600 text-white';
+      updateGame();
+    }
+
+    function toggleM2Flip() {
+      m2Flipped = !m2Flipped;
+      const btn = document.getElementById('m2FlipBtn');
+      btn.textContent = m2Flipped
+        ? '✅ Flipped to -q₂ (Shortest Geodesic Arc Enabled!)'
+        : '⚠️ Using +q₂ (Long Path Through Hazard!) — Click to Flip to -q₂';
+      btn.className = m2Flipped
+        ? 'w-full py-2 rounded-lg font-bold bg-emerald-600 text-white'
+        : 'w-full py-2 rounded-lg font-bold bg-rose-600 text-white';
+      updateGame();
+    }
+
+    function toggleM3Slerp() {
+      m3UseSlerp = !m3UseSlerp;
+      const btn = document.getElementById('m3ModeBtn');
+      btn.textContent = m3UseSlerp
+        ? '✅ Mode: Geodesic SLERP (Constant Unit Length!)'
+        : '❌ Mode: Chordal LERP (Shrinks at Midpoint!) — Click for SLERP';
+      btn.className = m3UseSlerp
+        ? 'w-full py-2 rounded-lg font-bold bg-emerald-600 text-white'
+        : 'w-full py-2 rounded-lg font-bold bg-rose-600 text-white';
+      updateGame();
+    }
+
+    function updateGame() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 680;
+      canvas.height = rect.height || 400;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const cx = w / 2, cy = h / 2 + 10, R = 135;
+      const orig = { x: cx, y: cy };
+      const toScr = (x, y) => ({ x: cx + x * R, y: cy - y * R });
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.28)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+
+      if (currentMission === 1) {
+        const alpha = parseFloat(document.getElementById('m1Alpha').value);
+        document.getElementById('m1AlphaVal').textContent = alpha + '°';
+        const actualTurn = m1UseRight ? 2 * alpha : alpha;
+
+        const targetRad = 120 * Math.PI / 180;
+        const userRad = actualTurn * Math.PI / 180;
+
+        drawArrow2D(ctx, orig, toScr(Math.cos(targetRad), Math.sin(targetRad)), '#f59e0b', 3, 'Target (θ=120°)');
+        drawArrow2D(ctx, orig, toScr(Math.cos(userRad), Math.sin(userRad)), '#38bdf8', 3.5, `Actual Turn: ${actualTurn}°`);
+
+        const cleared = m1UseRight && Math.abs(alpha - 60) <= 5;
+        if (cleared) missionsCleared[1] = true;
+        document.getElementById('gameHudLeft').textContent =
+          `Half-Angle α = ${alpha}° | Sandwich: ${m1UseRight ? 'ON (2α=' + actualTurn + '°)' : 'OFF (Leaking w!)'}`;
+        updateGameBadges(cleared);
+      } else if (currentMission === 2) {
+        const t = parseFloat(document.getElementById('m2T').value);
+        document.getElementById('m2TVal').textContent = t.toFixed(2);
+
+        // Draw Hazard Zone on upper-left arc
+        ctx.save();
+        ctx.strokeStyle = 'rgba(244, 63, 94, 0.45)';
+        ctx.lineWidth = 14;
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, -Math.PI * 0.85, -Math.PI * 0.25);
+        ctx.stroke();
+        ctx.restore();
+
+        const ang = m2Flipped ? (-40 * Math.PI / 180) * t : (140 * Math.PI / 180) * t;
+        drawArrow2D(ctx, orig, toScr(Math.cos(-40 * Math.PI / 180), Math.sin(-40 * Math.PI / 180)), '#f59e0b', 2.5, 'Target Dock (-q₂)');
+        drawArrow2D(ctx, orig, toScr(Math.cos(ang), Math.sin(ang)), m2Flipped ? '#10b981' : '#f43f5e', 3.5, 'Ship');
+
+        const cleared = m2Flipped && t >= 0.95;
+        if (cleared) missionsCleared[2] = true;
+        document.getElementById('gameHudLeft').textContent =
+          `Path: ${m2Flipped ? 'Shortest Arc (-q₂)' : 'Long Hazard Arc (+q₂)'} | Progress t = ${t.toFixed(2)}`;
+        updateGameBadges(cleared);
+      } else if (currentMission === 3) {
+        const t = parseFloat(document.getElementById('m3T').value);
+        document.getElementById('m3TVal').textContent = t.toFixed(2);
+
+        const q1 = { x: 1, y: 0 };
+        const q2 = { x: Math.cos(140 * Math.PI / 180), y: Math.sin(140 * Math.PI / 180) };
+
+        let cur = { x: (1 - t) * q1.x + t * q2.x, y: (1 - t) * q1.y + t * q2.y };
+        if (m3UseSlerp) {
+          const om = 140 * Math.PI / 180;
+          const sOm = Math.sin(om);
+          const w1 = Math.sin((1 - t) * om) / sOm;
+          const w2 = Math.sin(t * om) / sOm;
+          cur = { x: w1 * q1.x + w2 * q2.x, y: w1 * q1.y + w2 * q2.y };
+        }
+
+        const midTarget = toScr(Math.cos(70 * Math.PI / 180), Math.sin(70 * Math.PI / 180));
+        ctx.save();
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(midTarget.x, midTarget.y, 16, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+
+        drawArrow2D(ctx, orig, toScr(cur.x, cur.y), m3UseSlerp ? '#10b981' : '#f43f5e', 3.5, m3UseSlerp ? 'SLERP Beam' : 'Shrinking LERP');
+
+        const cleared = m3UseSlerp && Math.abs(t - 0.50) <= 0.06;
+        if (cleared) missionsCleared[3] = true;
+        document.getElementById('gameHudLeft').textContent =
+          `Mode: ${m3UseSlerp ? 'SLERP (||q||=1.00)' : 'LERP (Shrunk!)'} | t = ${t.toFixed(2)} (Need 0.50)`;
+        updateGameBadges(cleared);
+      }
+    }
+
+    function updateGameBadges(isCurrentCleared) {
+      const count = Object.values(missionsCleared).filter(Boolean).length;
+      document.getElementById('gameScoreBadge').textContent = `Cleared: ${count} / 3 Missions`;
+      const pill = document.getElementById('gameStatusPill');
+      if (isCurrentCleared) {
+        pill.textContent = '✓ MISSION CLEARED!';
+        pill.className = 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 px-3 py-1 rounded-full text-xs font-bold';
+      } else {
+        pill.textContent = 'IN PROGRESS';
+        pill.className = 'bg-amber-500/20 border border-amber-500/40 text-amber-300 px-3 py-1 rounded-full text-xs font-bold';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setupOrbitCanvas('sandwichCanvas', drawSandwichCanvas);
+      setupOrbitCanvas('quatLabCanvas', drawQuatLab);
+      drawSandwichCanvas();
+    });
+  </script>
+</body>
+</html>
