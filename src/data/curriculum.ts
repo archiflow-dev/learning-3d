@@ -297,7 +297,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Subdivision Curves, Chaikin Corner-Cutting & Mesh Topology',
     concepts: ['Chaikin 切角细分 (1/4, 3/4)', '细分矩阵特征值分析', '流形网格与奇异点 (Extraordinary Vertices)'],
     playgroundTitle: 'Chaikin 切角与极限收敛放大镜',
-    playgroundDescription: '点击 Refine 一步步观察粗糙多边形如何通过局部切角规则收敛为光滑 B 样条曲线。',
+    playgroundDescription: '亲手拆解分裂 (Split) 与平均 (Average) 半步过程，用 3×3 细分矩阵特征值分解 (λ₀=1, λ₁=1/2, λ₂=1/4) 一步预测 k=∞ 极限位置 (1/6, 4/6, 1/6)，在 3D 网格拓扑检验台验证欧拉公式 V-E+F=2-2g 与奇异点定理，并畅玩 3 关细分雕塑家与网格拓扑医生游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
