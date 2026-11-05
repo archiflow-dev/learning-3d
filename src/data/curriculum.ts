@@ -272,7 +272,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Bicubic Bézier Patches, Partial Derivatives & Surface Normals',
     concepts: ['双参数曲面 S(u,v)', '偏导数 ∂S/∂u × ∂S/∂v 求法线', '4×4 控制网格 (16 控制点)', 'Utah Teapot 曲面片拆解'],
     playgroundTitle: '3D Bézier 曲面片捏合工坊',
-    playgroundDescription: '在 3D 空间升降 4×4 控制网格节点，实时可视化 (u,v) 等参线网格与曲面法向量场。',
+    playgroundDescription: '亲手体验两次 1D 扫掠合成 2D 张量积曲面 S(u,v)、4×4 Bernstein 外积权重热力图、偏导数切平面叉积求法线与茶壶顶盖退化奇异点，在 16 点捏合工坊实时观察刺猬法线场与自适应细分，并畅玩 3 关犹他茶壶主雕塑师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',

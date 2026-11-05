@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 09: 3D 参数曲面：张量积曲面 (Tensor Product Patches)、偏导法线与 Utah 茶壶 | 3Blue1Brown + UC Davis + MIT 6.837</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #020617;
+      color: #f8fafc;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    canvas {
+      touch-action: none;
+    }
+    input[type="range"] {
+      accent-color: #10b981;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white">
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 transition">
+          ← <span data-i18n="Portal Index">课程总目录 (Index)</span>
+        </a>
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 via-cyan-500 to-indigo-500 flex items-center justify-center font-black text-white shadow">
+          L9
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold text-white tracking-tight" data-i18n="L09: 3D Parametric Surfaces, Tensor Product Patches & Analytical Normals">
+            L09: 3D 参数曲面：张量积曲面 (Tensor Product Patches)、偏导法线与 Utah 茶壶
+          </h1>
+          <p class="text-[11px] text-slate-400" data-i18n="3Blue1Brown Moving-Curve Intuition • UC Davis ECS 175 Lec 13 (Kenneth Joy) • MIT 6.837 Lec 03">
+            3Blue1Brown 运动控制点扫掠直觉 • UC Davis ECS 175 Lec 13 (Kenneth Joy) • MIT 6.837 Lec 03
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <span class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 text-xs font-semibold">
+          <span>●</span>
+          <span data-i18n="Stage 2: Curves, Surfaces & 3D Geometry">Stage 2: 曲线、曲面与 3D 几何表示</span>
+        </span>
+        <button id="langToggleBtn" onclick="toggleLanguage()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition shadow-sm">
+          <span>🌐</span>
+          <span id="langBtnLabel">EN / English</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <!-- Hero Intro Banner -->
+    <section class="rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-emerald-950/40 to-cyan-950/30 p-6">
+      <div class="space-y-2 max-w-4xl">
+        <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs font-semibold">
+          <span>🫖 Bicubic Bézier Patches & The Utah Teapot</span>
+          <span>•</span>
+          <span data-i18n="How 4 Moving Control Points Sweep a 2D Surface S(u,v) in 3D Space">为什么“4 个运动的控制点”能在 3D 空间织出一张双三次曲面？</span>
+        </div>
+        <h2 class="text-xl sm:text-2xl font-extrabold text-white" data-i18n="From 1D Curves P(t) to 3D Surfaces S(u,v): Tensor Products, Partial Derivatives & Normals">
+          从一维曲线 P(t) 跃升到三维曲面 S(u,v)：张量积乘法表、偏导数切平面与叉积法向量
+        </h2>
+        <p class="text-xs sm:text-sm text-slate-300 leading-relaxed" data-i18n="In Lessons 07–08, a single parameter t traced a 1D curve. Now, introduce two parameters (u, v) ∈ [0,1]²! If the 4 control points of a u-curve ride along 4 v-curves (16 control points total), they weave a Bicubic Tensor Product Patch. Taking partial derivatives ∂S/∂u × ∂S/∂v connects directly back to Lesson 01's Cross Product to give exact surface normals for lighting!">
+          在 Lesson 07–08 中，单个参数 $t$ 描绘出一条一维曲线。现在引入两个独立参数 $(u, v) \in [0, 1]^2$：如果一条 $u$ 方向 Bézier 曲线的 **4 个控制点本身正沿着 4 条 $v$ 方向曲线滑行**（共 $4\times 4 = 16$ 个控制点），它就在 3D 空间扫掠出一张**双三次张量积曲面片 (Bicubic Tensor Product Patch)**！而对 $u$ 和 $v$ 分别求偏导数再做叉积 $\frac{\partial \mathbf{S}}{\partial u} \times \frac{\partial \mathbf{S}}{\partial v}$，更直接连通了 **Lesson 01 的叉积法向量**与实时光照！
+        </p>
+      </div>
+
+      <!-- 4 Main Navigation Tabs -->
+      <div class="mt-6 flex flex-wrap gap-2 border-t border-slate-800/80 pt-4">
+        <button onclick="switchTab('concepts')" id="tabBtn-concepts" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600 text-white shadow">
+          1. <span data-i18n="3Blue1Brown Tensor Product & Partial Derivatives">3Blue1Brown 张量积直觉与偏导叉积法线</span>
+        </button>
+        <button onclick="switchTab('lab')" id="tabBtn-lab" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+          2. <span data-i18n="3D Bicubic Patch Sculptor & Normal Field Lab">3D Bézier 曲面片捏合工坊与法线刺猬场</span>
+        </button>
+        <button onclick="switchTab('videos')" id="tabBtn-videos" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+          3. <span data-i18n="UC Davis Lec 13, MIT 6.837 & Utah Teapot">名校公开课与传奇 Utah 茶壶拆解</span>
+        </button>
+        <button onclick="switchTab('game')" id="tabBtn-game" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/40">
+          🎮 4. <span data-i18n="3-Mission Game: Solar Sail Patch & Normal Engineer">3 关实战游戏：深空太阳帆曲面与法线聚光师</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 1: 3BLUE1BROWN TENSOR PRODUCT & PARTIAL DERIVATIVES ==================== -->
+    <section id="tab-concepts" class="space-y-8">
+      <!-- Part 1: Moving Control Points & 4x4 Tensor Product Multiplication Table -->
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider" data-i18n="Part 1 • Repeated de Casteljau & Tensor Product Multiplication Table">Part 1 • “运动的控制点”与 4×4 张量积乘法表直觉</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Why Is S(u,v) = Σᵢ Σⱼ Bᵢ³(u) Bⱼ³(v) Pᵢ,ⱼ Called a Tensor Product Surface?">
+              为什么 S(u,v) = Σᵢ Σⱼ Bᵢ³(u)·Bⱼ³(v)·Pᵢ,ⱼ 叫做“张量积 (Tensor Product)”曲面？
+            </h3>
+          </div>
+          <span class="px-3 py-1 rounded-lg bg-emerald-950 border border-emerald-700/50 text-xs mono text-emerald-300">
+            Σᵢ Σⱼ Bᵢ(u)Bⱼ(v) = (Σ Bᵢ(u))·(Σ Bⱼ(v)) = 1×1 = 1
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <div class="font-bold text-emerald-300" data-i18n="1. Step A: 4 Curves in v Generate 4 Points Qᵢ(v)">
+              1. 第一步：4 条 $v$ 曲线先算出 4 个过渡点 $\mathbf{Q}_i(v)$
+            </div>
+            <p class="text-xs text-slate-400" data-i18n="Imagine 16 control points P_{i,j} arranged in 4 rows (i=0..3). For a given v ∈ [0,1], evaluate 4 separate 1D Bézier curves along the rows to get 4 glowing points Q₀(v), Q₁(v), Q₂(v), Q₃(v)!">
+              把 16 个控制点 $\mathbf{P}_{i,j}$ 排成 4 行 4 列。当给定参数 $v \in [0, 1]$ 时，先沿着 4 条纵向曲线各自做一次一维 de Casteljau 插值，得到 **4 个随 $v$ 滑行的临时控制点 $\mathbf{Q}_0(v), \mathbf{Q}_1(v), \mathbf{Q}_2(v), \mathbf{Q}_3(v)$**！
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950 border border-cyan-500/30 space-y-2">
+            <div class="font-bold text-cyan-300" data-i18n="2. Step B: 1 Curve in u Threads Through Q₀..Q₃(v)">
+              2. 第二步：用参数 $u$ 在这 4 个点之间再插值一次！
+            </div>
+            <p class="text-xs text-slate-400" data-i18n="Now treat Q₀(v)..Q₃(v) as the 4 control points of a single Cubic Bézier curve in parameter u, and evaluate at u ∈ [0,1]: S(u,v) = Σᵢ Bᵢ³(u) Qᵢ(v)!">
+              紧接着，把这 4 个临时点 $\mathbf{Q}_0(v)..\mathbf{Q}_3(v)$ 当作一条横向 Bézier 曲线的控制点，在参数 $u \in [0, 1]$ 处再做一次一维插值，就得到了曲面上的精确 3D 点 $\mathbf{S}(u, v)$！
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950 border border-amber-500/30 space-y-2">
+            <div class="font-bold text-amber-300" data-i18n="3. The 4x4 Outer-Product Weight Table">
+              3. 为什么 16 个权重天然满足单位分解？
+            </div>
+            <p class="text-xs text-slate-400" data-i18n="Expanding Σᵢ Bᵢ(u) (Σⱼ Bⱼ(v) P_{i,j}) multiplies the column vector B(u) with row vector B(v)ᵀ (an outer/tensor product). Their sum is (Σ Bᵢ(u))(Σ Bⱼ(v)) = 1 × 1 = 1!">
+              把两步合写，第 $(i,j)$ 个控制点的权重就是<strong>横向权重 $B_i^3(u)$ 与纵向权重 $B_j^3(v)$ 的乘积</strong>（即两个一维向量的外积/张量积乘法表）。16 个权重之和恒等于 $(\sum B_i(u))(\sum B_j(v)) = 1 \times 1 = 1$！
+            </p>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer 1: Two-Stage Surface Weaver & 4x4 Weight Heatmap -->
+        <div class="rounded-xl border border-emerald-500/30 bg-slate-950 p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-bold text-white" data-i18n="Interactive Visualizer 1: Two-Stage de Casteljau Surface Weaver & 4x4 Tensor Product Heatmap">
+                🔬 交互透视镜 1：两阶段曲面编织器 ($\mathbf{P}_{i,j} \xrightarrow{v} \mathbf{Q}_i(v) \xrightarrow{u} \mathbf{S}(u,v)$) 与 $4\times 4$ 张量积权重热力图
+              </h4>
+              <p class="text-xs text-slate-400" data-i18n="Slide u and v below: watch the 4 green v-curves produce the 4 amber points Q₀(v)..Q₃(v), while the cyan u-curve threads through them to S(u,v)!">
+                拖动下方参数 $u$ 和 $v$：观察左侧 4 条绿色纵向曲线如何先生成 **4 个琥珀色过渡控制点 $\mathbf{Q}_0(v)..\mathbf{Q}_3(v)$**，然后青色横向曲线穿过它们定格在 $\mathbf{S}(u,v)$，右侧同步展示 16 个控制点的实时权重 $B_i^3(u)B_j^3(v)$！
+              </p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-7">
+              <canvas id="weaverCanvas" width="600" height="350" class="w-full rounded-xl border border-slate-800 bg-slate-900"></canvas>
+            </div>
+            <div class="lg:col-span-5 space-y-4 text-xs">
+              <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                <div>
+                  <div class="flex justify-between font-bold text-cyan-300 mb-1">
+                    <span>Parameter u (横向插值参数 u)</span>
+                    <span id="weaverUVal" class="mono">0.40</span>
+                  </div>
+                  <input id="weaverUSlider" type="range" min="0" max="1" step="0.01" value="0.40" oninput="drawWeaver()" class="w-full" />
+                </div>
+                <div>
+                  <div class="flex justify-between font-bold text-emerald-300 mb-1">
+                    <span>Parameter v (纵向插值参数 v)</span>
+                    <span id="weaverVVal" class="mono">0.60</span>
+                  </div>
+                  <input id="weaverVSlider" type="range" min="0" max="1" step="0.01" value="0.60" oninput="drawWeaver()" class="w-full" />
+                </div>
+              </div>
+
+              <!-- 4x4 Tensor Product Weight Heatmap -->
+              <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-amber-300" data-i18n="4x4 Tensor Weight Matrix W_{i,j} = Bᵢ(u)·Bⱼ(v)">4×4 张量积权重热力图 Wᵢ,ⱼ = Bᵢ(u)·Bⱼ(v)</span>
+                  <span class="mono text-[11px] text-emerald-400">Σ₁₆ Wᵢ,ⱼ = 1.000</span>
+                </div>
+                <div id="tensorHeatmapGrid" class="grid grid-cols-4 gap-1.5 mono text-[11px] text-center"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Partial Derivatives & Cross Product Surface Normals -->
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider" data-i18n="Part 2 • Differential Geometry of Surfaces (Connects back to Lesson 01 Cross Product!)">Part 2 • 曲面微分几何：偏导切向量与叉积法线 (连通 Lesson 01 叉积!)</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="How Partial Derivatives ∂S/∂u × ∂S/∂v Forge the Exact Surface Normal Vector n(u,v)">
+              如何用两个偏导数的叉积 ∂S/∂u × ∂S/∂v 锻造曲面精确解析法向量 n(u,v)？
+            </h3>
+          </div>
+          <span class="px-3 py-1 rounded-lg bg-cyan-950 border border-cyan-700/50 text-xs mono text-cyan-300">
+            N(u,v) = (∂S/∂u) × (∂S/∂v)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-300 leading-relaxed">
+          <div class="p-4 rounded-xl bg-slate-950 border border-rose-500/30 space-y-1.5">
+            <div class="font-bold text-rose-300 text-sm">1. 固定 v 对 u 求偏导：u 等参线切向量 t_u</div>
+            <div class="p-2 rounded bg-slate-900 mono text-[11px] text-rose-200">t_u = ∂S/∂u = Σᵢ Σⱼ Bᵢ'(u)·Bⱼ(v)·Pᵢ,ⱼ</div>
+            <p class="text-slate-400">
+              锁死参数 $v$ 不动，只让 $u$ 往前走一点点，点 $\mathbf{S}(u,v)$ 就会沿着曲面上的<strong>红色 $u$ 等参线</strong>运动。它的瞬时速度向量就是关于 $u$ 的偏导数 $\mathbf{t}_u = \frac{\partial \mathbf{S}}{\partial u}$！
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950 border border-emerald-500/30 space-y-1.5">
+            <div class="font-bold text-emerald-300 text-sm">2. 固定 u 对 v 求偏导：v 等参线切向量 t_v</div>
+            <div class="p-2 rounded bg-slate-900 mono text-[11px] text-emerald-200">t_v = ∂S/∂v = Σᵢ Σⱼ Bᵢ(u)·Bⱼ'(v)·Pᵢ,ⱼ</div>
+            <p class="text-slate-400">
+              反过来锁死 $u$ 不动，只让 $v$ 往前走一点点，点 $\mathbf{S}(u,v)$ 就会沿着曲面上的<strong>绿色 $v$ 等参线</strong>运动，得到另一条切向量 $\mathbf{t}_v = \frac{\partial \mathbf{S}}{\partial v}$！
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950 border border-sky-500/30 space-y-1.5">
+            <div class="font-bold text-sky-300 text-sm">3. 右手叉积生成切平面法向量 n(u,v)</div>
+            <div class="p-2 rounded bg-slate-900 mono text-[11px] text-sky-200">n = (t_u × t_v) / ||t_u × t_v||</div>
+            <p class="text-slate-400">
+              既然 $\mathbf{t}_u$ 和 $\mathbf{t}_v$ 都贴在曲面上，它们就张成了该点的<strong>切平面 (Tangent Plane)</strong>！根据 Lesson 01 的叉积定理，$\mathbf{t}_u \times \mathbf{t}_v$ 必定严格垂直于切平面，归一化后就是用于光照计算的单位法向量 $\hat{\mathbf{n}}$！
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: 3D BÉZIER PATCH SCULPTOR LAB ==================== -->
+    <section id="tab-lab" class="hidden space-y-6">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Interactive 3D Bicubic Bézier Surface Patch Sculptor</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Sculpt the 4x4 Control Grid • Inspect Isoparametric Curves, Tangent Plane & Normal Hedgehog Field">
+              3D 双三次 Bézier 曲面片捏合工坊：升降 4×4 控制顶点 • 实时检视 (u,v) 等参线、切平面与法向量刺猬场
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="applyPatchPreset('dome')" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-xs font-bold text-white">
+              ⛺ <span data-i18n="Dome Arch">穹顶抛物面</span>
+            </button>
+            <button onclick="applyPatchPreset('saddle')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">
+              🐎 <span data-i18n="Hyperbolic Saddle">双曲马鞍面</span>
+            </button>
+            <button onclick="applyPatchPreset('wave')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">
+              🌊 <span data-i18n="Twisted Wave">波浪扭曲面</span>
+            </button>
+            <button onclick="applyPatchPreset('teapot')" class="px-3 py-1.5 rounded-lg bg-amber-600/30 border border-amber-500/40 text-xs font-bold text-amber-300">
+              🫖 <span data-i18n="Utah Teapot Lid Rim">Utah 茶壶盖曲面片</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Left: 3D Viewport -->
+          <div class="lg:col-span-8 space-y-3">
+            <div class="relative">
+              <canvas id="patch3dCanvas" width="760" height="440" class="w-full rounded-xl border border-slate-800 bg-slate-950 cursor-grab active:cursor-grabbing"></canvas>
+              <div class="absolute top-3 left-3 px-3 py-1.5 rounded-lg bg-slate-950/85 border border-slate-800 text-[11px] text-slate-300 pointer-events-none space-y-0.5">
+                <div class="font-bold text-white" data-i18n="Drag mouse to orbit 3D view • Red = ∂S/∂u, Green = ∂S/∂v, Sky-Blue = Normal n">拖拽鼠标旋转 3D 视角 • 红轴 = ∂S/∂u，绿轴 = ∂S/∂v，天蓝箭头 = 叉积法线 n</div>
+              </div>
+            </div>
+
+            <!-- Display Checkboxes -->
+            <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div class="flex flex-wrap gap-4">
+                <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" id="chkCage" checked onchange="drawPatch3D()" />
+                  <span class="text-slate-300 font-semibold" data-i18n="4x4 Control Cage">显示 4×4 控制笼</span>
+                </label>
+                <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" id="chkHedgehog" onchange="drawPatch3D()" />
+                  <span class="text-sky-300 font-semibold" data-i18n="Normal Hedgehog Field">全局法向量刺猬场</span>
+                </label>
+                <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" id="chkFlipCross" onchange="drawPatch3D()" />
+                  <span class="text-rose-300 font-semibold" data-i18n="Flip Cross Order (∂S/∂v × ∂S/∂u)">反转叉积顺序 (∂S/∂v × ∂S/∂u)</span>
+                </label>
+              </div>
+              <span id="patchDiffuseReadout" class="mono font-bold text-amber-300">Lambertian n·l = 0.88</span>
+            </div>
+          </div>
+
+          <!-- Right: Probe & Sculpting Controls -->
+          <div class="lg:col-span-4 space-y-4 text-xs">
+            <!-- (u, v) Probe Sliders -->
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+              <h4 class="font-bold text-cyan-300 uppercase tracking-wider" data-i18n="Surface Probe (u, v) & Analytical Derivatives">
+                🧭 曲面探针 (u, v) 与偏导数遥测
+              </h4>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-rose-300 font-bold">u-Isoparametric Probe (u)</span>
+                  <span id="labUVal" class="mono text-rose-300">0.50</span>
+                </div>
+                <input id="labUSlider" type="range" min="0" max="1" step="0.02" value="0.50" oninput="drawPatch3D()" class="w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-emerald-300 font-bold">v-Isoparametric Probe (v)</span>
+                  <span id="labVVal" class="mono text-emerald-300">0.50</span>
+                </div>
+                <input id="labVSlider" type="range" min="0" max="1" step="0.02" value="0.50" oninput="drawPatch3D()" class="w-full" />
+              </div>
+
+              <div id="patchVecReadouts" class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 mono text-[11px] space-y-1 text-slate-300">
+              </div>
+            </div>
+
+            <!-- 4x4 Control Grid Height Sculptor -->
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <h4 class="font-bold text-emerald-300 uppercase tracking-wider" data-i18n="Sculpt 4x4 Control Point Elevation (P_{i,j}.y)">
+                  🖐️ 捏合 4×4 控制点高度 (点击网格选点)
+                </h4>
+                <span id="selPtLabel" class="mono text-amber-300 font-bold">P(1,1)</span>
+              </div>
+              <div id="ctrlGridButtons" class="grid grid-cols-4 gap-1.5 mono text-[11px]"></div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-amber-300 font-semibold" data-i18n="Selected Point Height Y">当前选中点高度 Y</span>
+                  <span id="selPtHeightVal" class="mono text-amber-300">+1.40</span>
+                </div>
+                <input id="selPtHeightSlider" type="range" min="-2.0" max="2.5" step="0.05" value="1.40" oninput="updateSelectedPtHeight()" class="w-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: UNIVERSITY LECTURES & UTAH TEAPOT ==================== -->
+    <section id="tab-videos" class="hidden space-y-6">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+          <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Course References • UC Davis ECS 175 Lecture 13 & MIT 6.837 Lecture 03</span>
+          <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="UC Davis Lecture 13 (Curves & Surfaces) & The Story of Martin Newell's 1975 Utah Teapot">
+            配套名校公开课：UC Davis Lecture 13 (张量积曲面) 与传奇“犹他茶壶 (Utah Teapot)”解剖
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <div class="rounded-xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-amber-950 border border-amber-700/50 text-xs font-bold text-amber-300">UC Davis ECS 175 • Fall 2009 • Lecture 13</span>
+              <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+13" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">
+                Search Lecture 13 on YouTube ↗
+              </a>
+            </div>
+            <h4 class="text-base font-bold text-white">Prof. Kenneth Joy — Curves and Surfaces (Bilinear & Bicubic Patches)</h4>
+            <ul class="space-y-2.5 list-disc pl-4 text-xs text-slate-300">
+              <li>
+                <strong>双线性曲面片 (Bilinear Patch, $2\times 2 = 4$ 个控制点)</strong>：
+                $$\mathbf{S}(u,v) = (1-u)(1-v)\mathbf{P}_{0,0} + (1-u)v\mathbf{P}_{0,1} + u(1-v)\mathbf{P}_{1,0} + uv\mathbf{P}_{1,1}$$
+                虽然四条边都是直线段，但只要四个角点不共面，中间就会扭曲成一张<strong>双曲抛物面（马鞍面 / 直纹曲面 Ruled Surface）</strong>！这解释了为什么三维空间中的非平面四边形面片绝不是平面！
+              </li>
+              <li>
+                <strong>双三次 Bézier 曲面片间如何实现 $C^1$ 无缝拼接？</strong>
+                就像一维曲线拼接要求切柄共线等长一样，如果曲面片 A 与曲面片 B 共享边界曲线 $\mathbf{P}_{3,j}^A = \mathbf{P}_{0,j}^B$（$j=0..3$），只需令跨界控制点满足：
+                $$\mathbf{P}_{1,j}^B - \mathbf{P}_{0,j}^B = \mathbf{P}_{3,j}^A - \mathbf{P}_{2,j}^A \quad (\forall j \in \{0,1,2,3\})$$
+                即可保证跨过边界的偏导数 $\frac{\partial \mathbf{S}}{\partial u}$ 处处相等，从而让两块曲面片的法向量无缝过渡！
+              </li>
+            </ul>
+          </div>
+
+          <div class="rounded-xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-rose-950 border border-rose-700/50 text-xs font-bold text-rose-300">Graphics History • Martin Newell (1975)</span>
+              <span class="text-xs text-emerald-400 mono">32 Bicubic Patches • 306 Vertices</span>
+            </div>
+            <h4 class="text-base font-bold text-white">为什么“犹他茶壶 (Utah Teapot)”成了计算机图形学的吉祥物？</h4>
+            <p class="text-xs text-slate-300">
+              1975 年，犹他大学的 <strong>Martin Newell</strong> 需要一个复杂的 3D 数学模型来测试他的曲面渲染与阴影算法。妻子 Sandra 建议他直接把家里喝下午茶的德国 Melitta 茶壶画在方格纸上，用 <strong>32 块双三次 Bézier 张量积曲面片（共 306 个控制顶点）</strong> 数字化了出来：
+            </p>
+            <div class="grid grid-cols-2 gap-2.5 text-xs">
+              <div class="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="font-bold text-cyan-300">壶身与壶盖 (Body & Lid)</div>
+                <p class="text-slate-400 mt-1">利用旋转对称性，每圈由 4 块双三次 Bézier 曲面片围成近似圆环，上下拼接构成反光丰富的凹凸腹部。</p>
+              </div>
+              <div class="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="font-bold text-amber-300">壶嘴与壶把 (Spout & Handle)</div>
+                <p class="text-slate-400 mt-1">带来非凸拓扑（亏格 Genus $>0$）与强烈的<strong>自遮挡阴影 (Self-Shadowing)</strong> 和<strong>自身镜面反射</strong>，成为检验一切渲染器的黄金试金石！</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-game" class="hidden space-y-6">
+      <div class="rounded-2xl border border-indigo-500/40 bg-slate-900/90 p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider">🎮 Interactive 3-Mission Challenge</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Deep-Space Solar Sail Patch Sculptor & Normal Focusing Engineer">
+              3 关实战小游戏：深空太阳帆曲面捏合、偏导叉积法线救援与跨片 C¹ 焊接挑战
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="selectGameMission(1)" id="gBtn1" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white">
+              Mission 1: <span data-i18n="Sculpt Parabolic Apex">捏合中心控制点达标高度</span>
+            </button>
+            <button onclick="selectGameMission(2)" id="gBtn2" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 2: <span data-i18n="Fix Normal Cross Product & Aim">修复叉积顺序并对准太阳光</span>
+            </button>
+            <button onclick="selectGameMission(3)" id="gBtn3" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 3: <span data-i18n="Cross-Patch C¹ Seam Weld">跨曲面片 C¹ 边界切线焊接</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 space-y-3">
+            <canvas id="gameCanvas" width="640" height="400" class="w-full rounded-xl border border-slate-800 bg-slate-950"></canvas>
+            <div class="grid grid-cols-3 gap-3 text-xs">
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-slate-400" data-i18n="Center S(0.5, 0.5) Height">曲面中心高度 S(0.5, 0.5).y</div>
+                <div id="gCenterYReadout" class="mono font-bold text-cyan-300 mt-0.5">0.00 m</div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-slate-400" data-i18n="Solar Dot Product (n · l)">太阳光点积效率 (n · l)</div>
+                <div id="gDotReadout" class="mono font-bold text-amber-300 mt-0.5">+0.000</div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-slate-400" data-i18n="Seam Continuity / Status">任务状态</div>
+                <div id="gStatusReadout" class="mono font-bold text-emerald-300 mt-0.5">CALIBRATING</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-5 space-y-4">
+            <div class="p-4 rounded-xl bg-slate-950 border border-indigo-500/40 space-y-2">
+              <div class="flex items-center justify-between">
+                <span id="gMissionTitle" class="text-sm font-bold text-indigo-300">Mission 1</span>
+                <span id="gMissionBadge" class="px-2.5 py-0.5 rounded-full bg-amber-950 border border-amber-500/40 text-amber-300 text-xs font-bold">IN PROGRESS</span>
+              </div>
+              <p id="gMissionDesc" class="text-xs text-slate-300 leading-relaxed"></p>
+            </div>
+
+            <!-- Mission 2 Specific Cross-Product Switch -->
+            <div id="gM2Box" class="hidden p-4 rounded-xl bg-rose-950/30 border border-rose-500/40 space-y-2">
+              <div class="text-xs font-bold text-rose-300">🛠️ 曲面着色器偏导叉积顺序开关：</div>
+              <button onclick="toggleGameNormalOrder()" id="gNormOrderBtn" class="w-full py-2 px-3 rounded-lg border border-rose-500 bg-rose-900/50 text-xs font-bold text-white transition">
+                ❌ 当前: N = (∂S/∂v) × (∂S/∂u) [法线朝下背光!] — 点击反转为 (∂S/∂u) × (∂S/∂v)
+              </button>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+              <div>
+                <div class="flex justify-between">
+                  <span id="gSl1Label" class="text-amber-300 font-semibold">Inner 2×2 Control Points Height (H_inner)</span>
+                  <span id="gSl1Val" class="mono text-amber-300">0.20</span>
+                </div>
+                <input id="gSl1" type="range" min="-1.5" max="2.5" step="0.05" value="0.20" oninput="drawGame()" class="w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between">
+                  <span id="gSl2Label" class="text-cyan-300 font-semibold">Probe Parameter u / Seam Slope</span>
+                  <span id="gSl2Val" class="mono text-cyan-300">0.25</span>
+                </div>
+                <input id="gSl2" type="range" min="0.0" max="1.0" step="0.02" value="0.25" oninput="drawGame()" class="w-full" />
+              </div>
+            </div>
+
+            <div id="gFeedbackBox" class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-relaxed">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== BILINGUAL SUPPORT ====================
+    let currentLang = 'zh';
+    const zhCache = new Map();
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.getElementById('langBtnLabel').textContent = currentLang === 'zh' ? 'EN / English' : '中文 / Chinese';
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        if (!zhCache.has(el)) zhCache.set(el, el.innerHTML);
+        el.innerHTML = currentLang === 'en' ? el.getAttribute('data-i18n') : zhCache.get(el);
+      });
+      drawWeaver();
+      drawPatch3D();
+      drawGame();
+    }
+
+    function switchTab(tabId) {
+      ['concepts', 'lab', 'videos', 'game'].forEach((id) => {
+        const sec = document.getElementById('tab-' + id);
+        const btn = document.getElementById('tabBtn-' + id);
+        if (id === tabId) {
+          sec.classList.remove('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600 text-white shadow';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = id === 'game'
+            ? 'px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/40'
+            : 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800';
+        }
+      });
+      if (tabId === 'concepts') drawWeaver();
+      else if (tabId === 'lab') { renderCtrlGridButtons(); drawPatch3D(); }
+      else if (tabId === 'game') drawGame();
+    }
+
+    // ==================== BERNSTEIN & BICUBIC PATCH MATH ====================
+    function bern3(t) {
+      const u = 1 - t;
+      return [u * u * u, 3 * u * u * t, 3 * u * t * t, t * t * t];
+    }
+
+    function dBern3(t) {
+      const u = 1 - t;
+      return [
+        -3 * u * u,
+        3 * u * u - 6 * u * t,
+        6 * u * t - 3 * t * t,
+        3 * t * t
+      ];
+    }
+
+    function vCross(a, b) {
+      return [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0]
+      ];
+    }
+
+    function vNorm(a) {
+      const l = Math.hypot(a[0], a[1], a[2]);
+      return l > 1e-7 ? [a[0] / l, a[1] / l, a[2] / l] : [0, 1, 0];
+    }
+
+    function vDot(a, b) {
+      return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    }
+
+    // Evaluate S(u,v), dS/du, dS/dv on a 4x4 grid of 3D points P[i][j]
+    function evalPatch(grid, u, v, flipCross = false) {
+      const bu = bern3(u), bv = bern3(v);
+      const dbu = dBern3(u), dbv = dBern3(v);
+      const pos = [0, 0, 0];
+      const du = [0, 0, 0];
+      const dv = [0, 0, 0];
+
+      for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+          const p = grid[i][j];
+          const w = bu[i] * bv[j];
+          const wu = dbu[i] * bv[j];
+          const wv = bu[i] * dbv[j];
+          for (let k = 0; k < 3; k++) {
+            pos[k] += w * p[k];
+            du[k] += wu * p[k];
+            dv[k] += wv * p[k];
+          }
+        }
+      }
+      const rawN = flipCross ? vCross(dv, du) : vCross(du, dv);
+      const norm = vNorm(rawN);
+      return { pos, du, dv, norm };
+    }
+
+    // ==================== VISUALIZER 1: TWO-STAGE WEAVER & TENSOR HEATMAP ====================
+    const weaverGrid = [];
+    for (let i = 0; i < 4; i++) {
+      weaverGrid[i] = [];
+      for (let j = 0; j < 4; j++) {
+        const x = (i - 1.5) * 1.1;
+        const z = (j - 1.5) * 1.1;
+        const isInner = (i === 1 || i === 2) && (j === 1 || j === 2);
+        const y = isInner ? 1.35 : (i === 1 || i === 2 || j === 1 || j === 2 ? 0.35 : -0.3);
+        weaverGrid[i][j] = [x, y, z];
+      }
+    }
+
+    function projIso(p, W, H, yaw = -0.62, pitch = 0.45) {
+      const cy = Math.cos(yaw), sy = Math.sin(yaw);
+      const cp = Math.cos(pitch), sp = Math.sin(pitch);
+      const x1 = p[0] * cy - p[2] * sy;
+      const z1 = p[0] * sy + p[2] * cy;
+      const y1 = p[1] * cp - z1 * sp;
+      const z2 = p[1] * sp + z1 * cp + 6.2;
+      const s = 410 / Math.max(1.5, z2);
+      return [W * 0.5 + x1 * s, H * 0.60 - y1 * s];
+    }
+
+    function drawWeaver() {
+      const canvas = document.getElementById('weaverCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const u = parseFloat(document.getElementById('weaverUSlider').value);
+      const v = parseFloat(document.getElementById('weaverVSlider').value);
+      document.getElementById('weaverUVal').textContent = u.toFixed(2);
+      document.getElementById('weaverVVal').textContent = v.toFixed(2);
+
+      // Draw faint wireframe surface
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      for (let s = 0; s <= 8; s++) {
+        const f = s / 8;
+        ctx.beginPath();
+        for (let k = 0; k <= 24; k++) {
+          const pt = projIso(evalPatch(weaverGrid, k / 24, f).pos, W, H);
+          if (k === 0) ctx.moveTo(pt[0], pt[1]); else ctx.lineTo(pt[0], pt[1]);
+        }
+        ctx.stroke();
+
+        ctx.beginPath();
+        for (let k = 0; k <= 24; k++) {
+          const pt = projIso(evalPatch(weaverGrid, f, k / 24).pos, W, H);
+          if (k === 0) ctx.moveTo(pt[0], pt[1]); else ctx.lineTo(pt[0], pt[1]);
+        }
+        ctx.stroke();
+      }
+
+      const bu = bern3(u), bv = bern3(v);
+
+      // Step 1: 4 green v-curves along i=0,1,2,3 and their 4 intermediate points Q_0(v)..Q_3(v)
+      const Q = [];
+      for (let i = 0; i < 4; i++) {
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.65)';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        for (let s = 0; s <= 30; s++) {
+          const tv = s / 30;
+          const bw = bern3(tv);
+          const p = [0, 0, 0];
+          for (let j = 0; j < 4; j++) {
+            for (let c = 0; c < 3; c++) p[c] += bw[j] * weaverGrid[i][j][c];
+          }
+          const pr = projIso(p, W, H);
+          if (s === 0) ctx.moveTo(pr[0], pr[1]); else ctx.lineTo(pr[0], pr[1]);
+        }
+        ctx.stroke();
+
+        // Compute Q_i(v)
+        const qi = [0, 0, 0];
+        for (let j = 0; j < 4; j++) {
+          for (let c = 0; c < 3; c++) qi[c] += bv[j] * weaverGrid[i][j][c];
+        }
+        Q.push(qi);
+      }
+
+      // Draw control polygon connecting Q_0(v)..Q_3(v) in dashed amber
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      Q.forEach((qi, i) => {
+        const pr = projIso(qi, W, H);
+        if (i === 0) ctx.moveTo(pr[0], pr[1]); else ctx.lineTo(pr[0], pr[1]);
+      });
+      ctx.stroke();
+      ctx.restore();
+
+      // Step 2: Draw the cyan u-curve threading through Q_0(v)..Q_3(v)
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      for (let s = 0; s <= 40; s++) {
+        const pt = projIso(evalPatch(weaverGrid, s / 40, v).pos, W, H);
+        if (s === 0) ctx.moveTo(pt[0], pt[1]); else ctx.lineTo(pt[0], pt[1]);
+      }
+      ctx.stroke();
+
+      // Draw Q_0(v)..Q_3(v) amber dots
+      Q.forEach((qi, i) => {
+        const pr = projIso(qi, W, H);
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath(); ctx.arc(pr[0], pr[1], 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fde68a';
+        ctx.font = 'bold 11px JetBrains Mono';
+        ctx.fillText(`Q${i}(v)`, pr[0] + 7, pr[1] - 6);
+      });
+
+      // Draw final point S(u,v)
+      const finalS = projIso(evalPatch(weaverGrid, u, v).pos, W, H);
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(finalS[0], finalS[1], 7.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`S(${u.toFixed(2)}, ${v.toFixed(2)})`, finalS[0] + 10, finalS[1] + 4);
+
+      // Update 4x4 Tensor Heatmap Grid
+      const hm = document.getElementById('tensorHeatmapGrid');
+      if (hm) {
+        let html = '';
+        for (let i = 0; i < 4; i++) {
+          for (let j = 0; j < 4; j++) {
+            const w = bu[i] * bv[j];
+            const alpha = Math.min(0.95, 0.1 + w * 2.2);
+            html += `<div class="p-1.5 rounded border border-slate-700/80" style="background: rgba(16, 185, 129, ${alpha.toFixed(2)})">
+              <div class="text-[9px] text-slate-300">W_${i},${j}</div>
+              <div class="font-bold text-white">${w.toFixed(3)}</div>
+            </div>`;
+          }
+        }
+        hm.innerHTML = html;
+      }
+    }
+
+    // ==================== TAB 2: 3D PATCH SCULPTOR & NORMAL HEDGEHOG LAB ====================
+    let patchGrid = [];
+    let selI = 1, selJ = 1;
+    let labYaw = -0.68, labPitch = 0.48;
+    let isDraggingPatch = false;
+    let prevPX = 0, prevPY = 0;
+
+    function initPatchGrid(preset = 'dome') {
+      patchGrid = [];
+      for (let i = 0; i < 4; i++) {
+        patchGrid[i] = [];
+        for (let j = 0; j < 4; j++) {
+          const x = (i - 1.5) * 1.15;
+          const z = (j - 1.5) * 1.15;
+          let y = 0;
+          const isInner = (i === 1 || i === 2) && (j === 1 || j === 2);
+          if (preset === 'dome') {
+            y = isInner ? 1.45 : (i === 1 || i === 2 || j === 1 || j === 2 ? 0.35 : -0.35);
+          } else if (preset === 'saddle') {
+            y = ((i - 1.5) * (i - 1.5) - (j - 1.5) * (j - 1.5)) * 0.42;
+          } else if (preset === 'wave') {
+            y = Math.sin(i * 1.3) * 0.85 + Math.cos(j * 1.3) * 0.65;
+          } else if (preset === 'teapot') {
+            const r = Math.hypot(i - 1.5, j - 1.5);
+            y = r < 1.1 ? 1.55 : (r < 1.8 ? 0.15 : 0.65);
+          }
+          patchGrid[i][j] = [x, y, z];
+        }
+      }
+    }
+
+    function applyPatchPreset(preset) {
+      initPatchGrid(preset);
+      renderCtrlGridButtons();
+      drawPatch3D();
+    }
+
+    function renderCtrlGridButtons() {
+      const container = document.getElementById('ctrlGridButtons');
+      if (!container) return;
+      container.innerHTML = '';
+      for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+          const isSel = i === selI && j === selJ;
+          const btn = document.createElement('button');
+          btn.className = `py-1.5 px-1 rounded border text-center transition ${
+            isSel
+              ? 'bg-amber-600/30 border-amber-400 text-amber-200 font-bold'
+              : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+          }`;
+          btn.innerHTML = `<div class="text-[9px] text-slate-400">P_${i},${j}</div><div>${patchGrid[i][j][1].toFixed(1)}</div>`;
+          btn.onclick = () => {
+            selI = i;
+            selJ = j;
+            document.getElementById('selPtLabel').textContent = `P(${i},${j})`;
+            document.getElementById('selPtHeightSlider').value = patchGrid[i][j][1];
+            document.getElementById('selPtHeightVal').textContent =
+              (patchGrid[i][j][1] >= 0 ? '+' : '') + patchGrid[i][j][1].toFixed(2);
+            renderCtrlGridButtons();
+            drawPatch3D();
+          };
+          container.appendChild(btn);
+        }
+      }
+      document.getElementById('selPtLabel').textContent = `P(${selI},${selJ})`;
+      document.getElementById('selPtHeightSlider').value = patchGrid[selI][selJ][1];
+      document.getElementById('selPtHeightVal').textContent =
+        (patchGrid[selI][selJ][1] >= 0 ? '+' : '') + patchGrid[selI][selJ][1].toFixed(2);
+    }
+
+    function updateSelectedPtHeight() {
+      const h = parseFloat(document.getElementById('selPtHeightSlider').value);
+      patchGrid[selI][selJ][1] = h;
+      document.getElementById('selPtHeightVal').textContent = (h >= 0 ? '+' : '') + h.toFixed(2);
+      renderCtrlGridButtons();
+      drawPatch3D();
+    }
+
+    function drawPatch3D() {
+      const canvas = document.getElementById('patch3dCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const uProbe = parseFloat(document.getElementById('labUSlider').value);
+      const vProbe = parseFloat(document.getElementById('labVSlider').value);
+      document.getElementById('labUVal').textContent = uProbe.toFixed(2);
+      document.getElementById('labVVal').textContent = vProbe.toFixed(2);
+
+      const showCage = document.getElementById('chkCage').checked;
+      const showHedgehog = document.getElementById('chkHedgehog').checked;
+      const flipCross = document.getElementById('chkFlipCross').checked;
+
+      const lightDir = vNorm([0.35, 0.9, 0.25]);
+
+      // 1. Draw Shaded Tessellated Quads (12 x 12)
+      const N = 12;
+      for (let iu = 0; iu < N; iu++) {
+        for (let iv = 0; iv < N; iv++) {
+          const u0 = iu / N, u1 = (iu + 1) / N;
+          const v0 = iv / N, v1 = (iv + 1) / N;
+          const p00 = projIso(evalPatch(patchGrid, u0, v0).pos, W, H, labYaw, labPitch);
+          const p10 = projIso(evalPatch(patchGrid, u1, v0).pos, W, H, labYaw, labPitch);
+          const p11 = projIso(evalPatch(patchGrid, u1, v1).pos, W, H, labYaw, labPitch);
+          const p01 = projIso(evalPatch(patchGrid, u0, v1).pos, W, H, labYaw, labPitch);
+
+          const mid = evalPatch(patchGrid, (u0 + u1) * 0.5, (v0 + v1) * 0.5, flipCross);
+          const diff = Math.max(0.08, vDot(mid.norm, lightDir));
+
+          ctx.fillStyle = flipCross && vDot(mid.norm, lightDir) < 0
+            ? 'rgba(127, 29, 29, 0.45)'
+            : `rgba(${Math.round(20 + diff * 35)}, ${Math.round(65 + diff * 140)}, ${Math.round(95 + diff * 135)}, 0.52)`;
+          ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(p00[0], p00[1]);
+          ctx.lineTo(p10[0], p10[1]);
+          ctx.lineTo(p11[0], p11[1]);
+          ctx.lineTo(p01[0], p01[1]);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+
+      // 2. Normal Hedgehog Field
+      if (showHedgehog) {
+        ctx.strokeStyle = flipCross ? '#fb7185' : '#38bdf8';
+        ctx.lineWidth = 1.5;
+        for (let iu = 0; iu <= 6; iu++) {
+          for (let iv = 0; iv <= 6; iv++) {
+            const ev = evalPatch(patchGrid, iu / 6, iv / 6, flipCross);
+            const a = projIso(ev.pos, W, H, labYaw, labPitch);
+            const b = projIso(
+              [ev.pos[0] + ev.norm[0] * 0.45, ev.pos[1] + ev.norm[1] * 0.45, ev.pos[2] + ev.norm[2] * 0.45],
+              W, H, labYaw, labPitch
+            );
+            ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+          }
+        }
+      }
+
+      // 3. Control Cage (4x4)
+      if (showCage) {
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          for (let j = 0; j < 4; j++) {
+            const pr = projIso(patchGrid[i][j], W, H, labYaw, labPitch);
+            if (j === 0) ctx.moveTo(pr[0], pr[1]); else ctx.lineTo(pr[0], pr[1]);
+          }
+          ctx.stroke();
+
+          ctx.beginPath();
+          for (let j = 0; j < 4; j++) {
+            const pr = projIso(patchGrid[j][i], W, H, labYaw, labPitch);
+            if (j === 0) ctx.moveTo(pr[0], pr[1]); else ctx.lineTo(pr[0], pr[1]);
+          }
+          ctx.stroke();
+        }
+
+        for (let i = 0; i < 4; i++) {
+          for (let j = 0; j < 4; j++) {
+            const isSel = i === selI && j === selJ;
+            const pr = projIso(patchGrid[i][j], W, H, labYaw, labPitch);
+            ctx.fillStyle = isSel ? '#fbbf24' : '#64748b';
+            ctx.beginPath();
+            ctx.arc(pr[0], pr[1], isSel ? 7 : 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      // 4. Highlight Red u-curve S(u, vProbe) & Green v-curve S(uProbe, v)
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      for (let s = 0; s <= 40; s++) {
+        const pt = projIso(evalPatch(patchGrid, s / 40, vProbe).pos, W, H, labYaw, labPitch);
+        if (s === 0) ctx.moveTo(pt[0], pt[1]); else ctx.lineTo(pt[0], pt[1]);
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      for (let s = 0; s <= 40; s++) {
+        const pt = projIso(evalPatch(patchGrid, uProbe, s / 40).pos, W, H, labYaw, labPitch);
+        if (s === 0) ctx.moveTo(pt[0], pt[1]); else ctx.lineTo(pt[0], pt[1]);
+      }
+      ctx.stroke();
+
+      // 5. Probe Point S(uProbe, vProbe), Tangents du, dv, and Normal n
+      const probe = evalPatch(patchGrid, uProbe, vProbe, flipCross);
+      const pOrig = projIso(probe.pos, W, H, labYaw, labPitch);
+      const pDu = projIso(
+        [probe.pos[0] + probe.du[0] * 0.28, probe.pos[1] + probe.du[1] * 0.28, probe.pos[2] + probe.du[2] * 0.28],
+        W, H, labYaw, labPitch
+      );
+      const pDv = projIso(
+        [probe.pos[0] + probe.dv[0] * 0.28, probe.pos[1] + probe.dv[1] * 0.28, probe.pos[2] + probe.dv[2] * 0.28],
+        W, H, labYaw, labPitch
+      );
+      const pNorm = projIso(
+        [probe.pos[0] + probe.norm[0] * 0.95, probe.pos[1] + probe.norm[1] * 0.95, probe.pos[2] + probe.norm[2] * 0.95],
+        W, H, labYaw, labPitch
+      );
+
+      // Draw du (Red), dv (Green), Normal (Sky Blue)
+      ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.moveTo(pOrig[0], pOrig[1]); ctx.lineTo(pDu[0], pDu[1]); ctx.stroke();
+
+      ctx.strokeStyle = '#10b981'; ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.moveTo(pOrig[0], pOrig[1]); ctx.lineTo(pDv[0], pDv[1]); ctx.stroke();
+
+      ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(pOrig[0], pOrig[1]); ctx.lineTo(pNorm[0], pNorm[1]); ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(pOrig[0], pOrig[1], 6, 0, Math.PI * 2); ctx.fill();
+
+      const nDotL = vDot(probe.norm, lightDir);
+      document.getElementById('patchDiffuseReadout').textContent = `Lambertian n·l = ${nDotL.toFixed(3)}`;
+      document.getElementById('patchVecReadouts').innerHTML = `
+        <div class="text-white">S(u,v) = (${probe.pos[0].toFixed(2)}, ${probe.pos[1].toFixed(2)}, ${probe.pos[2].toFixed(2)})</div>
+        <div class="text-rose-300">∂S/∂u = (${probe.du[0].toFixed(2)}, ${probe.du[1].toFixed(2)}, ${probe.du[2].toFixed(2)})</div>
+        <div class="text-emerald-300">∂S/∂v = (${probe.dv[0].toFixed(2)}, ${probe.dv[1].toFixed(2)}, ${probe.dv[2].toFixed(2)})</div>
+        <div class="text-sky-300 font-bold">n = norm(∂u×∂v) = (${probe.norm[0].toFixed(2)}, ${probe.norm[1].toFixed(2)}, ${probe.norm[2].toFixed(2)})</div>
+      `;
+    }
+
+    // ==================== TAB 4: 3-MISSION MINI-GAME ====================
+    let gameMission = 1;
+    let gameNormalFixed = false;
+
+    function selectGameMission(m) {
+      gameMission = m;
+      [1, 2, 3].forEach((id) => {
+        document.getElementById('gBtn' + id).className = id === m
+          ? 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white'
+          : 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      document.getElementById('gM2Box').className = m === 2
+        ? 'p-4 rounded-xl bg-rose-950/30 border border-rose-500/40 space-y-2'
+        : 'hidden';
+
+      if (m === 1) {
+        document.getElementById('gSl1').value = 0.20;
+        document.getElementById('gSl2').value = 0.50;
+        document.getElementById('gSl1Label').textContent = 'Inner 2×2 Control Points Height (H_inner)';
+        document.getElementById('gSl2Label').textContent = 'Probe Parameter u';
+      } else if (m === 2) {
+        gameNormalFixed = false;
+        document.getElementById('gSl1').value = 1.60;
+        document.getElementById('gSl2').value = 0.18;
+        document.getElementById('gSl1Label').textContent = 'Inner 2×2 Control Points Height (H_inner)';
+        document.getElementById('gSl2Label').textContent = 'Solar Probe Position u (寻找法线正对太阳点!)';
+      } else {
+        document.getElementById('gSl1').value = -0.90;
+        document.getElementById('gSl2').value = 0.50;
+        document.getElementById('gSl1Label').textContent = 'Patch B First Interior Column Height (P^B_{1,j}.y)';
+        document.getElementById('gSl2Label').textContent = 'Seam Inspection v';
+      }
+      drawGame();
+    }
+
+    function toggleGameNormalOrder() {
+      gameNormalFixed = !gameNormalFixed;
+      drawGame();
+    }
+
+    function drawGame() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const val1 = parseFloat(document.getElementById('gSl1').value);
+      const val2 = parseFloat(document.getElementById('gSl2').value);
+      document.getElementById('gSl1Val').textContent = val1.toFixed(2);
+      document.getElementById('gSl2Val').textContent = val2.toFixed(2);
+
+      // Build dynamic 4x4 grid based on val1 (inner 2x2 height)
+      const gGrid = [];
+      for (let i = 0; i < 4; i++) {
+        gGrid[i] = [];
+        for (let j = 0; j < 4; j++) {
+          const x = (i - 1.5) * 1.1;
+          const z = (j - 1.5) * 1.1;
+          const isInner = (i === 1 || i === 2) && (j === 1 || j === 2);
+          const y = isInner ? (gameMission === 3 ? 1.2 : val1) : 0.0;
+          gGrid[i][j] = [x, y, z];
+        }
+      }
+
+      // Draw wireframe patch
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.5;
+      for (let s = 0; s <= 8; s++) {
+        const f = s / 8;
+        ctx.beginPath();
+        for (let k = 0; k <= 24; k++) {
+          const pt = projIso(evalPatch(gGrid, k / 24, f).pos, W, H);
+          if (k === 0) ctx.moveTo(pt[0], pt[1]); else ctx.lineTo(pt[0], pt[1]);
+        }
+        ctx.stroke();
+
+        ctx.beginPath();
+        for (let k = 0; k <= 24; k++) {
+          const pt = projIso(evalPatch(gGrid, f, k / 24).pos, W, H);
+          if (k === 0) ctx.moveTo(pt[0], pt[1]); else ctx.lineTo(pt[0], pt[1]);
+        }
+        ctx.stroke();
+      }
+
+      const flip = gameMission === 2 && !gameNormalFixed;
+      const centerEval = evalPatch(gGrid, 0.5, 0.5, flip);
+      const probeEval = evalPatch(gGrid, val2, 0.5, flip);
+      const sunDir = [0, 1, 0]; // Sun directly overhead (+Y)
+      const dotSun = vDot(probeEval.norm, sunDir);
+
+      document.getElementById('gCenterYReadout').textContent = `${centerEval.pos[1].toFixed(2)} m`;
+      document.getElementById('gDotReadout').textContent = (dotSun >= 0 ? '+' : '') + dotSun.toFixed(3);
+
+      let passed = false;
+
+      if (gameMission === 1) {
+        // Target center height S(0.5, 0.5).y = 0.90 m (since 4 inner points have weight (3/8)*(3/8)*4 = 9/16 = 0.5625, H_inner = 1.60 gives 0.90!)
+        const targetPos = projIso([0, 0.90, 0], W, H);
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(targetPos[0], targetPos[1], 18, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = '#6ee7b7';
+        ctx.font = 'bold 11px JetBrains Mono';
+        ctx.fillText('★ Target Apex S(0.5,0.5).y = 0.90m', targetPos[0] + 22, targetPos[1] + 4);
+
+        const cProj = projIso(centerEval.pos, W, H);
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath(); ctx.arc(cProj[0], cProj[1], 7, 0, Math.PI * 2); ctx.fill();
+
+        passed = Math.abs(centerEval.pos[1] - 0.90) < 0.08;
+        document.getElementById('gMissionTitle').textContent = currentLang === 'zh'
+          ? '第 1 关：张量积中心权重计算 — 将曲面中心 S(0.5, 0.5) 抬升至 0.90m'
+          : 'Mission 1: Tensor Center Weight — Sculpt S(0.5, 0.5).y to 0.90m';
+        document.getElementById('gMissionDesc').textContent = currentLang === 'zh'
+          ? '在 (u,v)=(0.5,0.5) 处，中间 4 个控制点的总权重为 (3/8 + 3/8)² = (6/8)² = 9/16 = 0.5625！要让曲面中心高度达到 0.90m，请将内部 4 点高度 H_inner 调至 0.90 / 0.5625 = 1.60m！'
+          : 'At (0.5, 0.5), the 4 inner control points carry 9/16 = 0.5625 of the total weight! Set H_inner = 1.60m so S(0.5, 0.5).y reaches 0.90m!';
+      } else if (gameMission === 2) {
+        const orderBtn = document.getElementById('gNormOrderBtn');
+        orderBtn.className = gameNormalFixed
+          ? 'w-full py-2 px-3 rounded-lg border border-emerald-500 bg-emerald-950/70 text-xs font-bold text-emerald-200 transition'
+          : 'w-full py-2 px-3 rounded-lg border border-rose-500 bg-rose-900/50 text-xs font-bold text-white transition';
+        orderBtn.textContent = gameNormalFixed
+          ? '✅ 已修复为 N = (∂S/∂u) × (∂S/∂v) [法线朝上迎向太阳!]'
+          : '❌ 当前: N = (∂S/∂v) × (∂S/∂u) [法线朝下背光!] — 点击反转叉积顺序';
+
+        const pOrig = projIso(probeEval.pos, W, H);
+        const pNorm = projIso(
+          [probeEval.pos[0] + probeEval.norm[0] * 1.1, probeEval.pos[1] + probeEval.norm[1] * 1.1, probeEval.pos[2] + probeEval.norm[2] * 1.1],
+          W, H
+        );
+        ctx.strokeStyle = gameNormalFixed ? '#38bdf8' : '#f43f5e';
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(pOrig[0], pOrig[1]); ctx.lineTo(pNorm[0], pNorm[1]); ctx.stroke();
+
+        passed = gameNormalFixed && dotSun > 0.98;
+        document.getElementById('gMissionTitle').textContent = currentLang === 'zh'
+          ? '第 2 关：修复颠倒的偏导叉积顺序 — 让法向量正对天顶太阳 (n·l > 0.98)'
+          : 'Mission 2: Fix Cross-Product Order & Align Normal with Zenith Sun';
+        document.getElementById('gMissionDesc').textContent = currentLang === 'zh'
+          ? '太阳位于正上方 l=(0,1,0)，但着色器写反了 ∂S/∂v × ∂S/∂u 导致法线朝下 (n·l < 0)！请先点击修复叉积顺序按钮，再将探针 u 滑至穹顶最高点 (u ≈ 0.50) 使 n·l > 0.98！'
+          : 'Fix the reversed cross product ∂S/∂u × ∂S/∂v, then move probe u to the dome apex (u ≈ 0.50) so n·l > 0.98!';
+      } else {
+        // Mission 3: Cross-Patch C1 Seam Welding
+        // Patch A ends at P3=(1.65, 0, z) with P2=(0.55, 1.2, z), so tangent is P3 - P2 = (1.1, -1.2, 0).
+        // Therefore Patch B's P1 must have height 0 + (0 - 1.2) = -1.20!
+        const seamPt = projIso([1.65, 0, 0], W, H);
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath(); ctx.arc(seamPt[0], seamPt[1], 7, 0, Math.PI * 2); ctx.fill();
+
+        const pA2 = projIso([0.55, 1.2, 0], W, H);
+        const pB1 = projIso([2.75, val1, 0], W, H);
+        ctx.strokeStyle = Math.abs(val1 - (-1.20)) < 0.15 ? '#10b981' : '#f43f5e';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(pA2[0], pA2[1]);
+        ctx.lineTo(seamPt[0], seamPt[1]);
+        ctx.lineTo(pB1[0], pB1[1]);
+        ctx.stroke();
+
+        passed = Math.abs(val1 - (-1.20)) < 0.15;
+        document.getElementById('gMissionTitle').textContent = currentLang === 'zh'
+          ? '第 3 关：跨曲面片 C¹ 边界焊接 — 对齐切线手柄消除接缝折痕'
+          : 'Mission 3: Cross-Patch C¹ Seam Welding';
+        document.getElementById('gMissionDesc').textContent = currentLang === 'zh'
+          ? '曲面片 A 的边界点高度为 0.0m，内侧控制点高度为 +1.20m。要让相邻曲面片 B 在接缝处实现 C¹ 法线连续，根据对称法则 P^B_1 - P_seam = P_seam - P^A_2，请将曲面片 B 的第一列高度调至 -1.20m！'
+          : 'Patch A has interior height +1.20m and boundary height 0.0m. Set Patch B interior height to -1.20m for C¹ continuity across the seam!';
+      }
+
+      document.getElementById('gStatusReadout').textContent = passed ? '★ LOCKED' : '● ADJUSTING';
+      const badge = document.getElementById('gMissionBadge');
+      const fb = document.getElementById('gFeedbackBox');
+      if (passed) {
+        badge.className = 'px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-400 text-emerald-300 text-xs font-bold';
+        badge.textContent = '★ MISSION CLEARED!';
+        fb.className = 'p-4 rounded-xl bg-emerald-950/50 border border-emerald-500/50 text-xs text-emerald-200 leading-relaxed';
+        fb.innerHTML = currentLang === 'zh'
+          ? `🎉 <strong>第 ${gameMission} 关挑战成功！</strong> 张量积曲面片与解析法向量已完美锁定！`
+          : `🎉 <strong>Mission ${gameMission} Cleared!</strong> Tensor patch and analytical normal locked!`;
+      } else {
+        badge.className = 'px-2.5 py-0.5 rounded-full bg-amber-950 border border-amber-500/40 text-amber-300 text-xs font-bold';
+        badge.textContent = 'IN PROGRESS';
+        fb.className = 'p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-relaxed';
+        fb.innerHTML = currentLang === 'zh'
+          ? '💡 <strong>操作提示</strong>：根据任务简报中的数学关系调节上方滑块，观察 3D 曲面与法向量的实时响应！'
+          : '💡 <strong>Tip</strong>: Use the mathematical hints above to adjust the sliders!';
+      }
+    }
+
+    // Orbit Dragging on Tab 2 3D Canvas
+    window.addEventListener('DOMContentLoaded', () => {
+      initPatchGrid('dome');
+      const p3d = document.getElementById('patch3dCanvas');
+      if (p3d) {
+        p3d.addEventListener('pointerdown', (e) => {
+          isDraggingPatch = true;
+          prevPX = e.clientX;
+          prevPY = e.clientY;
+        });
+        window.addEventListener('pointermove', (e) => {
+          if (!isDraggingPatch) return;
+          labYaw += (e.clientX - prevPX) * 0.008;
+          labPitch = Math.max(-0.2, Math.min(1.25, labPitch + (e.clientY - prevPY) * 0.008));
+          prevPX = e.clientX;
+          prevPY = e.clientY;
+          drawPatch3D();
+        });
+        window.addEventListener('pointerup', () => { isDraggingPatch = false; });
+      }
+      drawWeaver();
+      renderCtrlGridButtons();
+      drawPatch3D();
+      selectGameMission(1);
+    });
+  </script>
+</body>
+</html>
