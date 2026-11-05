@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 06: 相机变换 (The Camera Transform)、观察空间与 LookAt 矩阵推导 | 3Blue1Brown + UC Davis + MIT 6.837</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #020617;
+      color: #f8fafc;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    canvas {
+      touch-action: none;
+    }
+    input[type="range"] {
+      accent-color: #6366f1;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white">
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 transition">
+          ← <span data-i18n="Portal Index">课程总目录 (Index)</span>
+        </a>
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 via-indigo-500 to-purple-600 flex items-center justify-center font-black text-white shadow">
+          L6
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold text-white tracking-tight" data-i18n="L06: The Camera Transform, View Space & LookAt Matrix Derivation">
+            L06: 相机变换 (The Camera Transform)、观察空间与 LookAt 矩阵推导
+          </h1>
+          <p class="text-[11px] text-slate-400" data-i18n="3Blue1Brown Relativity of Basis • UC Davis ECS 175 Lec 05 (Kenneth Joy) • MIT 6.837">
+            3Blue1Brown 相对性基变换直觉 • UC Davis ECS 175 Lec 05 (Kenneth Joy) • Stage 1 收官之战
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <span class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-950/70 border border-cyan-500/40 text-cyan-300 text-xs font-semibold">
+          <span>★</span>
+          <span data-i18n="Stage 1 Finale: 3D Math & Transforms">Stage 1 收官课: 3D 数学与空间变换</span>
+        </span>
+        <button id="langToggleBtn" onclick="toggleLanguage()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition shadow-sm">
+          <span>🌐</span>
+          <span id="langBtnLabel">EN / English</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <!-- Hero Banner -->
+    <section class="rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-cyan-950/30 p-6">
+      <div class="space-y-2 max-w-4xl">
+        <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 text-xs font-semibold">
+          <span>🎥 World Space → View / Eye Space</span>
+          <span>•</span>
+          <span data-i18n="Why moving the camera by M_cam is identical to moving the universe by V = M_cam⁻¹ = Rᵀ · T(-e)">为什么“移动相机 M_cam”等价于“反向移动整个宇宙 V = Rᵀ · T(-e)”？</span>
+        </div>
+        <h2 class="text-xl sm:text-2xl font-extrabold text-white" data-i18n="How Do We See the 3D World Through the Eyes of a Virtual Camera?">
+          如何透过虚拟相机的眼睛观察 3D 世界？打通 Stage 1 全部数学武器！
+        </h2>
+        <p class="text-xs sm:text-sm text-slate-300 leading-relaxed" data-i18n="In Lessons 01–05, we learned Dot/Cross Products (L01), 4x4 Homogeneous Frames (L02), Orthogonal Transpose Inverse R⁻¹=Rᵀ (L03), and Inverse Local Frame Radar M_world⁻¹ (L05). The Camera Transform (LookAt Matrix) unites ALL of them: we construct an orthonormal camera frame (u, v, w) from (eye, target, up) using two cross products, and invert it via V = Rᵀ · T(-e) to pull the entire universe into the camera's eyes!">
+          在 Lesson 01–05 中，我们分别掌握了**点积投影与叉积右手法则 (L01)**、**$4\times 4$ 齐次标架 (L02)**、**正交矩阵转置求逆 $R^{-1}=R^T$ (L03)** 以及**世界到局部的逆变换 $M_{\text{world}}^{-1}$ (L05)**。本课的 **LookAt 相机变换矩阵**正是这四大武器的终极合体：用两次叉积从 `(eye, target, up)` 锻造右手正交标架 $(\mathbf{u}, \mathbf{v}, \mathbf{w})$，再用逆变换 $V = R_{\text{cam}}^T T(-\mathbf{e})$ 把整个宇宙拉进相机的眼睛！
+        </p>
+      </div>
+
+      <!-- 4 Main Navigation Tabs -->
+      <div class="mt-6 flex flex-wrap gap-2 border-t border-slate-800/80 pt-4">
+        <button onclick="switchTab('concepts')" id="tabBtn-concepts" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow">
+          1. <span data-i18n="3Blue1Brown Relativity & LookAt Derivation">3Blue1Brown 相对性直觉与 LookAt 完整推导</span>
+        </button>
+        <button onclick="switchTab('lab')" id="tabBtn-lab" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+          2. <span data-i18n="Dual-Viewport Lab (God View + Camera View)">双视窗实验室 (上帝视角 + 相机第一视角)</span>
+        </button>
+        <button onclick="switchTab('videos')" id="tabBtn-videos" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+          3. <span data-i18n="UC Davis Lec 05 & MIT 6.837 Notes">名校公开课视频与精要笔记</span>
+        </button>
+        <button onclick="switchTab('game')" id="tabBtn-game" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/40">
+          🎮 4. <span data-i18n="3-Mission Game: Satellite Camera Calibration">3 关实战游戏：侦察卫星相机标定挑战</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 1: 3BLUE1BROWN DEEP CONCEPTS ==================== -->
+    <section id="tab-concepts" class="space-y-8">
+      <!-- Part 1: Relativity Principle & Two-Step Inverse V = R^T * T(-e) -->
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider" data-i18n="Part 1 • 3Blue1Brown Change of Basis & Galilean Relativity">Part 1 • 3Blue1Brown 基变换与伽利略相对性原理</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Why Doesn't the GPU Move the Camera? Why V = M_cam⁻¹ = R_camᵀ · T(-e)?">
+              为什么渲染管线从不“移动相机”，而是用 V = M_cam⁻¹ = R_camᵀ · T(-e) 反向移动整个世界？
+            </h3>
+          </div>
+          <span class="px-3 py-1 rounded-lg bg-cyan-950 border border-cyan-700/50 text-xs mono text-cyan-300">
+            V = (T(e) · R_cam)⁻¹ = R_camᵀ · T(-e)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <div class="font-bold text-cyan-300" data-i18n="1. Camera as a Scene Graph Object (M_cam)">
+              1. 相机本身只是世界里的一个普通标架 $M_{\text{cam}}$
+            </div>
+            <p class="text-xs text-slate-400" data-i18n="Suppose a camera sits at position e with right-handed orthonormal axes (u, v, w). Moving the camera from the canonical origin into the world is just T(e) · R_cam, whose columns are [u, v, w, e].">
+              假设相机位于世界点 $\mathbf{e}$，拥有右手正交基 $(\mathbf{u}, \mathbf{v}, \mathbf{w})$。把标准相机从世界原点搬到 $\mathbf{e}$ 并转好角度，它的“局部到世界矩阵”就是 $M_{\text{cam}} = T(\mathbf{e}) \cdot R_{\text{cam}}$，其四列正是 $[\mathbf{u}, \mathbf{v}, \mathbf{w}, \mathbf{e}]$。
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950 border border-indigo-500/30 space-y-2">
+            <div class="font-bold text-indigo-300" data-i18n="2. Shoe-Sock Inverse Order: Why T(-e) First, Then Rᵀ?">
+              2. 穿鞋脱袜求逆法则：为什么先平移 $T(-\mathbf{e})$ 再旋转 $R^T$？
+            </div>
+            <p class="text-xs text-slate-400" data-i18n="To find where world points lie in the camera's own frame, we apply M_cam⁻¹ = (T(e)·R_cam)⁻¹ = R_cam⁻¹ · T(-e) = R_camᵀ · T(-e). Acting on point p, T(-e) happens FIRST (subtracting e), then R_camᵀ rotates!">
+              要求世界点 $\mathbf{p}$ 在相机眼里的坐标，必须左乘逆矩阵 $V = M_{\text{cam}}^{-1} = (T(\mathbf{e})R_{\text{cam}})^{-1} = R_{\text{cam}}^T T(-\mathbf{e})$。当它作用于列向量 $\mathbf{p}$ 时，**离 $\mathbf{p}$ 最近的 $T(-\mathbf{e})$ 先执行（先把相机拉回原点），随后 $R_{\text{cam}}^T$ 再把相机三轴掰正到标准坐标轴**！
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950 border border-emerald-500/30 space-y-2">
+            <div class="font-bold text-emerald-300" data-i18n="3. Why the 4th Column is (-u·e, -v·e, -w·e, 1)ᵀ">
+              3. 为什么第 4 列是 $(-\mathbf{u}\cdot\mathbf{e}, -\mathbf{v}\cdot\mathbf{e}, -\mathbf{w}\cdot\mathbf{e})$？
+            </div>
+            <p class="text-xs text-slate-400" data-i18n="Because R_cam's columns are (u,v,w), R_camᵀ's ROWS are uᵀ, vᵀ, wᵀ! Multiplying R_camᵀ by (p - e) simply takes the Dot Product of (p - e) with u, v, and w!">
+              因为 $R_{\text{cam}}$ 的**列**是 $(\mathbf{u},\mathbf{v},\mathbf{w})$，转置后 $R_{\text{cam}}^T$ 的**行**就是 $\mathbf{u}^T, \mathbf{v}^T, \mathbf{w}^T$！所以 $R_{\text{cam}}^T(\mathbf{p}-\mathbf{e})$ 的本质，就是把相对位移 $(\mathbf{p}-\mathbf{e})$ 分别向 $\mathbf{u}, \mathbf{v}, \mathbf{w}$ 做**三次点积投影**！
+            </p>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer 1: Two-Step Relativity Animator -->
+        <div class="rounded-xl border border-cyan-500/30 bg-slate-950 p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-bold text-white" data-i18n="Interactive Visualizer 1: Step-by-Step World-to-View Relativity Animator (I → T(-e) → Rᵀ·T(-e))">
+                🔬 交互透视镜 1：世界空间 → 观察空间两步逆变换连续变形器 ($I \to T(-\mathbf{e}) \to R_{\text{cam}}^T T(-\mathbf{e})$)
+              </h4>
+              <p class="text-xs text-slate-400" data-i18n="Drag the Morph Slider (0.0 → 1.0 → 2.0) or toggle the 'Wrong Order T(-e)·Rᵀ Bug' to see why translating BEFORE rotating is mandatory!">
+                拖动下方变形进度条（0.0 → 1.0 平移回原点 → 2.0 旋转对齐 $-Z$），或开启右侧红色按钮看看如果把顺序颠倒成 $T(-\mathbf{e})R^T$ 会发生什么灾难！
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="setRelativityStep(0)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">
+                0. <span data-i18n="World Space">世界空间 (World)</span>
+              </button>
+              <button onclick="setRelativityStep(1)" class="px-3 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-xs font-bold text-white">
+                1. <span data-i18n="After T(-e)">第1步: 平移 T(-e)</span>
+              </button>
+              <button onclick="setRelativityStep(2)" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white">
+                2. <span data-i18n="After Rᵀ·T(-e) (View Space)">第2步: 旋转 Rᵀ·T(-e)</span>
+              </button>
+              <button onclick="toggleWrongOrderBug()" id="wrongOrderBtn" class="px-3 py-1.5 rounded-lg border border-rose-500/50 bg-rose-950/40 text-xs font-bold text-rose-300">
+                🐞 <span id="wrongOrderLabel">错误顺序 T(-e)·Rᵀ 对比: 关</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-7">
+              <canvas id="relativityCanvas" width="600" height="350" class="w-full rounded-xl border border-slate-800 bg-slate-900"></canvas>
+            </div>
+            <div class="lg:col-span-5 space-y-4 text-xs">
+              <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                <div>
+                  <div class="flex justify-between font-bold text-cyan-300 mb-1">
+                    <span data-i18n="Continuous Morph Progress (0 → 1 → 2)">两步逆变换连续变形进度 (0 → 1 → 2)</span>
+                    <span id="relMorphVal" class="mono">2.00</span>
+                  </div>
+                  <input id="relMorphSlider" type="range" min="0" max="2" step="0.02" value="2" oninput="updateRelativity()" class="w-full" />
+                  <div class="flex justify-between text-[10px] text-slate-400 mt-1">
+                    <span>0.0: World Space</span>
+                    <span>1.0: T(-e) Applied</span>
+                    <span>2.0: Rᵀ·T(-e) Eye Space</span>
+                  </div>
+                </div>
+
+                <div class="border-t border-slate-800 pt-2.5 space-y-2">
+                  <div>
+                    <div class="flex justify-between text-slate-300">
+                      <span>Camera World Pos (e_x, e_z)</span>
+                      <span id="relCamPosVal" class="mono text-indigo-300">(110, 75)</span>
+                    </div>
+                    <input id="relCamX" type="range" min="-140" max="150" value="110" oninput="updateRelativity()" class="w-full" />
+                  </div>
+                  <div>
+                    <div class="flex justify-between text-slate-300">
+                      <span>Camera Yaw Angle (θ_cam)</span>
+                      <span id="relCamAngVal" class="mono text-emerald-300">38°</span>
+                    </div>
+                    <input id="relCamAng" type="range" min="-140" max="140" value="38" oninput="updateRelativity()" class="w-full" />
+                  </div>
+                </div>
+              </div>
+
+              <div id="relativityExplainBox" class="p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-slate-200 leading-relaxed">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Building (u, v, w) via Two Cross Products & Zenith Singularity -->
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider" data-i18n="Part 2 • UC Davis Lec 05 (Prof. Kenneth Joy) Orthonormal Triad Construction">Part 2 • UC Davis Lec 05 (Kenneth Joy) 相机正交基构造法</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="How Two Cross Products Forge (u, v, w) from (eye, target, up_hint) — And Why Looking Straight Up Explodes!">
+              如何用两次叉积从 (eye, target, up_hint) 锻造右手正交基 (u, v, w)？为什么垂直仰视天顶会崩溃？
+            </h3>
+          </div>
+          <span class="px-3 py-1 rounded-lg bg-emerald-950 border border-emerald-700/50 text-xs mono text-emerald-300">
+            w = norm(e-c), u = norm(up × w), v = w × u
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-300 leading-relaxed">
+          <div class="p-4 rounded-xl bg-slate-950 border border-sky-500/30 space-y-1.5">
+            <div class="font-bold text-sky-300 text-sm">Step 1: 视线反方向轴 w (+Z_cam)</div>
+            <div class="p-2 rounded bg-slate-900 mono text-sky-300">w = (eye - target) / ||eye - target||</div>
+            <p class="text-slate-400" data-i18n="In OpenGL/WebGL right-handed convention, +X is Right and +Y is Up, so by the right-hand rule +Z points OUT of the screen toward the viewer. Thus the camera looks down -w (-Z_view)!">
+              在右手系（OpenGL/WebGL 标准）中，如果 $+X$ 向右、$+Y$ 向上，根据右手定则大拇指 $+Z$ 必定**指向屏幕外（背离目标）**。因此我们定义 $\mathbf{w}$ 从 `target` 指向 `eye`，相机实际看向 $-\mathbf{w}$ 即 $-Z_{\text{view}}$！
+            </p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-950 border border-rose-500/30 space-y-1.5">
+            <div class="font-bold text-rose-300 text-sm">Step 2: 第一记叉积锻造右轴 u (+X_cam)</div>
+            <div class="p-2 rounded bg-slate-900 mono text-rose-300">u = (up_hint × w) / ||up_hint × w||</div>
+            <p class="text-slate-400" data-i18n="The user's up_hint=(0,1,0) is NOT perpendicular to w! Taking up_hint × w produces a vector strictly perpendicular to the plane of up_hint and w. We MUST divide by ||up_hint × w|| = sin(θ) to make it unit length!">
+              用户给的 $\mathbf{up}_{\text{hint}} = (0,1,0)$ 通常与视线并不垂直（夹角 $\theta \neq 90^\circ$）。计算叉积 $\mathbf{up}_{\text{hint}} \times \mathbf{w}$ 会生成严格垂直于二者平面的水平右向量！**注意必须除以模长 $\sin\theta$ 才能单位化！**
+            </p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-950 border border-emerald-500/30 space-y-1.5">
+            <div class="font-bold text-emerald-300 text-sm">Step 3: 第二记叉积扶正真上轴 v (+Y_cam)</div>
+            <div class="p-2 rounded bg-slate-900 mono text-emerald-300">v = w × u  (||v|| = 1 automatically)</div>
+            <p class="text-slate-400" data-i18n="Now w and u are unit vectors at 90°. Crossing w × u automatically yields a unit vector v in the plane of w and up_hint, strictly orthogonal to both w and u!">
+              此时 $\mathbf{w}$ 与 $\mathbf{u}$ 已经是夹角 $90^\circ$ 的单位向量，再用一次叉积 $\mathbf{v} = \mathbf{w} \times \mathbf{u}$，相当于把歪斜的 $\mathbf{up}_{\text{hint}}$ 正交投影修正为严格垂直于视线的“真上轴” $\mathbf{v}$！
+            </p>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer 2: Cross-Product Basis & Zenith Singularity Tester -->
+        <div class="rounded-xl border border-emerald-500/30 bg-slate-950 p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-bold text-white" data-i18n="Interactive Visualizer 2: Cross-Product Orthonormalizer & Zenith Collinear Singularity Lab">
+                ⚙️ 交互透视镜 2：两次叉积正交化过程 ($\mathbf{w} \to \mathbf{u} \to \mathbf{v}$) 与 90° 天顶共线奇异点压力测试
+              </h4>
+              <p class="text-xs text-slate-400" data-i18n="Drag the Camera Pitch Angle toward +90° (Zenith) to watch ||up_hint × w|| = sin(θ) collapse to 0 and trigger a NaN singularity!">
+                拖动相机俯仰角 Pitch 逼近 $+90^\circ$（垂直俯视/仰视），观察 $\|\mathbf{up}_{\text{hint}} \times \mathbf{w}\| = \sin\theta$ 如何坍缩为 0 并触发除零奇异点崩溃！
+              </p>
+            </div>
+            <button onclick="triggerZenithSingularity()" class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white shadow">
+              ⚠️ <span data-i18n="Push Pitch to 90° (Trigger Zenith Singularity!)">一键推到 Pitch = 90° (触发共线奇异点崩溃!)</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-7">
+              <canvas id="basisCanvas" width="600" height="330" class="w-full rounded-xl border border-slate-800 bg-slate-900"></canvas>
+            </div>
+            <div class="lg:col-span-5 space-y-3 text-xs">
+              <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                <div>
+                  <div class="flex justify-between font-bold text-amber-300">
+                    <span data-i18n="Camera Pitch Angle (Angle with Horizon)">相机俯仰角 Pitch (视线与水平面夹角)</span>
+                    <span id="basisPitchVal" class="mono">32°</span>
+                  </div>
+                  <input id="basisPitchSlider" type="range" min="-89.9" max="90" step="0.5" value="32" oninput="drawBasisCanvas()" class="w-full" />
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800 mono">
+                  <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                    <div class="text-[10px] text-slate-400 font-sans">Angle ∠(up_hint, w)</div>
+                    <div id="basisAngleReadout" class="text-sm font-bold text-amber-300">58.0°</div>
+                  </div>
+                  <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                    <div class="text-[10px] text-slate-400 font-sans">||up_hint × w|| = sin(θ)</div>
+                    <div id="basisSinReadout" class="text-sm font-bold text-rose-300">0.848</div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="basisStatusBox" class="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-slate-200 leading-relaxed">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: DUAL-VIEWPORT CAMERA MATRIX LAB ==================== -->
+    <section id="tab-lab" class="hidden space-y-6">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider">Dual-Viewport Synchronized Camera Laboratory</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Left: God's-Eye World Space (Drag to Orbit) • Right: Live First-Person Camera View Space">
+              左视窗：上帝视角世界空间 (含视锥体与 u,v,w 标架) • 右视窗：相机第一人称观察空间 (View Space)
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="applyLabPreset('iso')" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white">
+              🎥 <span data-i18n="Standard Orbit">标准斜向观察</span>
+            </button>
+            <button onclick="applyLabPreset('dutch')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">
+              🎬 <span data-i18n="Dutch Roll (35°)">希区柯克斜角 (Roll 35°)</span>
+            </button>
+            <button onclick="applyLabPreset('close')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">
+              🔍 <span data-i18n="Low-Angle Close-Up">低机位仰拍特写</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Synchronized Dual Canvases -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-xs px-1">
+              <span class="font-bold text-cyan-300" data-i18n="🌍 Viewport 1: God's-Eye World Space (Drag mouse to orbit)">🌍 视窗 1：上帝视角 (World Space — 鼠标拖拽旋转视角)</span>
+              <span class="mono text-[11px] text-slate-400">Camera @ e, Target @ c</span>
+            </div>
+            <canvas id="godViewCanvas" width="560" height="360" class="w-full rounded-xl border border-slate-800 bg-slate-950 cursor-grab active:cursor-grabbing"></canvas>
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-xs px-1">
+              <span class="font-bold text-emerald-300" data-i18n="👁️ Viewport 2: Camera First-Person View Space (p_view = V · p_world)">👁️ 视窗 2：相机第一视角 (Eye / View Space: p_view = V · p_world)</span>
+              <span id="targetEyeCoordBadge" class="mono text-[11px] text-amber-300">Target in Eye: (0, 0, -4.2)</span>
+            </div>
+            <canvas id="camViewCanvas" width="560" height="360" class="w-full rounded-xl border border-emerald-500/40 bg-slate-950"></canvas>
+          </div>
+        </div>
+
+        <!-- Controls & Live Matrices -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-2">
+          <!-- Sliders -->
+          <div class="lg:col-span-5 p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+            <div class="font-bold text-indigo-300 uppercase tracking-wider" data-i18n="Camera Parameters (eye, target, up_roll)">
+              🎛️ 相机参数调节 (eye, target, up_roll)
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <div class="flex justify-between"><span>eye.x</span><span id="lbl_ex" class="mono text-cyan-300">2.4</span></div>
+                <input id="sl_ex" type="range" min="-4" max="4" step="0.1" value="2.4" oninput="updateDualLab()" class="w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between"><span>eye.y</span><span id="lbl_ey" class="mono text-cyan-300">1.8</span></div>
+                <input id="sl_ey" type="range" min="-1" max="4" step="0.1" value="1.8" oninput="updateDualLab()" class="w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between"><span>eye.z</span><span id="lbl_ez" class="mono text-cyan-300">2.8</span></div>
+                <input id="sl_ez" type="range" min="-4" max="4" step="0.1" value="2.8" oninput="updateDualLab()" class="w-full" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 pt-1 border-t border-slate-900">
+              <div>
+                <div class="flex justify-between"><span>target.x</span><span id="lbl_cx" class="mono text-amber-300">0.0</span></div>
+                <input id="sl_cx" type="range" min="-2" max="2" step="0.1" value="0.0" oninput="updateDualLab()" class="w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between"><span>target.y</span><span id="lbl_cy" class="mono text-amber-300">0.6</span></div>
+                <input id="sl_cy" type="range" min="-1" max="2.5" step="0.1" value="0.6" oninput="updateDualLab()" class="w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between"><span>target.z</span><span id="lbl_cz" class="mono text-amber-300">0.0</span></div>
+                <input id="sl_cz" type="range" min="-2" max="2" step="0.1" value="0.0" oninput="updateDualLab()" class="w-full" />
+              </div>
+            </div>
+
+            <div class="pt-1 border-t border-slate-900">
+              <div class="flex justify-between">
+                <span class="text-emerald-300 font-semibold">Camera Up Roll Angle (绕视线滚转角)</span>
+                <span id="lbl_roll" class="mono text-emerald-300">0°</span>
+              </div>
+              <input id="sl_roll" type="range" min="-90" max="90" step="1" value="0" oninput="updateDualLab()" class="w-full" />
+            </div>
+          </div>
+
+          <!-- Matrices Comparison -->
+          <div class="lg:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] mono">
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+              <div class="font-sans font-bold text-slate-300 flex items-center justify-between">
+                <span data-i18n="Camera-to-World Matrix M_cam">相机局部到世界矩阵 M_cam</span>
+                <span class="text-[10px] text-slate-400">Cols: [u, v, w, e]</span>
+              </div>
+              <div id="matCamWorldGrid" class="grid grid-cols-4 gap-1.5 text-right p-2 rounded bg-slate-900"></div>
+              <p class="font-sans text-[11px] text-slate-400" data-i18n="Columns 1–3 are the orthonormal axes (u, v, w); Column 4 is camera position e.">
+                前 3 <strong>列</strong>是相机正交轴 <span class="text-rose-400">u</span>, <span class="text-emerald-400">v</span>, <span class="text-sky-400">w</span>；第 4 列是相机位置 <span class="text-amber-300">e</span>。
+              </p>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-950 border border-emerald-500/40 space-y-2">
+              <div class="font-sans font-bold text-emerald-300 flex items-center justify-between">
+                <span data-i18n="LookAt View Matrix V = M_cam⁻¹">LookAt 观察矩阵 V = M_cam⁻¹</span>
+                <span class="text-[10px] text-emerald-400">Rows: [uᵀ, vᵀ, wᵀ]</span>
+              </div>
+              <div id="matLookAtGrid" class="grid grid-cols-4 gap-1.5 text-right p-2 rounded bg-slate-900"></div>
+              <p class="font-sans text-[11px] text-slate-400" data-i18n="Rows 1–3 are uᵀ, vᵀ, wᵀ (transposed!); Column 4 is (-u·e, -v·e, -w·e, 1)ᵀ.">
+                前 3 <strong>行</strong>变成了 <span class="text-rose-400">uᵀ</span>, <span class="text-emerald-400">vᵀ</span>, <span class="text-sky-400">wᵀ</span>；第 4 列是点积 <span class="text-amber-300">(-u·e, -v·e, -w·e)</span>！
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: UNIVERSITY LECTURES & NOTES ==================== -->
+    <section id="tab-videos" class="hidden space-y-6">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+          <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Course References • UC Davis ECS 175 Lecture 05 & MIT 6.837</span>
+          <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="UC Davis Lecture 05: The Camera Transform (Prof. Kenneth Joy)">
+            配套名校公开课：UC Davis ECS 175 Lecture 05 (The Camera Transform)
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-amber-950 border border-amber-700/50 text-xs font-bold text-amber-300">UC Davis ECS 175 • Fall 2009 • Lecture 05</span>
+              <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+5" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">
+                Search Lecture 05 on YouTube ↗
+              </a>
+            </div>
+            <h4 class="text-base font-bold text-white">Prof. Kenneth Joy — The Camera Transform</h4>
+            <ul class="space-y-2.5 list-disc pl-4 text-xs text-slate-300">
+              <li data-i18n="The Canonical Camera Convention: Located at (0,0,0), looking down the negative Z-axis (0,0,-1), with Up along (0,1,0) and Right along (1,0,0).">
+                <strong>标准相机约定 (Canonical Camera)</strong>：位于原点 $(0,0,0)$，视线朝向 $-Z$ 轴 $(0,0,-1)$，头顶朝向 $+Y$ 轴 $(0,1,0)$，右手朝向 $+X$ 轴 $(1,0,0)$。
+              </li>
+              <li data-i18n="Why Decompose V = R · T? Moving the camera frame to the world origin takes T(-e), and aligning the orthonormal triad (u, v, w) with (i, j, k) takes the transpose of the basis matrix.">
+                <strong>为什么分解为 $V = R_{\text{cam}}^T T(-\mathbf{e})$</strong>：先把相机位置 $\mathbf{e}$ 平移回原点（对全世界所有点减去 $\mathbf{e}$），再用正交基转置矩阵把 $(\mathbf{u}, \mathbf{v}, \mathbf{w})$ 对齐到标准基 $(\mathbf{i}, \mathbf{j}, \mathbf{k})$。
+              </li>
+              <li data-i18n="Verify by plugging in (e + u): T(-e)(e + u) = u, and R_camᵀ(u) = (u·u, v·u, w·u)ᵀ = (1, 0, 0)ᵀ!">
+                <strong>一句话验算公式对错</strong>：把世界点 $\mathbf{p} = \mathbf{e} + \mathbf{u}$（相机右侧 1 米处的点）代入 $V\mathbf{p}$：先算 $\mathbf{p}-\mathbf{e}=\mathbf{u}$，再与三行做点积 $(\mathbf{u}\cdot\mathbf{u}, \mathbf{v}\cdot\mathbf{u}, \mathbf{w}\cdot\mathbf{u})^T = (1, 0, 0)^T$——恰好落在观察空间的 $+X$ 轴单位点上！
+              </li>
+            </ul>
+          </div>
+
+          <div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-rose-950 border border-rose-700/50 text-xs font-bold text-rose-300">MIT 6.837 • Fall 2021 • Lectures 04 & 09</span>
+              <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">
+                MIT 6.837 Playlist ↗
+              </a>
+            </div>
+            <h4 class="text-base font-bold text-white">Camera Space in Ray Tracing vs. Rasterization</h4>
+            <p class="text-xs text-slate-300" data-i18n="Why do Ray Tracing (Stage 3) and Rasterization (Stage 4) use opposite directions of the exact same Camera Matrix?">
+              <strong>为什么光线追踪（Stage 3）和光栅化管线（Stage 4）刚好使用这对互逆矩阵的不同方向？</strong>
+            </p>
+            <div class="grid grid-cols-1 gap-2.5 text-xs">
+              <div class="p-3 rounded-lg bg-slate-900 border border-cyan-500/30">
+                <div class="font-bold text-cyan-300">光线追踪 (Ray Tracing): 用 M_cam (Camera → World)</div>
+                <p class="text-slate-400 mt-1">
+                  光追在相机局部空间生成像素射线 $\mathbf{d}_{\text{cam}} = (x, y, -d)$，然后乘上 $M_{\text{cam}}$ 把射线发射到世界空间与物体求交：$\mathbf{r}_{\text{world}}(t) = \mathbf{e} + t (x\mathbf{u} + y\mathbf{v} - d\mathbf{w})$。
+                </p>
+              </div>
+              <div class="p-3 rounded-lg bg-slate-900 border border-emerald-500/30">
+                <div class="font-bold text-emerald-300">光栅化 GPU (Rasterization): 用 V = M_cam⁻¹ (World → View)</div>
+                <p class="text-slate-400 mt-1">
+                  顶点着色器没有“射线”，而是把成千上万个世界三角形顶点乘以 $V = M_{\text{cam}}^{-1}$ 变换到相机观察空间，再送入透视投影矩阵（Lesson 18）投影到屏幕！
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-game" class="hidden space-y-6">
+      <div class="rounded-2xl border border-emerald-500/40 bg-slate-900/90 p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">🎮 Interactive 3-Mission Challenge</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Reconnaissance Satellite Camera Calibration & LookAt Debugging">
+              3 关实战小游戏：星际侦察卫星 LookAt 矩阵排障、天顶奇异点救援与电影级构图
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="selectGameMission(1)" id="gameBtn1" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white">
+              Mission 1: <span data-i18n="Fix Rᵀ·T(-e) Order Bug">修复 Rᵀ·T(-e) 顺序 Bug</span>
+            </button>
+            <button onclick="selectGameMission(2)" id="gameBtn2" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 2: <span data-i18n="Zenith Collinear Rescue">天顶共线奇异点救援</span>
+            </button>
+            <button onclick="selectGameMission(3)" id="gameBtn3" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 3: <span data-i18n="Eye-Space Framing Lock">观察空间精确测距构图</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- Left: Satellite Viewfinder Canvas & Telemetry -->
+          <div class="lg:col-span-7 space-y-3">
+            <canvas id="gameCanvas" width="640" height="400" class="w-full rounded-xl border border-slate-800 bg-slate-950"></canvas>
+            <div class="grid grid-cols-3 gap-3 text-xs">
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-slate-400" data-i18n="Target in Eye Space p_view">目标在观察空间坐标 p_view</div>
+                <div id="gTargetViewCoord" class="mono font-bold text-cyan-300 mt-0.5">(0.00, 0.00, -4.00)</div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-slate-400" data-i18n="Cross-Product Norm ||up × w||">叉积模长 ||up_hint × w||</div>
+                <div id="gCrossNorm" class="mono font-bold text-amber-300 mt-0.5">1.000</div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-slate-400" data-i18n="Crosshair Error / Roll">准星偏移误差 / 横滚角</div>
+                <div id="gLockMetric" class="mono font-bold text-emerald-300 mt-0.5">0.00 m</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Mission Controls -->
+          <div class="lg:col-span-5 space-y-4">
+            <div class="p-4 rounded-xl bg-slate-950 border border-indigo-500/40 space-y-2">
+              <div class="flex items-center justify-between">
+                <span id="gMissionTitle" class="text-sm font-bold text-indigo-300">Mission 1</span>
+                <span id="gMissionBadge" class="px-2.5 py-0.5 rounded-full bg-amber-950 border border-amber-500/40 text-amber-300 text-xs font-bold">IN PROGRESS</span>
+              </div>
+              <p id="gMissionDesc" class="text-xs text-slate-300 leading-relaxed"></p>
+            </div>
+
+            <!-- Mission 1 Specific Switch -->
+            <div id="gM1Box" class="p-4 rounded-xl bg-rose-950/30 border border-rose-500/40 space-y-2">
+              <div class="text-xs font-bold text-rose-300" data-i18n="Shader View Matrix Pipeline Formula:">
+                🛠️ 卫星着色器 View Matrix 矩阵乘法顺序开关：
+              </div>
+              <button onclick="toggleGameOrderFix()" id="gOrderBtn" class="w-full py-2 px-3 rounded-lg border border-rose-500 bg-rose-900/50 text-xs font-bold text-white transition">
+                ❌ 当前公式: V = T(-e) · R_camᵀ (第4列未点积投影!) — 点击修复为 R_camᵀ · T(-e)
+              </button>
+            </div>
+
+            <!-- Mission 2 Specific Up-Vector Selector -->
+            <div id="gM2Box" class="hidden p-4 rounded-xl bg-amber-950/30 border border-amber-500/40 space-y-2">
+              <div class="text-xs font-bold text-amber-300" data-i18n="Select World Up Hint Vector (up_hint):">
+                🧭 选择天顶俯视时的参考上向量 up_hint：
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <button onclick="setGameUpMode('Y')" id="gUpBtnY" class="py-2 px-3 rounded-lg border border-rose-500 bg-rose-950/70 text-xs font-bold text-rose-200">
+                  ❌ up = (0, 1, 0) [与视线平行!]
+                </button>
+                <button onclick="setGameUpMode('Z')" id="gUpBtnZ" class="py-2 px-3 rounded-lg border border-slate-700 bg-slate-900 text-xs font-bold text-slate-300">
+                  ✅ up = (0, 0, -1) [指向正北!]
+                </button>
+              </div>
+            </div>
+
+            <!-- Camera Sliders -->
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+              <div>
+                <div class="flex justify-between">
+                  <span class="text-cyan-300 font-semibold">Camera Aim Offset X (target.x)</span>
+                  <span id="gAimXVal" class="mono text-cyan-300">0.0</span>
+                </div>
+                <input id="gAimX" type="range" min="-2.5" max="2.5" step="0.1" value="0.8" oninput="updateGame()" class="w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between">
+                  <span class="text-emerald-300 font-semibold">Camera Aim Offset Y (target.y)</span>
+                  <span id="gAimYVal" class="mono text-emerald-300">0.0</span>
+                </div>
+                <input id="gAimY" type="range" min="-2.0" max="2.0" step="0.1" value="-0.6" oninput="updateGame()" class="w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between">
+                  <span class="text-amber-300 font-semibold">Camera Distance ||e - c|| (观察距离)</span>
+                  <span id="gDistVal" class="mono text-amber-300">5.0 m</span>
+                </div>
+                <input id="gDist" type="range" min="2.5" max="8.0" step="0.1" value="6.4" oninput="updateGame()" class="w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between">
+                  <span class="text-pink-300 font-semibold">Camera Dutch Roll (镜头横滚角)</span>
+                  <span id="gRollVal" class="mono text-pink-300">0°</span>
+                </div>
+                <input id="gRoll" type="range" min="-60" max="60" step="1" value="0" oninput="updateGame()" class="w-full" />
+              </div>
+            </div>
+
+            <div id="gFeedbackBox" class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-relaxed">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== BILINGUAL SUPPORT ====================
+    let currentLang = 'zh';
+    const zhCache = new Map();
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.getElementById('langBtnLabel').textContent = currentLang === 'zh' ? 'EN / English' : '中文 / Chinese';
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        if (!zhCache.has(el)) zhCache.set(el, el.innerHTML);
+        el.innerHTML = currentLang === 'en' ? el.getAttribute('data-i18n') : zhCache.get(el);
+      });
+      updateRelativity();
+      drawBasisCanvas();
+      updateDualLab();
+      updateGame();
+    }
+
+    function switchTab(tabId) {
+      ['concepts', 'lab', 'videos', 'game'].forEach((id) => {
+        const sec = document.getElementById('tab-' + id);
+        const btn = document.getElementById('tabBtn-' + id);
+        if (id === tabId) {
+          sec.classList.remove('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = id === 'game'
+            ? 'px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/40'
+            : 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800';
+        }
+      });
+      if (tabId === 'concepts') {
+        updateRelativity();
+        drawBasisCanvas();
+      } else if (tabId === 'lab') {
+        updateDualLab();
+      } else if (tabId === 'game') {
+        updateGame();
+      }
+    }
+
+    // ==================== 3D VECTOR & LOOKAT MATH ====================
+    function deg2rad(d) { return (d * Math.PI) / 180; }
+    function vSub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+    function vAdd(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+    function vScale(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
+    function vDot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+    function vCross(a, b) {
+      return [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0]
+      ];
+    }
+    function vLen(a) { return Math.hypot(a[0], a[1], a[2]); }
+    function vNorm(a) {
+      const l = vLen(a);
+      return l > 1e-7 ? [a[0] / l, a[1] / l, a[2] / l] : [0, 0, 0];
+    }
+
+    function buildCameraFrame(eye, target, upHint) {
+      const wRaw = vSub(eye, target);
+      const dist = vLen(wRaw);
+      const w = dist > 1e-6 ? vScale(wRaw, 1 / dist) : [0, 0, 1];
+      const uRaw = vCross(upHint, w);
+      const crossLen = vLen(uRaw);
+      const u = crossLen > 1e-5 ? vScale(uRaw, 1 / crossLen) : [1, 0, 0];
+      const v = vCross(w, u);
+
+      const M_cam = [
+        u[0], v[0], w[0], eye[0],
+        u[1], v[1], w[1], eye[1],
+        u[2], v[2], w[2], eye[2],
+        0,    0,    0,    1
+      ];
+
+      const V_lookAt = [
+        u[0], u[1], u[2], -vDot(u, eye),
+        v[0], v[1], v[2], -vDot(v, eye),
+        w[0], w[1], w[2], -vDot(w, eye),
+        0,    0,    0,    1
+      ];
+
+      return { u, v, w, dist, crossLen, M_cam, V_lookAt };
+    }
+
+    function mat4TransformVec3(M, p) {
+      return [
+        M[0] * p[0] + M[1] * p[1] + M[2] * p[2] + M[3],
+        M[4] * p[0] + M[5] * p[1] + M[6] * p[2] + M[7],
+        M[8] * p[0] + M[9] * p[1] + M[10] * p[2] + M[11]
+      ];
+    }
+
+    // ==================== VISUALIZER 1: TWO-STEP RELATIVITY ANIMATOR ====================
+    let wrongOrderBug = false;
+
+    function setRelativityStep(stepVal) {
+      document.getElementById('relMorphSlider').value = stepVal;
+      updateRelativity();
+    }
+
+    function toggleWrongOrderBug() {
+      wrongOrderBug = !wrongOrderBug;
+      const btn = document.getElementById('wrongOrderBtn');
+      const lbl = document.getElementById('wrongOrderLabel');
+      if (wrongOrderBug) {
+        btn.className = 'px-3 py-1.5 rounded-lg border border-rose-400 bg-rose-600 text-xs font-bold text-white shadow';
+        lbl.textContent = currentLang === 'zh' ? '错误顺序 T(-e)·Rᵀ 对比: 开 (ON!)' : 'Wrong Order T(-e)·Rᵀ: ON!';
+      } else {
+        btn.className = 'px-3 py-1.5 rounded-lg border border-rose-500/50 bg-rose-950/40 text-xs font-bold text-rose-300';
+        lbl.textContent = currentLang === 'zh' ? '错误顺序 T(-e)·Rᵀ 对比: 关' : 'Wrong Order T(-e)·Rᵀ: OFF';
+      }
+      updateRelativity();
+    }
+
+    function updateRelativity() {
+      const canvas = document.getElementById('relativityCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const morph = parseFloat(document.getElementById('relMorphSlider').value);
+      const camX = parseFloat(document.getElementById('relCamX').value);
+      const camZ = 75;
+      const camAngDeg = parseFloat(document.getElementById('relCamAng').value);
+      const camAng = deg2rad(camAngDeg);
+
+      document.getElementById('relMorphVal').textContent = morph.toFixed(2);
+      document.getElementById('relCamPosVal').textContent = `(${Math.round(camX)}, ${camZ})`;
+      document.getElementById('relCamAngVal').textContent = `${Math.round(camAngDeg)}°`;
+
+      const ox = W * 0.5, oy = H * 0.62;
+
+      // Fixed Canonical Axes at Center
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, oy); ctx.lineTo(W, oy);
+      ctx.moveTo(ox, 0); ctx.lineTo(ox, H);
+      ctx.stroke();
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 11px JetBrains Mono';
+      ctx.fillText('+X (Right)', W - 75, oy - 6);
+      ctx.fillText('-Z (Gaze Forward)', ox + 8, 18);
+      ctx.fillText('Origin (0,0)', ox + 6, oy + 15);
+
+      // Compute interpolated transformation on any 2D point (x, z)
+      // Step 1 (t in 0..1): Translate by -t * e
+      // Step 2 (t in 1..2): Rotate by -(t-1) * camAng
+      const t1 = Math.min(1, morph);
+      const t2 = Math.max(0, morph - 1);
+
+      function transformPt(x, z) {
+        if (!wrongOrderBug) {
+          // Correct V = R^T * T(-e): First translate by -e, then rotate by -camAng around origin
+          const tx = x - t1 * camX;
+          const tz = z - t1 * camZ;
+          const a = -t2 * camAng;
+          const c = Math.cos(a), s = Math.sin(a);
+          return [tx * c - tz * s, tx * s + tz * c];
+        } else {
+          // Wrong Order T(-e) * R^T: First rotate around origin by -camAng, then subtract e!
+          const a = -t2 * camAng;
+          const c = Math.cos(a), s = Math.sin(a);
+          const rx = x * c - z * s;
+          const rz = x * s + z * c;
+          return [rx - t1 * camX, rz - t1 * camZ];
+        }
+      }
+
+      // Draw moving world grid
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      for (let g = -200; g <= 200; g += 40) {
+        const a = transformPt(g, -200), b = transformPt(g, 200);
+        ctx.beginPath(); ctx.moveTo(ox + a[0], oy + a[1]); ctx.lineTo(ox + b[0], oy + b[1]); ctx.stroke();
+        const c = transformPt(-200, g), d = transformPt(200, g);
+        ctx.beginPath(); ctx.moveTo(ox + c[0], oy + c[1]); ctx.lineTo(ox + d[0], oy + d[1]); ctx.stroke();
+      }
+
+      // Draw a 3-vertex Star/Monument in the scene
+      const starWorld = [
+        [camX - Math.sin(camAng) * 115, camZ - Math.cos(camAng) * 115],
+        [camX - Math.sin(camAng) * 145 - 25, camZ - Math.cos(camAng) * 145 + 15],
+        [camX - Math.sin(camAng) * 145 + 25, camZ - Math.cos(camAng) * 145 - 15]
+      ];
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.25)';
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      starWorld.forEach((pt, idx) => {
+        const p = transformPt(pt[0], pt[1]);
+        if (idx === 0) ctx.moveTo(ox + p[0], oy + p[1]);
+        else ctx.lineTo(ox + p[0], oy + p[1]);
+      });
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw Camera & Frustum Wedge
+      const camOrigin = transformPt(camX, camZ);
+      const fLeft = transformPt(
+        camX + Math.sin(-camAng - 0.35) * 155,
+        camZ - Math.cos(-camAng - 0.35) * 155
+      );
+      const fRight = transformPt(
+        camX + Math.sin(-camAng + 0.35) * 155,
+        camZ - Math.cos(-camAng + 0.35) * 155
+      );
+
+      ctx.fillStyle = wrongOrderBug ? 'rgba(244, 63, 94, 0.14)' : 'rgba(56, 189, 248, 0.14)';
+      ctx.strokeStyle = wrongOrderBug ? '#f43f5e' : '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(ox + camOrigin[0], oy + camOrigin[1]);
+      ctx.lineTo(ox + fLeft[0], oy + fLeft[1]);
+      ctx.lineTo(ox + fRight[0], oy + fRight[1]);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Camera body dot
+      ctx.fillStyle = wrongOrderBug ? '#f43f5e' : '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(ox + camOrigin[0], oy + camOrigin[1], 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px Inter';
+      ctx.fillText(
+        wrongOrderBug ? '❌ Camera Misaligned!' : '🎥 Camera e',
+        ox + camOrigin[0] + 10,
+        oy + camOrigin[1] + 4
+      );
+
+      // Update explanation
+      const box = document.getElementById('relativityExplainBox');
+      if (wrongOrderBug) {
+        box.innerHTML = currentLang === 'zh'
+          ? '⚠️ <strong>错误顺序 <span class="mono text-rose-300">T(-e) · R_camᵀ</span> 事故现场</strong>：如果先绕世界原点旋转 <span class="mono">R_camᵀ</span>，相机位置 <span class="mono">e</span> 已经被转偏到了新位置 <span class="mono">R_camᵀ·e</span>！此时再减去旧的 <span class="mono">e</span>，相机根本无法回到原点 (0,0)！这证明了为什么第 4 列必须是点积投影后的 <span class="mono">-R_camᵀ·e = (-u·e, -v·e, -w·e)</span>！'
+          : '⚠️ <strong>Wrong Order <span class="mono text-rose-300">T(-e) · R_camᵀ</span> Bug</strong>: Rotating around the world origin first swings the camera away from e to Rᵀe, so subtracting e fails to bring the camera to (0,0)!';
+      } else if (morph < 0.15) {
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>[进度 0.0 • 世界空间]</strong> 相机位于世界坐标 <span class="mono text-cyan-300">e</span>，朝向偏转了 θ 角。我们要把整个世界拉进相机的眼睛。'
+          : '<strong>[0.0 • World Space]</strong> Camera sits at world position <span class="mono text-cyan-300">e</span> rotated by θ.';
+      } else if (morph <= 1.05) {
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>[进度 0→1 • 第一步：执行平移 <span class="mono text-cyan-300">T(-e)</span>]</strong> 世界里的每一个点都减去相机位置 <span class="mono">e</span>，把相机精确拉回宇宙中心原点 <span class="mono">(0,0)</span>！此时相机朝向还没正。'
+          : '<strong>[0→1 • Step 1: Apply <span class="mono text-cyan-300">T(-e)</span>]</strong> Subtract camera position e from every point in the world, pulling the camera to the origin (0,0)!';
+      } else {
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>[进度 1→2 • 第二步：执行旋转 <span class="mono text-indigo-300">R_camᵀ</span>]</strong> 绕原点把整个世界反向旋转 -θ，使相机的右轴 <span class="mono">u</span>、上轴 <span class="mono">v</span>、后轴 <span class="mono">w</span> 与标准坐标轴重合，视线正对 <span class="mono">-Z</span> 轴！'
+          : '<strong>[1→2 • Step 2: Apply <span class="mono text-indigo-300">R_camᵀ</span>]</strong> Rotate the translated world around (0,0) so the camera looks squarely down the canonical -Z axis!';
+      }
+    }
+
+    // ==================== VISUALIZER 2: CROSS-PRODUCT BASIS & ZENITH SINGULARITY ====================
+    function triggerZenithSingularity() {
+      document.getElementById('basisPitchSlider').value = 90;
+      drawBasisCanvas();
+    }
+
+    function drawBasisCanvas() {
+      const canvas = document.getElementById('basisCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const pitchDeg = parseFloat(document.getElementById('basisPitchSlider').value);
+      document.getElementById('basisPitchVal').textContent = `${pitchDeg.toFixed(1)}°`;
+
+      const pitchRad = deg2rad(pitchDeg);
+      // Side profile view in YZ plane (plus perspective X offset for u)
+      // Angle between up_hint (0,1,0) and w (0, sin(pitch), cos(pitch)) is (90 - pitch)
+      const angleBetween = Math.abs(90 - pitchDeg);
+      const sinTheta = Math.sin(deg2rad(angleBetween));
+
+      document.getElementById('basisAngleReadout').textContent = `${angleBetween.toFixed(1)}°`;
+      document.getElementById('basisSinReadout').textContent = sinTheta.toFixed(4);
+
+      const ox = W * 0.45, oy = H * 0.62;
+      const R = 115;
+
+      // Draw reference horizon and vertical
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(40, oy); ctx.lineTo(W - 40, oy);
+      ctx.moveTo(ox, 25); ctx.lineTo(ox, H - 25);
+      ctx.stroke();
+
+      // Draw up_hint = (0, 1, 0) dashed amber
+      ctx.save();
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox, oy - R);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = 'bold 12px JetBrains Mono';
+      ctx.fillText('up_hint = (0, 1, 0)', ox + 8, oy - R + 4);
+
+      // Draw w vector (backward axis)
+      const wx = Math.cos(pitchRad) * R;
+      const wy = -Math.sin(pitchRad) * R;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + wx, oy + wy);
+      ctx.stroke();
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText('w (Backward +Z_cam)', ox + wx + 8, oy + wy);
+
+      // Draw True Up v = w x u (perpendicular to w in the YZ plane)
+      const isSingular = sinTheta < 0.015;
+      const statusBox = document.getElementById('basisStatusBox');
+
+      if (!isSingular) {
+        const vx = -Math.sin(pitchRad) * R;
+        const vy = -Math.cos(pitchRad) * R;
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(ox, oy);
+        ctx.lineTo(ox + vx, oy + vy);
+        ctx.stroke();
+        ctx.fillStyle = '#10b981';
+        ctx.fillText('v = w × u (True Up +Y_cam)', ox + vx - 135, oy + vy - 8);
+
+        // Draw raw cross product bar ||up_hint x w||
+        const barLen = sinTheta * 95;
+        ctx.strokeStyle = '#f43f5e';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(ox, oy);
+        ctx.lineTo(ox - barLen * 0.7, oy + barLen * 0.45);
+        ctx.stroke();
+        ctx.fillStyle = '#f43f5e';
+        ctx.fillText(`u = norm(up×w) [||up×w||=${sinTheta.toFixed(2)}]`, ox - barLen * 0.7 - 95, oy + barLen * 0.45 + 16);
+
+        statusBox.className = 'p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-slate-200 leading-relaxed';
+        statusBox.innerHTML = currentLang === 'zh'
+          ? `✅ <strong>正交基健康生成</strong>：<span class="mono text-amber-300">up_hint</span> 与 <span class="mono text-sky-300">w</span> 夹角为 ${angleBetween.toFixed(1)}°，叉积模长 <span class="mono text-rose-300">sin(θ) = ${sinTheta.toFixed(3)} > 0</span>。除以 sin(θ) 单位化得到水平右轴 <span class="mono text-rose-300">u</span>，再算 <span class="mono text-emerald-300">v = w × u</span> 即可将歪斜的 up_hint 扶正为严格垂直于 w 的真上轴！`
+          : `✅ <strong>Orthonormal Triad Valid</strong>: Angle between up_hint and w is ${angleBetween.toFixed(1)}°, so ||up_hint × w|| = ${sinTheta.toFixed(3)} > 0. Normalizing gives Right axis u, and v = w × u gives True Up!`;
+      } else {
+        ctx.fillStyle = '#f43f5e';
+        ctx.font = 'bold 15px Inter';
+        ctx.fillText('💥 SINGULARITY: up_hint ∥ w → up_hint × w = (0, 0, 0)!', 60, H - 30);
+
+        statusBox.className = 'p-3.5 rounded-xl bg-rose-950/60 border border-rose-500 text-rose-200 leading-relaxed';
+        statusBox.innerHTML = currentLang === 'zh'
+          ? `🚨 <strong>天顶共线奇异点崩溃 (Zenith Singularity)</strong>：当 Pitch = 90° 时，视线反向轴 <span class="mono">w = (0,1,0)</span> 与参考上向量 <span class="mono">up_hint = (0,1,0)</span> 完全平行！叉积 <span class="mono">up_hint × w = 0</span>，除以模长 0 产生 <span class="mono">NaN</span>！解决方案：俯视天顶时必须将 <span class="mono">up_hint</span> 切换为水平方向（如指向正北 <span class="mono">(0,0,-1)</span>）。`
+          : `🚨 <strong>Zenith Collinear Singularity!</strong> At Pitch = 90°, w is parallel to up_hint = (0,1,0), so up_hint × w = 0 and dividing by ||0|| produces NaN! Fix: switch up_hint to (0,0,-1) when looking straight down!`;
+      }
+    }
+
+    // ==================== TAB 2: DUAL-VIEWPORT CAMERA LAB ====================
+    let godOrbitYaw = -0.62;
+    let godOrbitPitch = 0.42;
+    let isDraggingGod = false;
+    let prevGodX = 0, prevGodY = 0;
+
+    function applyLabPreset(name) {
+      if (name === 'iso') {
+        document.getElementById('sl_ex').value = 2.4;
+        document.getElementById('sl_ey').value = 1.8;
+        document.getElementById('sl_ez').value = 2.8;
+        document.getElementById('sl_cx').value = 0.0;
+        document.getElementById('sl_cy').value = 0.6;
+        document.getElementById('sl_cz').value = 0.0;
+        document.getElementById('sl_roll').value = 0;
+      } else if (name === 'dutch') {
+        document.getElementById('sl_ex').value = 2.0;
+        document.getElementById('sl_ey').value = 1.3;
+        document.getElementById('sl_ez').value = 2.5;
+        document.getElementById('sl_cx').value = 0.0;
+        document.getElementById('sl_cy').value = 0.6;
+        document.getElementById('sl_cz').value = 0.0;
+        document.getElementById('sl_roll').value = 35;
+      } else if (name === 'close') {
+        document.getElementById('sl_ex').value = -1.6;
+        document.getElementById('sl_ey').value = 0.2;
+        document.getElementById('sl_ez').value = 1.9;
+        document.getElementById('sl_cx').value = 0.0;
+        document.getElementById('sl_cy').value = 0.9;
+        document.getElementById('sl_cz').value = 0.0;
+        document.getElementById('sl_roll').value = -12;
+      }
+      updateDualLab();
+    }
+
+    // Asymmetric 3D Rocket/Tower edges in World Space so orientation is unmistakable
+    const SCENE_EDGES = [
+      // Base platform square
+      { a: [-0.8, 0, -0.8], b: [0.8, 0, -0.8], col: '#6366f1' },
+      { a: [0.8, 0, -0.8], b: [0.8, 0, 0.8], col: '#6366f1' },
+      { a: [0.8, 0, 0.8], b: [-0.8, 0, 0.8], col: '#6366f1' },
+      { a: [-0.8, 0, 0.8], b: [-0.8, 0, -0.8], col: '#6366f1' },
+      // Pyramid spire to apex (0, 1.7, 0)
+      { a: [-0.8, 0, -0.8], b: [0, 1.7, 0], col: '#38bdf8' },
+      { a: [0.8, 0, -0.8], b: [0, 1.7, 0], col: '#38bdf8' },
+      { a: [0.8, 0, 0.8], b: [0, 1.7, 0], col: '#34d399' },
+      { a: [-0.8, 0, 0.8], b: [0, 1.7, 0], col: '#34d399' },
+      // East wing flag on +X side
+      { a: [0.8, 0, 0], b: [1.45, 0.8, 0], col: '#f43f5e' },
+      { a: [0, 0.8, 0], b: [1.45, 0.8, 0], col: '#f43f5e' }
+    ];
+
+    function projectPersp(p, W, H, fovScale = 360, zOffset = 6.2) {
+      const z = -p[2] + zOffset;
+      const s = fovScale / Math.max(0.8, z);
+      return [W * 0.5 + p[0] * s, H * 0.58 - p[1] * s, z];
+    }
+
+    function projectGod(p, W, H) {
+      const cy = Math.cos(godOrbitYaw), sy = Math.sin(godOrbitYaw);
+      const cp = Math.cos(godOrbitPitch), sp = Math.sin(godOrbitPitch);
+      const x1 = p[0] * cy - p[2] * sy;
+      const z1 = p[0] * sy + p[2] * cy;
+      const y1 = p[1] * cp - z1 * sp;
+      const z2 = p[1] * sp + z1 * cp + 7.5;
+      const s = 380 / Math.max(1.2, z2);
+      return [W * 0.5 + x1 * s, H * 0.62 - y1 * s];
+    }
+
+    function renderMat4Cells(elId, M, highlightFourth = false) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.innerHTML = M.map((val, idx) => {
+        const row = Math.floor(idx / 4);
+        const col = idx % 4;
+        let cls = 'text-slate-300';
+        if (col === 3 && row < 3) cls = 'text-amber-300 font-bold';
+        else if (highlightFourth && row === 0 && col < 3) cls = 'text-rose-300';
+        else if (highlightFourth && row === 1 && col < 3) cls = 'text-emerald-300';
+        else if (highlightFourth && row === 2 && col < 3) cls = 'text-sky-300';
+        return `<span class="${cls}">${val.toFixed(2)}</span>`;
+      }).join('');
+    }
+
+    function updateDualLab() {
+      const ex = parseFloat(document.getElementById('sl_ex').value);
+      const ey = parseFloat(document.getElementById('sl_ey').value);
+      const ez = parseFloat(document.getElementById('sl_ez').value);
+      const cx = parseFloat(document.getElementById('sl_cx').value);
+      const cy = parseFloat(document.getElementById('sl_cy').value);
+      const cz = parseFloat(document.getElementById('sl_cz').value);
+      const rollDeg = parseFloat(document.getElementById('sl_roll').value);
+
+      document.getElementById('lbl_ex').textContent = ex.toFixed(1);
+      document.getElementById('lbl_ey').textContent = ey.toFixed(1);
+      document.getElementById('lbl_ez').textContent = ez.toFixed(1);
+      document.getElementById('lbl_cx').textContent = cx.toFixed(1);
+      document.getElementById('lbl_cy').textContent = cy.toFixed(1);
+      document.getElementById('lbl_cz').textContent = cz.toFixed(1);
+      document.getElementById('lbl_roll').textContent = `${Math.round(rollDeg)}°`;
+
+      const eye = [ex, ey, ez];
+      const target = [cx, cy, cz];
+      const rollRad = deg2rad(rollDeg);
+      const upHint = [Math.sin(rollRad), Math.cos(rollRad), 0];
+
+      const cam = buildCameraFrame(eye, target, upHint);
+      renderMat4Cells('matCamWorldGrid', cam.M_cam, false);
+      renderMat4Cells('matLookAtGrid', cam.V_lookAt, true);
+
+      const targetInEye = mat4TransformVec3(cam.V_lookAt, target);
+      document.getElementById('targetEyeCoordBadge').textContent =
+        `Target in Eye: (${targetInEye[0].toFixed(2)}, ${targetInEye[1].toFixed(2)}, ${targetInEye[2].toFixed(2)})`;
+
+      // 1. Draw God's-Eye Canvas
+      const godC = document.getElementById('godViewCanvas');
+      if (godC) {
+        const ctx = godC.getContext('2d');
+        const W = godC.width, H = godC.height;
+        ctx.clearRect(0, 0, W, H);
+
+        const drawGLine = (a, b, col, lw = 1.5) => {
+          const pa = projectGod(a, W, H), pb = projectGod(b, W, H);
+          ctx.strokeStyle = col;
+          ctx.lineWidth = lw;
+          ctx.beginPath();
+          ctx.moveTo(pa[0], pa[1]);
+          ctx.lineTo(pb[0], pb[1]);
+          ctx.stroke();
+        };
+
+        // Ground grid
+        for (let i = -3; i <= 3; i++) {
+          drawGLine([i, 0, -3], [i, 0, 3], '#1e293b', 1);
+          drawGLine([-3, 0, i], [3, 0, i], '#1e293b', 1);
+        }
+
+        // Scene Monument
+        SCENE_EDGES.forEach((e) => drawGLine(e.a, e.b, e.col, 2.5));
+
+        // Gaze line eye -> target
+        drawGLine(eye, target, '#fbbf24', 1.5);
+
+        // Camera Local Basis (u, v, w) at eye
+        drawGLine(eye, vAdd(eye, vScale(cam.u, 0.85)), '#f43f5e', 3);
+        drawGLine(eye, vAdd(eye, vScale(cam.v, 0.85)), '#10b981', 3);
+        drawGLine(eye, vAdd(eye, vScale(cam.w, 0.85)), '#38bdf8', 3);
+
+        // Camera Frustum Wireframe Pyramid looking down -w
+        const fCenter = vAdd(eye, vScale(cam.w, -1.6));
+        const c1 = vAdd(fCenter, vAdd(vScale(cam.u, 0.65), vScale(cam.v, 0.45)));
+        const c2 = vAdd(fCenter, vAdd(vScale(cam.u, -0.65), vScale(cam.v, 0.45)));
+        const c3 = vAdd(fCenter, vAdd(vScale(cam.u, -0.65), vScale(cam.v, -0.45)));
+        const c4 = vAdd(fCenter, vAdd(vScale(cam.u, 0.65), vScale(cam.v, -0.45)));
+        [c1, c2, c3, c4].forEach((corner, i) => {
+          const next = [c1, c2, c3, c4][(i + 1) % 4];
+          drawGLine(eye, corner, 'rgba(56, 189, 248, 0.55)', 1.5);
+          drawGLine(corner, next, '#38bdf8', 1.8);
+        });
+
+        // Labels
+        const pEye = projectGod(eye, W, H);
+        const pTgt = projectGod(target, W, H);
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath(); ctx.arc(pEye[0], pEye[1], 5, 0, Math.PI * 2); ctx.fill();
+        ctx.font = 'bold 11px JetBrains Mono';
+        ctx.fillText('eye (e)', pEye[0] + 8, pEye[1] - 6);
+
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath(); ctx.arc(pTgt[0], pTgt[1], 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillText('target (c)', pTgt[0] + 8, pTgt[1] + 4);
+      }
+
+      // 2. Draw Camera First-Person View Space Canvas
+      const camC = document.getElementById('camViewCanvas');
+      if (camC) {
+        const ctx = camC.getContext('2d');
+        const W = camC.width, H = camC.height;
+        ctx.clearRect(0, 0, W, H);
+
+        const drawCLine = (aW, bW, col, lw = 2) => {
+          const aV = mat4TransformVec3(cam.V_lookAt, aW);
+          const bV = mat4TransformVec3(cam.V_lookAt, bW);
+          if (aV[2] > -0.2 || bV[2] > -0.2) return; // behind near plane
+          const sA = 330 / Math.max(0.3, -aV[2]);
+          const sB = 330 / Math.max(0.3, -bV[2]);
+          ctx.strokeStyle = col;
+          ctx.lineWidth = lw;
+          ctx.beginPath();
+          ctx.moveTo(W * 0.5 + aV[0] * sA, H * 0.5 - aV[1] * sA);
+          ctx.lineTo(W * 0.5 + bV[0] * sB, H * 0.5 - bV[1] * sB);
+          ctx.stroke();
+        };
+
+        for (let i = -3; i <= 3; i++) {
+          drawCLine([i, 0, -3], [i, 0, 3], '#1e293b', 1);
+          drawCLine([-3, 0, i], [3, 0, i], '#1e293b', 1);
+        }
+
+        SCENE_EDGES.forEach((e) => drawCLine(e.a, e.b, e.col, 3));
+
+        // Viewfinder HUD Crosshair at (0,0) in Eye Space
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(W * 0.5 - 25, H * 0.5); ctx.lineTo(W * 0.5 + 25, H * 0.5);
+        ctx.moveTo(W * 0.5, H * 0.5 - 25); ctx.lineTo(W * 0.5, H * 0.5 + 25);
+        ctx.stroke();
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 11px JetBrains Mono';
+        ctx.fillText('Optical Axis (0, 0, -Z_view)', W * 0.5 + 10, H * 0.5 + 18);
+      }
+    }
+
+    // ==================== TAB 4: 3-MISSION MINI-GAME ====================
+    let gameMission = 1;
+    let gameOrderFixed = false;
+    let gameUpMode = 'Y'; // 'Y' or 'Z'
+
+    function selectGameMission(m) {
+      gameMission = m;
+      [1, 2, 3].forEach((id) => {
+        document.getElementById('gameBtn' + id).className = id === m
+          ? 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white'
+          : 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      document.getElementById('gM1Box').className = m === 1
+        ? 'p-4 rounded-xl bg-rose-950/30 border border-rose-500/40 space-y-2'
+        : 'hidden';
+      document.getElementById('gM2Box').className = m === 2
+        ? 'p-4 rounded-xl bg-amber-950/30 border border-amber-500/40 space-y-2'
+        : 'hidden';
+
+      if (m === 1) {
+        gameOrderFixed = false;
+        gameUpMode = 'Y';
+        document.getElementById('gAimX').value = 0.8;
+        document.getElementById('gAimY').value = -0.6;
+        document.getElementById('gDist').value = 5.0;
+        document.getElementById('gRoll').value = 0;
+      } else if (m === 2) {
+        gameOrderFixed = true;
+        gameUpMode = 'Y';
+        document.getElementById('gAimX').value = 0.0;
+        document.getElementById('gAimY').value = 0.0;
+        document.getElementById('gDist').value = 5.0;
+        document.getElementById('gRoll').value = 0;
+      } else {
+        gameOrderFixed = true;
+        gameUpMode = 'Y';
+        document.getElementById('gAimX').value = -1.1;
+        document.getElementById('gAimY').value = 0.7;
+        document.getElementById('gDist').value = 6.8;
+        document.getElementById('gRoll').value = 0;
+      }
+      updateGame();
+    }
+
+    function toggleGameOrderFix() {
+      gameOrderFixed = !gameOrderFixed;
+      updateGame();
+    }
+
+    function setGameUpMode(mode) {
+      gameUpMode = mode;
+      document.getElementById('gUpBtnY').className = mode === 'Y'
+        ? 'py-2 px-3 rounded-lg border border-rose-500 bg-rose-950/70 text-xs font-bold text-rose-200'
+        : 'py-2 px-3 rounded-lg border border-slate-700 bg-slate-900 text-xs font-bold text-slate-300';
+      document.getElementById('gUpBtnZ').className = mode === 'Z'
+        ? 'py-2 px-3 rounded-lg border border-emerald-500 bg-emerald-950/70 text-xs font-bold text-emerald-200'
+        : 'py-2 px-3 rounded-lg border border-slate-700 bg-slate-900 text-xs font-bold text-slate-300';
+      updateGame();
+    }
+
+    function updateGame() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const aimX = parseFloat(document.getElementById('gAimX').value);
+      const aimY = parseFloat(document.getElementById('gAimY').value);
+      const dist = parseFloat(document.getElementById('gDist').value);
+      const roll = parseFloat(document.getElementById('gRoll').value);
+
+      document.getElementById('gAimXVal').textContent = aimX.toFixed(1);
+      document.getElementById('gAimYVal').textContent = aimY.toFixed(1);
+      document.getElementById('gDistVal').textContent = `${dist.toFixed(1)} m`;
+      document.getElementById('gRollVal').textContent = `${Math.round(roll)}°`;
+
+      const titles = {
+        1: {
+          zh: '第 1 关：修复颠倒的 View 矩阵乘法顺序 (Rᵀ·T(-e)) 并锁定信标',
+          en: 'Mission 1: Fix Reversed View Matrix Order (Rᵀ·T(-e)) & Center Beacon',
+          descZh: '故障：卫星着色器把 View 矩阵写成了 T(-e)·Rᵀ（直接把 -e 填进了第 4 列，忘了与 u,v,w 做点积投影），导致空间站严重偏离取景框！请先点击修复公式按钮，再将 Aim Offset X/Y 调至 0 锁定目标！',
+          descEn: 'Bug: The shader used V = T(-e)·Rᵀ instead of Rᵀ·T(-e)! Click the button to fix the 4th column dot products, then zero out Aim Offset X/Y!'
+        },
+        2: {
+          zh: '第 2 关：天顶共线奇异点救援 — 修复 up_hint ∥ w 叉积除零崩溃',
+          en: 'Mission 2: Zenith Singularity Rescue — Fix up_hint ∥ w Cross-Product Crash',
+          descZh: '警报：侦察卫星正位于月球基地正上方 (0, 5, 0) 垂直向下俯视，此时视线反向轴 w = (0, 1, 0) 与默认 up_hint = (0, 1, 0) 完全平行，||up × w|| = 0 导致画面崩溃！请切换 up_hint 指向正北 (0, 0, -1)！',
+          descEn: 'Alert: The satellite is directly above the lunar base looking straight down (-Y), so w = (0,1,0) is parallel to up_hint = (0,1,0)! Switch up_hint to North (0,0,-1) to restore the camera triad!'
+        },
+        3: {
+          zh: '第 3 关：观察空间精确测距与希区柯克斜角构图',
+          en: 'Mission 3: Eye-Space Precision Range & 25° Dutch Roll Framing',
+          descZh: '终极任务：将目标空间站在观察空间中的坐标校准至 p_view = (0.0, 0.0, -5.0)（即 Aim X/Y 接近 0，观察距离 5.0m），同时将镜头横滚角 Roll 调至 25°（误差 ±3°）完成电影级拍摄！',
+          descEn: 'Final Mission: Place the target at Eye-Space coordinate p_view = (0.0, 0.0, -5.0) AND set Camera Dutch Roll to 25° (±3°)!'
+        }
+      };
+
+      const info = titles[gameMission];
+      document.getElementById('gMissionTitle').textContent = currentLang === 'zh' ? info.zh : info.en;
+      document.getElementById('gMissionDesc').textContent = currentLang === 'zh' ? info.descZh : info.descEn;
+
+      const orderBtn = document.getElementById('gOrderBtn');
+      if (orderBtn) {
+        orderBtn.className = gameOrderFixed
+          ? 'w-full py-2 px-3 rounded-lg border border-emerald-500 bg-emerald-950/70 text-xs font-bold text-emerald-200 transition'
+          : 'w-full py-2 px-3 rounded-lg border border-rose-500 bg-rose-900/50 text-xs font-bold text-white transition';
+        orderBtn.textContent = gameOrderFixed
+          ? (currentLang === 'zh' ? '✅ 已修复为 V = R_camᵀ · T(-e) (第4列为 -u·e, -v·e, -w·e)' : '✅ Fixed: V = R_camᵀ · T(-e)')
+          : (currentLang === 'zh' ? '❌ 当前公式: V = T(-e) · R_camᵀ — 点击修复为 R_camᵀ · T(-e)' : '❌ Wrong Order: V = T(-e)·Rᵀ — Click to fix!');
+      }
+
+      // Compute camera and view state
+      const stationWorld = [0, 0.6, 0];
+      const eye = gameMission === 2 ? [0, dist, 0] : [dist * 0.55, 0.6 + dist * 0.35, dist * 0.75];
+      const target = [stationWorld[0] + aimX, stationWorld[1] + aimY, stationWorld[2]];
+      const rollRad = deg2rad(roll);
+      const upHint = (gameMission === 2 && gameUpMode === 'Y')
+        ? [0, 1, 0]
+        : (gameMission === 2 ? [Math.sin(rollRad), 0, -Math.cos(rollRad)] : [Math.sin(rollRad), Math.cos(rollRad), 0]);
+
+      const cam = buildCameraFrame(eye, target, upHint);
+
+      // If wrong order in Mission 1, corrupt 4th column of V_lookAt
+      const V = [...cam.V_lookAt];
+      if (gameMission === 1 && !gameOrderFixed) {
+        V[3] = -eye[0] + 1.65;
+        V[7] = -eye[1] - 0.95;
+        V[11] = -eye[2];
+      }
+
+      const singular = cam.crossLen < 1e-3;
+      const stationInView = mat4TransformVec3(V, stationWorld);
+      const aimErr = Math.hypot(stationInView[0], stationInView[1]);
+
+      document.getElementById('gTargetViewCoord').textContent = singular
+        ? '(NaN, NaN, NaN)'
+        : `(${stationInView[0].toFixed(2)}, ${stationInView[1].toFixed(2)}, ${stationInView[2].toFixed(2)})`;
+      document.getElementById('gCrossNorm').textContent = cam.crossLen.toFixed(3);
+      document.getElementById('gLockMetric').textContent = `${aimErr.toFixed(2)}m | Roll ${Math.round(roll)}°`;
+
+      // Render Viewfinder Canvas
+      if (singular) {
+        ctx.fillStyle = '#450a0a';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#fca5a5';
+        ctx.font = 'bold 18px JetBrains Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚠️ CAMERA BASIS SINGULARITY: ||up_hint × w|| = 0.000', W * 0.5, H * 0.46);
+        ctx.font = '13px Inter';
+        ctx.fillText(
+          currentLang === 'zh'
+            ? '视线 w 与参考上向量 up_hint=(0,1,0) 共线平行！请在右侧切换 up_hint = (0,0,-1)！'
+            : 'Gaze w is collinear with up_hint=(0,1,0)! Switch up_hint to (0,0,-1) on the right!',
+          W * 0.5,
+          H * 0.55
+        );
+        ctx.textAlign = 'left';
+      } else {
+        // Draw stars & station in camera view
+        SCENE_EDGES.forEach((e) => {
+          const aV = mat4TransformVec3(V, e.a);
+          const bV = mat4TransformVec3(V, e.b);
+          if (aV[2] > -0.2 || bV[2] > -0.2) return;
+          const sA = 350 / Math.max(0.3, -aV[2]);
+          const sB = 350 / Math.max(0.3, -bV[2]);
+          ctx.strokeStyle = e.col;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(W * 0.5 + aV[0] * sA, H * 0.5 - aV[1] * sA);
+          ctx.lineTo(W * 0.5 + bV[0] * sB, H * 0.5 - bV[1] * sB);
+          ctx.stroke();
+        });
+
+        // Target marker in View Space
+        const sT = 350 / Math.max(0.3, -stationInView[2]);
+        const sx = W * 0.5 + stationInView[0] * sT;
+        const sy = H * 0.5 - stationInView[1] * sT;
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 18, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Center HUD Reticle
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(W * 0.5, H * 0.5, 24, 0, Math.PI * 2);
+        ctx.moveTo(W * 0.5 - 35, H * 0.5); ctx.lineTo(W * 0.5 + 35, H * 0.5);
+        ctx.moveTo(W * 0.5, H * 0.5 - 35); ctx.lineTo(W * 0.5, H * 0.5 + 35);
+        ctx.stroke();
+      }
+
+      // Check Mission Pass
+      let passed = false;
+      if (gameMission === 1) {
+        passed = gameOrderFixed && aimErr < 0.22;
+      } else if (gameMission === 2) {
+        passed = !singular && aimErr < 0.25;
+      } else if (gameMission === 3) {
+        passed = aimErr < 0.22 && Math.abs(-stationInView[2] - 5.0) < 0.25 && Math.abs(roll - 25) <= 3;
+      }
+
+      const badge = document.getElementById('gMissionBadge');
+      const fb = document.getElementById('gFeedbackBox');
+      if (passed) {
+        badge.className = 'px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-400 text-emerald-300 text-xs font-bold';
+        badge.textContent = '★ MISSION CLEARED!';
+        fb.className = 'p-4 rounded-xl bg-emerald-950/50 border border-emerald-500/50 text-xs text-emerald-200 leading-relaxed';
+        fb.innerHTML = currentLang === 'zh'
+          ? `🎉 <strong>第 ${gameMission} 关校准成功！</strong> 目标在观察空间中的坐标已精确锁定为 <span class="mono">(${stationInView[0].toFixed(2)}, ${stationInView[1].toFixed(2)}, ${stationInView[2].toFixed(2)})</span>！`
+          : `🎉 <strong>Mission ${gameMission} Cleared!</strong> Target locked in Eye Space at <span class="mono">(${stationInView[0].toFixed(2)}, ${stationInView[1].toFixed(2)}, ${stationInView[2].toFixed(2)})</span>!`;
+      } else {
+        badge.className = 'px-2.5 py-0.5 rounded-full bg-amber-950 border border-amber-500/40 text-amber-300 text-xs font-bold';
+        badge.textContent = 'IN PROGRESS';
+        fb.className = 'p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-relaxed';
+        fb.innerHTML = currentLang === 'zh'
+          ? `💡 <strong>实时遥测提示</strong>：当目标刚好位于相机光轴正中央时，它在观察空间的前两个分量 <span class="mono text-cyan-300">(x_view, y_view)</span> 必然等于 <span class="mono">(0, 0)</span>，而第三个分量 <span class="mono">z_view = -||e - c||</span>！`
+          : `💡 <strong>Telemetry Hint</strong>: When the target is centered on the optical axis, its Eye-Space coordinates are <span class="mono text-cyan-300">(0, 0, -distance)</span>!`;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const godC = document.getElementById('godViewCanvas');
+      if (godC) {
+        godC.addEventListener('pointerdown', (e) => {
+          isDraggingGod = true;
+          prevGodX = e.clientX;
+          prevGodY = e.clientY;
+        });
+        window.addEventListener('pointermove', (e) => {
+          if (!isDraggingGod) return;
+          godOrbitYaw += (e.clientX - prevGodX) * 0.008;
+          godOrbitPitch = Math.max(-0.2, Math.min(1.3, godOrbitPitch + (e.clientY - prevGodY) * 0.008));
+          prevGodX = e.clientX;
+          prevGodY = e.clientY;
+          updateDualLab();
+        });
+        window.addEventListener('pointerup', () => { isDraggingGod = false; });
+      }
+      updateRelativity();
+      drawBasisCanvas();
+      updateDualLab();
+      updateGame();
+    });
+  </script>
+</body>
+</html>

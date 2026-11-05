@@ -5,6 +5,7 @@ import { Lesson02Frames } from './lessons/Lesson02Frames';
 import { Lesson03Rotations } from './lessons/Lesson03Rotations';
 import { Lesson04Quaternions } from './lessons/Lesson04Quaternions';
 import { Lesson05Hierarchical } from './lessons/Lesson05Hierarchical';
+import { Lesson06Camera } from './lessons/Lesson06Camera';
 
 const STORAGE_KEY = 'learning_3d_completed_lessons_v1';
 const LANG_KEY = 'learning_3d_lang_v1';
@@ -189,6 +190,13 @@ export const App: React.FC = () => {
             lang={lang}
             isCompleted={completedIds.includes('L05')}
             onToggleComplete={() => toggleLessonComplete('L05')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L06' ? (
+          <Lesson06Camera
+            lang={lang}
+            isCompleted={completedIds.includes('L06')}
+            onToggleComplete={() => toggleLessonComplete('L06')}
             onBackToPortal={() => navigateToLesson(null)}
           />
         ) : activeLessonObj ? (

@@ -207,7 +207,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'World-to-Eye Space & LookAt Matrix Derivation',
     concepts: ['Eye / Target / Up 参数', '用叉积构建相机正交基 (u, v, w)', '平移与旋转逆矩阵合成', '世界空间 vs 观察空间对偶性'],
     playgroundTitle: '双视窗相机矩阵实验室 (God View + Camera View)',
-    playgroundDescription: '在左侧世界空间拖拽相机位置与 Up 向量，右侧同步展示第一人称视角与实时计算的 View Matrix。',
+    playgroundDescription: '亲手体验世界到观察空间两步逆变换 (I → T(-e) → Rᵀ·T(-e)) 连续变形、两次叉积锻造相机正交基 (w → u → v) 与 90° 天顶奇异点压力测试，在双视窗实验室同步观察上帝视角视锥体与第一人称视角，并挑战 3 关侦察卫星相机标定游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
