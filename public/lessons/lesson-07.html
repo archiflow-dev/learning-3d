@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 07: 平面参数曲线、Bernstein 多项式与 de Casteljau 递归 Bézier 几何学 | 3Blue1Brown + UC Davis + MIT 6.837</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #020617;
+      color: #f8fafc;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    canvas {
+      touch-action: none;
+    }
+    input[type="range"] {
+      accent-color: #10b981;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white">
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 transition">
+          ← <span data-i18n="Portal Index">课程总目录 (Index)</span>
+        </a>
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center font-black text-white shadow">
+          L7
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold text-white tracking-tight" data-i18n="L07: Parametric Curves, Bernstein Polynomials & de Casteljau Bézier Geometry">
+            L07: 平面参数曲线、Bernstein 多项式与 de Casteljau 递归 Bézier 几何学
+          </h1>
+          <p class="text-[11px] text-slate-400" data-i18n="3Blue1Brown Polynomial Vector Space • UC Davis ECS 175 Lec 02 (Kenneth Joy) • MIT 6.837 Lec 02 (Justin Solomon)">
+            3Blue1Brown 多项式基变换直觉 • UC Davis ECS 175 Lec 02 (Kenneth Joy) • MIT 6.837 Lec 02 (Justin Solomon)
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <span class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 text-xs font-semibold">
+          <span>●</span>
+          <span data-i18n="Stage 2: Curves, Surfaces & 3D Geometry">Stage 2: 曲线、曲面与 3D 几何表示</span>
+        </span>
+        <button id="langToggleBtn" onclick="toggleLanguage()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition shadow-sm">
+          <span>🌐</span>
+          <span id="langBtnLabel">EN / English</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <!-- Hero Intro Banner -->
+    <section class="rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-emerald-950/40 to-teal-950/30 p-6">
+      <div class="space-y-2 max-w-4xl">
+        <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs font-semibold">
+          <span>✒️ Welcome to Stage 2: Curves & Surfaces</span>
+          <span>•</span>
+          <span data-i18n="How Repeated Linear Interpolation (LERP of LERPs) Weaves Smooth Cubic Curves">为什么“直线上滑行的点”能织出完美光滑的三次曲线？</span>
+        </div>
+        <h2 class="text-xl sm:text-2xl font-extrabold text-white" data-i18n="From Rigid Polygons to Smooth Parametric Curves: Hermite, Bernstein & de Casteljau">
+          从生硬折线到丝滑曲线：多项式向量空间、Bernstein 单位分解与 de Casteljau 递归几何
+        </h2>
+        <p class="text-xs sm:text-sm text-slate-300 leading-relaxed" data-i18n="Why can't y = f(x) draw a vertical line or a closed loop? How did Paul de Casteljau and Pierre Bézier turn 4 control points into smooth car bodies and vector fonts? And how does MIT 6.837's 4x4 Basis Matrix M_Bezier connect cubic polynomials directly back to Stage 1 Linear Algebra? Let's explore!">
+          为什么显式函数 $y=f(x)$ 画不出垂直切线和闭合圆环？为什么二项式展开 $((1-t)+t)^3 = 1$ 会自然诞生 **Bernstein 基函数**？为什么基函数之和恒等于 1（单位分解）决定了曲线的**仿射不变性**与**凸包性质**？本课我们将把 Stage 1 的 $4\times 4$ 矩阵基变换直接延伸到多项式函数空间，亲手拖拽 de Casteljau 递归插值金字塔！
+        </p>
+      </div>
+
+      <!-- 4 Main Navigation Tabs -->
+      <div class="mt-6 flex flex-wrap gap-2 border-t border-slate-800/80 pt-4">
+        <button onclick="switchTab('concepts')" id="tabBtn-concepts" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600 text-white shadow">
+          1. <span data-i18n="3Blue1Brown Deep Intuition & Basis Matrices">3Blue1Brown 深度概念：单位分解与基矩阵</span>
+        </button>
+        <button onclick="switchTab('lab')" id="tabBtn-lab" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+          2. <span data-i18n="de Casteljau Interactive Pyramid & Split Lab">de Casteljau 递归步进与细分交互画板</span>
+        </button>
+        <button onclick="switchTab('videos')" id="tabBtn-videos" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+          3. <span data-i18n="UC Davis Lec 02 & MIT 6.837 Lec 02">名校公开课视频与精要笔记</span>
+        </button>
+        <button onclick="switchTab('game')" id="tabBtn-game" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/40">
+          🎮 4. <span data-i18n="3-Mission Game: Warp Trajectory Designer">3 关实战游戏：星际跃迁轨道设计师</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 1: 3BLUE1BROWN DEEP CONCEPTS ==================== -->
+    <section id="tab-concepts" class="space-y-8">
+      <!-- Part 1: Explicit vs Implicit vs Parametric & Bernstein Partition of Unity -->
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider" data-i18n="Part 1 • Binomial Expansion & Affine Invariance (Connects to Lesson 02!)">Part 1 • 二项式展开、单位分解与仿射不变性 (连通 Lesson 02 齐次坐标!)</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Where Do Bernstein Polynomials Come From, and Why MUST They Sum to 1?">
+              Bernstein 多项式是怎么从 ((1-t) + t)³ = 1 里长出来的？为什么它们的和必须恒等于 1？
+            </h3>
+          </div>
+          <span class="px-3 py-1 rounded-lg bg-emerald-950 border border-emerald-700/50 text-xs mono text-emerald-300">
+            Σ Bᵢ³(t) = ((1-t) + t)³ ≡ 1
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <div class="font-bold text-emerald-300" data-i18n="1. Explicit vs. Implicit vs. Parametric">
+              1. 为什么造型设计首选参数曲线 $\mathbf{P}(t)$？
+            </div>
+            <p class="text-xs text-slate-400" data-i18n="Explicit y=f(x) fails on vertical lines and loops; Implicit F(x,y)=0 is great for inside/outside tests (Ray Tracing) but hard to sample sequentially. Parametric P(t)=(x(t),y(t)) traces any 2D/3D path smoothly as time t runs from 0 to 1!">
+              <strong>显式 $y=f(x)$</strong> 无法画垂直线或闭合环；<strong>隐式 $F(x,y)=0$</strong> 适合判断点在曲面内外（光追神器），但很难按顺序生成顶点。而<strong>参数方程 $\mathbf{P}(t)=(x(t),y(t),z(t))$</strong> 把曲线看作质点在时间 $t\in[0,1]$ 内的运动轨迹，天生支持任意 3D 环路！
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950 border border-cyan-500/30 space-y-2">
+            <div class="font-bold text-cyan-300" data-i18n="2. The Binomial Birth of Bernstein Basis">
+              2. 二项式定理自然诞生 4 个权重函数
+            </div>
+            <p class="text-xs text-slate-400" data-i18n="Expand 1 = ((1-t) + t)³: you get B₀=(1-t)³, B₁=3(1-t)²t, B₂=3(1-t)t², B₃=t³. At t=0, B₀=1 and others are 0; as t increases, weight smoothly flows from P₀ → P₁ → P₂ → P₃!">
+              把恒等式 $1 = ((1-t) + t)^3$ 按杨辉三角展开：
+              <span class="mono text-cyan-200 block mt-1">1 = (1-t)³ + 3(1-t)²t + 3(1-t)t² + t³</span>
+              这四项就是三次 <strong>Bernstein 多项式 $B_0^3, B_1^3, B_2^3, B_3^3$</strong>！随着 $t$ 从 $0\to 1$，权重像水流一样依次从 $\mathbf{P}_0$ 传向 $\mathbf{P}_1, \mathbf{P}_2, \mathbf{P}_3$。
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950 border border-amber-500/30 space-y-2">
+            <div class="font-bold text-amber-300" data-i18n="3. Why Σ Bᵢ(t) = 1 Guarantees Affine Invariance">
+              3. 为什么 $\sum B_i(t) \equiv 1$ 决定了仿射不变性？
+            </div>
+            <p class="text-xs text-slate-400" data-i18n="Recall Lesson 02: a 3D point has homogeneous coordinate w=1! A linear combination Σ Bᵢ(t) Pᵢ has w = Σ Bᵢ(t). Only when Σ Bᵢ(t) ≡ 1 does translating all control points by +d translate the curve by +d without warping toward the origin!">
+              回想 Lesson 02：点的齐次坐标 $w=1$！如果你把 4 个控制点平移 $+\mathbf{d}$：$\sum B_i(t)(\mathbf{P}_i + \mathbf{d}) = \mathbf{P}(t) + (\sum B_i(t))\mathbf{d}$。<strong>只有当 $\sum B_i(t) \equiv 1$（单位分解）时，平移控制点才等价于平移整条曲线！</strong>且因为 $B_i(t)\ge 0$，曲线永远被锁在控制点的<strong>凸包 (Convex Hull)</strong> 内部！
+            </p>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer 1: Bernstein Polynomials & Partition of Unity Bug Tester -->
+        <div class="rounded-xl border border-emerald-500/30 bg-slate-950 p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-bold text-white" data-i18n="Interactive Visualizer 1: Bernstein Basis Functions B₀³..B₃³(t) & Partition of Unity Stress Test">
+                🔬 交互透视镜 1：Bernstein 基函数权重流动图 + “破坏单位分解 ($\sum w_i \neq 1$)”仿射崩塌实验
+              </h4>
+              <p class="text-xs text-slate-400" data-i18n="Drag parameter t or Scene Translation Offset, then toggle the 'Break Partition of Unity' button to see why curves explode toward the origin if weights don't sum to 1!">
+                拖动时间参数 $t$ 观察 4 个控制点的权重消长；尝试滑动“平移整组控制点”并点击右侧红色按钮**故意破坏 $\sum B_i(t) = 1$**，看看曲线为什么会在平移时发生荒谬的拉伸变形！
+              </p>
+            </div>
+            <button onclick="toggleBreakUnity()" id="breakUnityBtn" class="px-3.5 py-1.5 rounded-lg border border-rose-500/50 bg-rose-950/40 hover:bg-rose-900/50 text-xs font-bold text-rose-300">
+              🐞 <span id="breakUnityLabel">破坏单位分解 (令 B₁ 权重减半): 关</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-7">
+              <canvas id="bernsteinCanvas" width="600" height="330" class="w-full rounded-xl border border-slate-800 bg-slate-900"></canvas>
+            </div>
+            <div class="lg:col-span-5 space-y-3 text-xs">
+              <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                <div>
+                  <div class="flex justify-between font-bold text-emerald-300 mb-1">
+                    <span>Parameter t ∈ [0, 1]</span>
+                    <span id="bernTVal" class="mono">0.35</span>
+                  </div>
+                  <input id="bernTSlider" type="range" min="0" max="1" step="0.01" value="0.35" oninput="drawBernsteinCanvas()" class="w-full" />
+                </div>
+
+                <div>
+                  <div class="flex justify-between font-bold text-cyan-300 mb-1">
+                    <span data-i18n="Translate All Control Points (+Δx)">平移全部控制点 (+Δx 测试仿射不变性)</span>
+                    <span id="bernShiftVal" class="mono">+0 px</span>
+                  </div>
+                  <input id="bernShiftSlider" type="range" min="-70" max="90" step="1" value="0" oninput="drawBernsteinCanvas()" class="w-full" />
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800 mono text-[11px]">
+                  <div class="p-2 rounded bg-slate-950 text-rose-300" id="b0Readout">B₀(t) = 0.275</div>
+                  <div class="p-2 rounded bg-slate-950 text-amber-300" id="b1Readout">B₁(t) = 0.444</div>
+                  <div class="p-2 rounded bg-slate-950 text-emerald-300" id="b2Readout">B₂(t) = 0.239</div>
+                  <div class="p-2 rounded bg-slate-950 text-sky-300" id="b3Readout">B₃(t) = 0.043</div>
+                </div>
+                <div id="bernSumBadge" class="p-2 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-center mono font-bold text-emerald-300">
+                  Σ Bᵢ(t) = 1.000 (Valid Affine Combination w = 1)
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: MIT 6.837 Basis Matrix View — Monomial vs Hermite vs Bézier -->
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider" data-i18n="Part 2 • MIT 6.837 Lec 02 (Prof. Justin Solomon) Matrix Formulation of Splines">Part 2 • MIT 6.837 Lec 02 多项式基矩阵大一统：Hermite ↔ Bézier</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Why P(t) = G · M_basis · T(t) Turns Cubic Curves into 4x4 Matrix Multiplication!">
+              为什么 P(t) = G · M_basis · [1, t, t², t³]ᵀ 能把一切三次曲线统合成 4×4 矩阵乘法？
+            </h3>
+          </div>
+          <span class="px-3 py-1 rounded-lg bg-indigo-950 border border-indigo-700/50 text-xs mono text-indigo-300">
+            P'(0) = 3(P₁ - P₀), P'(1) = 3(P₃ - P₂)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs text-slate-300 leading-relaxed">
+          <div class="p-4 rounded-xl bg-slate-950 border border-indigo-500/30 space-y-2.5">
+            <div class="font-bold text-indigo-300 text-sm">1. 三次 Bézier 基矩阵 M_Bezier 的推导</div>
+            <p class="text-slate-400">
+              把四个 Bernstein 多项式按 $1, t, t^2, t^3$ 展开合并同类项：
+            </p>
+            <div class="p-2.5 rounded bg-slate-900 mono text-[11px] text-indigo-200 space-y-0.5">
+              <div>B₀(t) =  1 - 3t + 3t² - 1t³</div>
+              <div>B₁(t) =  0 + 3t - 6t² + 3t³</div>
+              <div>B₂(t) =  0 + 0t + 3t² - 3t³</div>
+              <div>B₃(t) =  0 + 0t + 0t² + 1t³</div>
+            </div>
+            <p class="text-slate-400">
+              系数直接排成一个对称优美的 $4\times 4$ 矩阵 $M_{\text{Bezier}}$！求导立得端点切线速度：<span class="mono text-amber-300">P'(0) = 3(P₁ - P₀)</span> 与 <span class="mono text-amber-300">P'(1) = 3(P₃ - P₂)</span>！
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950 border border-cyan-500/30 space-y-2.5">
+            <div class="font-bold text-cyan-300 text-sm">2. 三次 Hermite 曲线与 Bézier 的双向无损互转</div>
+            <p class="text-slate-400">
+              在工程与动画编辑器中，艺术家经常希望直接指定<strong>起点 $\mathbf{P}_0$、终点 $\mathbf{P}_3$、起点发射切向量 $\mathbf{v}_0$、终点进入切向量 $\mathbf{v}_1$</strong>（这就是 <strong>Hermite 曲线</strong>）。利用上面的求导公式，二者完全等价：
+            </p>
+            <div class="p-2.5 rounded bg-slate-900 mono text-xs text-emerald-300">
+              P₁ = P₀ + (1/3)·v₀ &nbsp;&nbsp;⇔&nbsp;&nbsp; v₀ = 3·(P₁ - P₀)<br/>
+              P₂ = P₃ - (1/3)·v₁ &nbsp;&nbsp;⇔&nbsp;&nbsp; v₁ = 3·(P₃ - P₂)
+            </div>
+            <p class="text-slate-400">
+              这就是为什么你在 Illustrator、Blender 或 Figma 里拖动手柄时，其实是在用 Bézier 控制点 $\mathbf{P}_1, \mathbf{P}_2$ 直观操控 Hermite 切向量 $\mathbf{v}_0, \mathbf{v}_1$ 的 $\frac{1}{3}$！
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: DE CASTELJAU INTERACTIVE LAB ==================== -->
+    <section id="tab-lab" class="hidden space-y-6">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Interactive de Casteljau Subdivision & Differential Geometry Lab</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Drag Control Points P₀..P₃ • Inspect 3-Layer LERP Pyramid, Convex Hull & Curve Splitting">
+              直接拖拽画布上的控制点 P₀..P₃ • 实时透视 3 层 de Casteljau 递归插值、凸包、切向量与左右子树细分
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="applyBezierPreset('arch')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">
+              🌈 <span data-i18n="Arch">经典拱形</span>
+            </button>
+            <button onclick="applyBezierPreset('scurve')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">
+              〰️ <span data-i18n="S-Curve (Inflection)">S 型拐点曲线</span>
+            </button>
+            <button onclick="applyBezierPreset('loop')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200">
+              ➰ <span data-i18n="Self-Loop">自交环路</span>
+            </button>
+            <button onclick="toggleCasteljauAnim()" id="casteljauAnimBtn" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow">
+              ▶ <span id="casteljauAnimLabel">自动播放参数 t</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Left: Interactive Draggable Canvas -->
+          <div class="lg:col-span-8 space-y-3">
+            <div class="relative">
+              <canvas id="casteljauCanvas" width="760" height="440" class="w-full rounded-xl border border-slate-800 bg-slate-950 cursor-pointer"></canvas>
+              <div class="absolute top-3 left-3 px-3 py-1.5 rounded-lg bg-slate-950/85 border border-slate-800 text-[11px] text-slate-300 pointer-events-none">
+                💡 <span data-i18n="Drag P₀, P₁, P₂, P₃ directly on the canvas!">用鼠标直接拖拽画布上的四个控制点 P₀, P₁, P₂, P₃！</span>
+              </div>
+            </div>
+
+            <!-- Parameter t Slider Bar -->
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-wrap items-center gap-4">
+              <span class="text-xs font-bold text-emerald-300 mono">t = <span id="labTReadout">0.45</span></span>
+              <input id="labTSlider" type="range" min="0" max="1" step="0.005" value="0.45" oninput="updateCasteljauLab()" class="flex-1" />
+              <div class="flex flex-wrap gap-3 text-xs">
+                <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" id="chkPyramid" checked onchange="updateCasteljauLab()" />
+                  <span class="text-cyan-300 font-semibold" data-i18n="de Casteljau Pyramid">3层插值骨架</span>
+                </label>
+                <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" id="chkHull" checked onchange="updateCasteljauLab()" />
+                  <span class="text-indigo-300 font-semibold" data-i18n="Convex Hull">凸包阴影</span>
+                </label>
+                <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" id="chkTangent" checked onchange="updateCasteljauLab()" />
+                  <span class="text-amber-300 font-semibold" data-i18n="Velocity P'(t)">速度切向量 P'(t)</span>
+                </label>
+                <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" id="chkSplit" onchange="updateCasteljauLab()" />
+                  <span class="text-pink-300 font-semibold" data-i18n="Subdivide [0,t] & [t,1]">显示左右细分控制多边形</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Live de Casteljau Pyramid Hierarchy Inspector -->
+          <div class="lg:col-span-4 space-y-4 text-xs">
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+              <h4 class="font-bold text-emerald-300 uppercase tracking-wider" data-i18n="de Casteljau 3-Level LERP Tree">
+                📐 de Casteljau 三层递归插值树
+              </h4>
+              <div class="space-y-2 mono text-[11px]">
+                <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                  <div class="text-slate-400 font-sans font-semibold mb-1">Level 1: 3 Linear Interpolations (Q₀, Q₁, Q₂)</div>
+                  <div id="castLevel1Text" class="text-cyan-300 space-y-0.5"></div>
+                </div>
+                <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                  <div class="text-slate-400 font-sans font-semibold mb-1">Level 2: 2 Quadratic Points (R₀, R₁)</div>
+                  <div id="castLevel2Text" class="text-indigo-300 space-y-0.5"></div>
+                </div>
+                <div class="p-2.5 rounded-lg bg-emerald-950/50 border border-emerald-500/40">
+                  <div class="text-emerald-300 font-sans font-semibold mb-1">Level 3: Final Cubic Point P(t) & Tangent</div>
+                  <div id="castLevel3Text" class="text-amber-200 space-y-0.5"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-950 border border-pink-500/30 space-y-2">
+              <div class="font-bold text-pink-300" data-i18n="Why de Casteljau Splits a Curve in Two for Free!">
+                ✂️ 为什么 de Casteljau 算法能“顺手”把曲线一分为二？
+              </div>
+              <p class="text-slate-400 leading-relaxed" data-i18n="Look at the outer sides of the interpolation triangle: the left edge (P₀, Q₀, R₀, P(t)) is the EXACT control polygon for the left sub-curve [0, t], and (P(t), R₁, Q₂, P₃) is the control polygon for [t, 1]! Check the 'Subdivide' box to see both child control polygons!">
+                观察插值三角形的两条外侧斜边：左斜边上的四个点 <span class="mono text-pink-300">(P₀, Q₀, R₀, P(t))</span> 恰好就是左半段曲线 <span class="mono">[0, t]</span> 的全新控制多边形；右斜边 <span class="mono text-cyan-300">(P(t), R₁, Q₂, P₃)</span> 则是右半段 <span class="mono">[t, 1]</span> 的控制多边形！勾选左下方 <strong>“显示左右细分控制多边形”</strong> 立即体验！
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: UNIVERSITY LECTURES & NOTES ==================== -->
+    <section id="tab-videos" class="hidden space-y-6">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+          <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Course References • UC Davis ECS 175 Lecture 02 & MIT 6.837 Lecture 02</span>
+          <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="MIT 6.837 Lecture 02 (Cubic Curves) & UC Davis Lecture 02 (Curves in the Plane)">
+            配套名校公开课：MIT 6.837 Lecture 02 (三次曲线与基矩阵) & UC Davis Lecture 02 (平面曲线)
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <!-- MIT 6.837 Lecture 02 -->
+          <div class="rounded-xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-rose-950 border border-rose-700/50 text-xs font-bold text-rose-300">MIT 6.837 • Fall 2021 • Lecture 02</span>
+              <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">
+                YouTube Playlist ↗
+              </a>
+            </div>
+            <h4 class="text-base font-bold text-white">Prof. Justin Solomon — Cubic Curves (Monomial, Hermite & Bézier)</h4>
+            <div class="aspect-video rounded-xl overflow-hidden border border-slate-800 bg-slate-900">
+              <iframe class="w-full h-full" src="https://www.youtube.com/embed/videoseries?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi&index=2" title="MIT 6.837 Lecture 02: Cubic Curves" allowfullscreen></iframe>
+            </div>
+            <ul class="space-y-2 list-disc pl-4 text-xs text-slate-300">
+              <li>
+                <strong>为什么选择三次多项式 (Cubic, degree 3)？</strong> 一次多项式只是直线；二次多项式（抛物线）没有拐点（Inflection Point，无法画出 S 形）且共面；四次以上多项式容易出现龙格震荡（Runge's Phenomenon）。三次多项式拥有 4 个自由度，刚好能同时独立控制<strong>两端位置 $(\mathbf{P}_0, \mathbf{P}_3)$ 与两端切线 $(\mathbf{v}_0, \mathbf{v}_1)$</strong>，且能顺滑走出 3D 非平面扭曲与 S 形拐点！
+              </li>
+              <li>
+                <strong>基变换矩阵 $M$ 的统一视角</strong>：无论是 Hermite、Bézier，还是下一课要学的 Catmull-Rom 和 B-Spline，都只是更换了同一个 $4\times 4$ 矩阵 $M_{\text{basis}}$！
+              </li>
+            </ul>
+          </div>
+
+          <!-- UC Davis ECS 175 Lecture 02 -->
+          <div class="rounded-xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-amber-950 border border-amber-700/50 text-xs font-bold text-amber-300">UC Davis ECS 175 • Fall 2009 • Lecture 02</span>
+              <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+2" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">
+                Search Lecture 02 on YouTube ↗
+              </a>
+            </div>
+            <h4 class="text-base font-bold text-white">Prof. Kenneth Joy — Curves in the Plane & de Casteljau Subdivision</h4>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3 text-xs">
+              <div class="font-bold text-amber-300">📌 Kenneth Joy 教授总结的 Bézier 曲线五大黄金几何性质：</div>
+              <ol class="list-decimal pl-4 space-y-2 text-slate-300">
+                <li><strong>端点插值性 (Endpoint Interpolation)</strong>：曲线必定严格经过首尾控制点 $\mathbf{P}(0) = \mathbf{P}_0$ 与 $\mathbf{P}(1) = \mathbf{P}_3$。</li>
+                <li><strong>端点切线性质 (Endpoint Tangent)</strong>：起点切向量 $\mathbf{P}'(0) = n(\mathbf{P}_1 - \mathbf{P}_0)$，终点切向量 $\mathbf{P}'(1) = n(\mathbf{P}_n - \mathbf{P}_{n-1})$。</li>
+                <li><strong>仿射不变性 (Affine Invariance)</strong>：对曲线做任意旋转、缩放、平移或错切，完全等价于只对 4 个控制点做变换后再画曲线（无需对曲线上成千上万个采样点做矩阵乘法！）。</li>
+                <li><strong>凸包性质 (Convex Hull Property)</strong>：因为 $B_i^n(t) \ge 0$ 且 $\sum B_i^n(t) = 1$，整条曲线 100% 被包裹在控制点的凸包多边形内部，绝不会意外飞出边界。</li>
+                <li><strong>变差缩减性质 (Variation Diminishing)</strong>：任何直线与 Bézier 曲线的交点个数，绝不会超过该直线与控制多边形折线的交点个数（意味着曲线永远比控制折线更平滑、绝不会无故多出震荡！）。</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-game" class="hidden space-y-6">
+      <div class="rounded-2xl border border-indigo-500/40 bg-slate-900/90 p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider">🎮 Interactive 3-Mission Challenge</span>
+            <h3 class="text-lg sm:text-xl font-bold text-white mt-0.5" data-i18n="Interstellar Warp Trajectory Bézier Designer">
+              3 关实战小游戏：星际跃迁轨道设计师 (凸包避障、Hermite 切线对接与 de Casteljau 细分)
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="selectGameMission(1)" id="gBtn1" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white">
+              Mission 1: <span data-i18n="Convex Hull Asteroid Bypass">凸包避障与跃迁门穿行</span>
+            </button>
+            <button onclick="selectGameMission(2)" id="gBtn2" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 2: <span data-i18n="Hermite Tangent Conversion">Hermite 1/3 切线精确对接</span>
+            </button>
+            <button onclick="selectGameMission(3)" id="gBtn3" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 3: <span data-i18n="de Casteljau Split Lock">de Casteljau 细分切线锁定</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- Left: Draggable Game Canvas -->
+          <div class="lg:col-span-7 space-y-3">
+            <div class="relative">
+              <canvas id="gameCanvas" width="640" height="400" class="w-full rounded-xl border border-slate-800 bg-slate-950 cursor-pointer"></canvas>
+              <div class="absolute top-3 left-3 px-2.5 py-1 rounded bg-slate-950/85 border border-slate-800 text-[11px] text-slate-300 pointer-events-none">
+                🖱️ <span data-i18n="Drag Control Handles P₁ (Amber) and P₂ (Cyan) directly on canvas!">直接在星空画布上拖拽控制手柄 P₁ (琥珀色) 与 P₂ (青色)！</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3 text-xs">
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-slate-400" data-i18n="Control Point P₁">控制手柄 P₁ 坐标</div>
+                <div id="gP1Readout" class="mono font-bold text-amber-300 mt-0.5">(0, 0)</div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-slate-400" data-i18n="Control Point P₂">控制手柄 P₂ 坐标</div>
+                <div id="gP2Readout" class="mono font-bold text-cyan-300 mt-0.5">(0, 0)</div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div class="text-slate-400" data-i18n="Mission Telemetry">任务误差遥测</div>
+                <div id="gMetricReadout" class="mono font-bold text-emerald-300 mt-0.5">0.0 px</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Briefing & Sliders -->
+          <div class="lg:col-span-5 space-y-4">
+            <div class="p-4 rounded-xl bg-slate-950 border border-indigo-500/40 space-y-2">
+              <div class="flex items-center justify-between">
+                <span id="gMissionTitle" class="text-sm font-bold text-indigo-300">Mission 1</span>
+                <span id="gMissionBadge" class="px-2.5 py-0.5 rounded-full bg-amber-950 border border-amber-500/40 text-amber-300 text-xs font-bold">IN PROGRESS</span>
+              </div>
+              <p id="gMissionDesc" class="text-xs text-slate-300 leading-relaxed"></p>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+              <div>
+                <div class="flex justify-between">
+                  <span class="text-amber-300 font-semibold">P₁.y (起点切线高度控制)</span>
+                  <span id="gP1YVal" class="mono text-amber-300">80</span>
+                </div>
+                <input id="gP1YSlider" type="range" min="30" max="370" value="80" oninput="syncGameFromSliders()" class="w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between">
+                  <span class="text-cyan-300 font-semibold">P₂.y (终点切线高度控制)</span>
+                  <span id="gP2YVal" class="mono text-cyan-300">320</span>
+                </div>
+                <input id="gP2YSlider" type="range" min="30" max="370" value="320" oninput="syncGameFromSliders()" class="w-full" />
+              </div>
+              <div id="gSplitSliderBox">
+                <div class="flex justify-between">
+                  <span class="text-emerald-300 font-semibold">de Casteljau Probe t (跃迁采样点 t)</span>
+                  <span id="gSplitTVal" class="mono text-emerald-300">0.50</span>
+                </div>
+                <input id="gSplitTSlider" type="range" min="0.1" max="0.9" step="0.01" value="0.50" oninput="drawGameCanvas()" class="w-full" />
+              </div>
+            </div>
+
+            <div id="gFeedbackBox" class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-relaxed">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== BILINGUAL SUPPORT ====================
+    let currentLang = 'zh';
+    const zhCache = new Map();
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.getElementById('langBtnLabel').textContent = currentLang === 'zh' ? 'EN / English' : '中文 / Chinese';
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        if (!zhCache.has(el)) zhCache.set(el, el.innerHTML);
+        el.innerHTML = currentLang === 'en' ? el.getAttribute('data-i18n') : zhCache.get(el);
+      });
+      drawBernsteinCanvas();
+      updateCasteljauLab();
+      drawGameCanvas();
+    }
+
+    function switchTab(tabId) {
+      ['concepts', 'lab', 'videos', 'game'].forEach((id) => {
+        const sec = document.getElementById('tab-' + id);
+        const btn = document.getElementById('tabBtn-' + id);
+        if (id === tabId) {
+          sec.classList.remove('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600 text-white shadow';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = id === 'game'
+            ? 'px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 border border-indigo-500/40'
+            : 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800';
+        }
+      });
+      if (tabId === 'concepts') drawBernsteinCanvas();
+      else if (tabId === 'lab') updateCasteljauLab();
+      else if (tabId === 'game') drawGameCanvas();
+    }
+
+    // ==================== BÉZIER & DE CASTELJAU MATH ====================
+    function lerp2D(a, b, t) {
+      return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    }
+
+    function deCasteljauCubic(P0, P1, P2, P3, t) {
+      const Q0 = lerp2D(P0, P1, t);
+      const Q1 = lerp2D(P1, P2, t);
+      const Q2 = lerp2D(P2, P3, t);
+      const R0 = lerp2D(Q0, Q1, t);
+      const R1 = lerp2D(Q1, Q2, t);
+      const P = lerp2D(R0, R1, t);
+      const vel = [3 * (R1[0] - R0[0]), 3 * (R1[1] - R0[1])];
+      return { Q0, Q1, Q2, R0, R1, P, vel };
+    }
+
+    function bernsteinWeights(t, breakUnity = false) {
+      const u = 1 - t;
+      const b0 = u * u * u;
+      const b1 = (breakUnity ? 1.5 : 3) * u * u * t; // If broken, coefficient is 1.5 instead of 3!
+      const b2 = 3 * u * t * t;
+      const b3 = t * t * t;
+      return [b0, b1, b2, b3];
+    }
+
+    // ==================== VISUALIZER 1: BERNSTEIN & PARTITION OF UNITY ====================
+    let breakUnityMode = false;
+
+    function toggleBreakUnity() {
+      breakUnityMode = !breakUnityMode;
+      const btn = document.getElementById('breakUnityBtn');
+      const lbl = document.getElementById('breakUnityLabel');
+      if (breakUnityMode) {
+        btn.className = 'px-3.5 py-1.5 rounded-lg border border-rose-400 bg-rose-600 text-xs font-bold text-white shadow';
+        lbl.textContent = currentLang === 'zh' ? '破坏单位分解 (B₁ 减半): 开 (Σ≠1!)' : 'Break Partition of Unity: ON (Σ≠1!)';
+      } else {
+        btn.className = 'px-3.5 py-1.5 rounded-lg border border-rose-500/50 bg-rose-950/40 hover:bg-rose-900/50 text-xs font-bold text-rose-300';
+        lbl.textContent = currentLang === 'zh' ? '破坏单位分解 (令 B₁ 权重减半): 关' : 'Break Partition of Unity: OFF';
+      }
+      drawBernsteinCanvas();
+    }
+
+    function drawBernsteinCanvas() {
+      const canvas = document.getElementById('bernsteinCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const tCur = parseFloat(document.getElementById('bernTSlider').value);
+      const shiftX = parseFloat(document.getElementById('bernShiftSlider').value);
+      document.getElementById('bernTVal').textContent = tCur.toFixed(2);
+      document.getElementById('bernShiftVal').textContent = (shiftX >= 0 ? '+' : '') + shiftX + ' px';
+
+      // Left Half (x: 30..270): Bernstein Basis Graph B0..B3(t)
+      const gx0 = 35, gy0 = H - 45, gw = 230, gh = 220;
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(gx0, gy0 - gh, gw, gh);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 11px Inter';
+      ctx.fillText(currentLang === 'zh' ? 'Bernstein 多项式曲线 Bᵢ³(t)' : 'Bernstein Basis Bᵢ³(t)', gx0, gy0 - gh - 10);
+
+      const colors = ['#f43f5e', '#f59e0b', '#10b981', '#38bdf8'];
+      for (let bIdx = 0; bIdx < 4; bIdx++) {
+        ctx.strokeStyle = colors[bIdx];
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let s = 0; s <= 100; s++) {
+          const t = s / 100;
+          const w = bernsteinWeights(t, breakUnityMode)[bIdx];
+          const px = gx0 + t * gw;
+          const py = gy0 - w * gh;
+          if (s === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+
+      // Draw Sum curve (dashed white/rose)
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = breakUnityMode ? '#fb7185' : '#e2e8f0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let s = 0; s <= 100; s++) {
+        const t = s / 100;
+        const ws = bernsteinWeights(t, breakUnityMode);
+        const sum = ws[0] + ws[1] + ws[2] + ws[3];
+        const px = gx0 + t * gw;
+        const py = gy0 - sum * gh;
+        if (s === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // Current t vertical line on basis plot
+      const curX = gx0 + tCur * gw;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(curX, gy0 - gh);
+      ctx.lineTo(curX, gy0);
+      ctx.stroke();
+
+      // Right Half (x: 310..580): Resulting 2D Curve under translation +shiftX
+      const basePts = [
+        [340, 265],
+        [375, 75],
+        [490, 75],
+        [525, 265]
+      ];
+      const shiftedPts = basePts.map((p) => [p[0] + shiftX, p[1]]);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 11px Inter';
+      ctx.fillText(
+        currentLang === 'zh' ? '控制多边形与加权曲线 P(t) = Σ Bᵢ(t)Pᵢ' : 'Curve P(t) = Σ Bᵢ(t)Pᵢ (Origin at (0,0))',
+        310,
+        gy0 - gh - 10
+      );
+
+      // Control polygon
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      shiftedPts.forEach((p, i) => {
+        if (i === 0) ctx.moveTo(p[0], p[1]);
+        else ctx.lineTo(p[0], p[1]);
+      });
+      ctx.stroke();
+
+      // Draw curve using weighted sum relative to canvas origin (0,0)
+      ctx.strokeStyle = breakUnityMode ? '#f43f5e' : '#10b981';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      for (let s = 0; s <= 100; s++) {
+        const t = s / 100;
+        const ws = bernsteinWeights(t, breakUnityMode);
+        const x = ws[0] * shiftedPts[0][0] + ws[1] * shiftedPts[1][0] + ws[2] * shiftedPts[2][0] + ws[3] * shiftedPts[3][0];
+        const y = ws[0] * shiftedPts[0][1] + ws[1] * shiftedPts[1][1] + ws[2] * shiftedPts[2][1] + ws[3] * shiftedPts[3][1];
+        if (s === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      shiftedPts.forEach((p, i) => {
+        ctx.fillStyle = colors[i];
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], 6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      const curWs = bernsteinWeights(tCur, breakUnityMode);
+      const curSum = curWs[0] + curWs[1] + curWs[2] + curWs[3];
+      const curPt = [
+        curWs[0] * shiftedPts[0][0] + curWs[1] * shiftedPts[1][0] + curWs[2] * shiftedPts[2][0] + curWs[3] * shiftedPts[3][0],
+        curWs[0] * shiftedPts[0][1] + curWs[1] * shiftedPts[1][1] + curWs[2] * shiftedPts[2][1] + curWs[3] * shiftedPts[3][1]
+      ];
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(curPt[0], curPt[1], 6.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Readouts
+      document.getElementById('b0Readout').textContent = `B₀(t) = ${curWs[0].toFixed(3)}`;
+      document.getElementById('b1Readout').textContent = `B₁(t) = ${curWs[1].toFixed(3)}`;
+      document.getElementById('b2Readout').textContent = `B₂(t) = ${curWs[2].toFixed(3)}`;
+      document.getElementById('b3Readout').textContent = `B₃(t) = ${curWs[3].toFixed(3)}`;
+
+      const sumBadge = document.getElementById('bernSumBadge');
+      if (breakUnityMode) {
+        sumBadge.className = 'p-2 rounded-lg bg-rose-950/80 border border-rose-500 text-center mono font-bold text-rose-200';
+        sumBadge.textContent = `⚠️ Σ Bᵢ(t) = ${curSum.toFixed(3)} ≠ 1.000 (被吸向原点 (0,0)，仿射不变性崩溃!)`;
+      } else {
+        sumBadge.className = 'p-2 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-center mono font-bold text-emerald-300';
+        sumBadge.textContent = `✓ Σ Bᵢ(t) = ${curSum.toFixed(3)} ≡ 1.000 (齐次权重 w=1，平移完美保持形状!)`;
+      }
+    }
+
+    // ==================== TAB 2: DE CASTELJAU INTERACTIVE PYRAMID LAB ====================
+    let labPts = [
+      [110, 340],
+      [220, 80],
+      [540, 80],
+      [650, 340]
+    ];
+    let draggingLabIdx = -1;
+    let casteljauAnimating = false;
+    let casteljauAnimId = null;
+
+    function applyBezierPreset(type) {
+      if (type === 'arch') {
+        labPts = [[110, 340], [220, 80], [540, 80], [650, 340]];
+      } else if (type === 'scurve') {
+        labPts = [[110, 320], [260, 55], [500, 385], [650, 110]];
+      } else if (type === 'loop') {
+        labPts = [[220, 350], [620, 90], [140, 90], [540, 350]];
+      }
+      updateCasteljauLab();
+    }
+
+    function toggleCasteljauAnim() {
+      casteljauAnimating = !casteljauAnimating;
+      document.getElementById('casteljauAnimLabel').textContent = casteljauAnimating
+        ? (currentLang === 'zh' ? '暂停播放' : 'Pause t')
+        : (currentLang === 'zh' ? '自动播放参数 t' : 'Auto-Play t');
+      if (casteljauAnimating) {
+        const tick = () => {
+          if (!casteljauAnimating) return;
+          const sl = document.getElementById('labTSlider');
+          let nextT = parseFloat(sl.value) + 0.004;
+          if (nextT > 1) nextT = 0;
+          sl.value = nextT;
+          updateCasteljauLab();
+          casteljauAnimId = requestAnimationFrame(tick);
+        };
+        casteljauAnimId = requestAnimationFrame(tick);
+      } else if (casteljauAnimId) {
+        cancelAnimationFrame(casteljauAnimId);
+      }
+    }
+
+    function updateCasteljauLab() {
+      const canvas = document.getElementById('casteljauCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // Grid
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+      const t = parseFloat(document.getElementById('labTSlider').value);
+      document.getElementById('labTReadout').textContent = t.toFixed(3);
+
+      const showPyramid = document.getElementById('chkPyramid').checked;
+      const showHull = document.getElementById('chkHull').checked;
+      const showTangent = document.getElementById('chkTangent').checked;
+      const showSplit = document.getElementById('chkSplit').checked;
+
+      const [P0, P1, P2, P3] = labPts;
+      const dc = deCasteljauCubic(P0, P1, P2, P3, t);
+
+      // 1. Convex Hull Polygon
+      if (showHull) {
+        ctx.fillStyle = 'rgba(99, 102, 241, 0.09)';
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(P0[0], P0[1]);
+        ctx.lineTo(P1[0], P1[1]);
+        ctx.lineTo(P2[0], P2[1]);
+        ctx.lineTo(P3[0], P3[1]);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // 2. Control Polygon P0-P1-P2-P3
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(P0[0], P0[1]);
+      ctx.lineTo(P1[0], P1[1]);
+      ctx.lineTo(P2[0], P2[1]);
+      ctx.lineTo(P3[0], P3[1]);
+      ctx.stroke();
+
+      // 3. de Casteljau Pyramid Layers
+      if (showPyramid) {
+        // Level 1: Q0 - Q1 - Q2 (Cyan)
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(dc.Q0[0], dc.Q0[1]);
+        ctx.lineTo(dc.Q1[0], dc.Q1[1]);
+        ctx.lineTo(dc.Q2[0], dc.Q2[1]);
+        ctx.stroke();
+        [dc.Q0, dc.Q1, dc.Q2].forEach((q, idx) => {
+          ctx.fillStyle = '#22d3ee';
+          ctx.beginPath(); ctx.arc(q[0], q[1], 4.5, 0, Math.PI * 2); ctx.fill();
+          ctx.font = '10px JetBrains Mono';
+          ctx.fillText(`Q${idx}`, q[0] + 6, q[1] - 5);
+        });
+
+        // Level 2: R0 - R1 (Indigo/Violet)
+        ctx.strokeStyle = '#a78bfa';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(dc.R0[0], dc.R0[1]);
+        ctx.lineTo(dc.R1[0], dc.R1[1]);
+        ctx.stroke();
+        [dc.R0, dc.R1].forEach((r, idx) => {
+          ctx.fillStyle = '#a78bfa';
+          ctx.beginPath(); ctx.arc(r[0], r[1], 5, 0, Math.PI * 2); ctx.fill();
+          ctx.font = 'bold 11px JetBrains Mono';
+          ctx.fillText(`R${idx}`, r[0] + 6, r[1] - 6);
+        });
+      }
+
+      // 4. Full Cubic Bézier Curve (or Split Left/Right Sub-Curves)
+      if (!showSplit) {
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        for (let s = 0; s <= 120; s++) {
+          const pt = deCasteljauCubic(P0, P1, P2, P3, s / 120).P;
+          if (s === 0) ctx.moveTo(pt[0], pt[1]);
+          else ctx.lineTo(pt[0], pt[1]);
+        }
+        ctx.stroke();
+      } else {
+        // Left sub-curve [0, t] in Pink, Right sub-curve [t, 1] in Cyan
+        ctx.strokeStyle = '#f472b6';
+        ctx.lineWidth = 4.5;
+        ctx.beginPath();
+        for (let s = 0; s <= 60; s++) {
+          const pt = deCasteljauCubic(P0, dc.Q0, dc.R0, dc.P, s / 60).P;
+          if (s === 0) ctx.moveTo(pt[0], pt[1]);
+          else ctx.lineTo(pt[0], pt[1]);
+        }
+        ctx.stroke();
+
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 4.5;
+        ctx.beginPath();
+        for (let s = 0; s <= 60; s++) {
+          const pt = deCasteljauCubic(dc.P, dc.R1, dc.Q2, P3, s / 60).P;
+          if (s === 0) ctx.moveTo(pt[0], pt[1]);
+          else ctx.lineTo(pt[0], pt[1]);
+        }
+        ctx.stroke();
+
+        // Highlight the two child control polygons
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = '#f472b6';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        [P0, dc.Q0, dc.R0, dc.P].forEach((p, i) => (i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1])));
+        ctx.stroke();
+
+        ctx.strokeStyle = '#38bdf8';
+        ctx.beginPath();
+        [dc.P, dc.R1, dc.Q2, P3].forEach((p, i) => (i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1])));
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 5. Velocity Tangent Vector P'(t) = 3(R1 - R0)
+      if (showTangent) {
+        const vx = dc.vel[0] * 0.25;
+        const vy = dc.vel[1] * 0.25;
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(dc.P[0], dc.P[1]);
+        ctx.lineTo(dc.P[0] + vx, dc.P[1] + vy);
+        ctx.stroke();
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 11px JetBrains Mono';
+        ctx.fillText(`P'(t) = 3(R₁ - R₀)`, dc.P[0] + vx + 6, dc.P[1] + vy);
+      }
+
+      // 6. Control Points P0..P3 and Final Point P(t)
+      const ptColors = ['#f43f5e', '#f59e0b', '#10b981', '#38bdf8'];
+      labPts.forEach((p, idx) => {
+        ctx.fillStyle = '#0f172a';
+        ctx.strokeStyle = ptColors[idx];
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px JetBrains Mono';
+        ctx.fillText(`P${idx}(${Math.round(p[0])},${Math.round(p[1])})`, p[0] - 28, p[1] - 14);
+      });
+
+      ctx.fillStyle = '#fbbf24';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(dc.P[0], dc.P[1], 7.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#fde68a';
+      ctx.font = 'bold 12px JetBrains Mono';
+      ctx.fillText(`P(${t.toFixed(2)})`, dc.P[0] + 10, dc.P[1] - 10);
+
+      // Update Inspector Readouts
+      document.getElementById('castLevel1Text').innerHTML = `
+        <div>Q₀ = (1-t)P₀ + tP₁ = (${dc.Q0[0].toFixed(1)}, ${dc.Q0[1].toFixed(1)})</div>
+        <div>Q₁ = (1-t)P₁ + tP₂ = (${dc.Q1[0].toFixed(1)}, ${dc.Q1[1].toFixed(1)})</div>
+        <div>Q₂ = (1-t)P₂ + tP₃ = (${dc.Q2[0].toFixed(1)}, ${dc.Q2[1].toFixed(1)})</div>
+      `;
+      document.getElementById('castLevel2Text').innerHTML = `
+        <div>R₀ = (1-t)Q₀ + tQ₁ = (${dc.R0[0].toFixed(1)}, ${dc.R0[1].toFixed(1)})</div>
+        <div>R₁ = (1-t)Q₁ + tQ₂ = (${dc.R1[0].toFixed(1)}, ${dc.R1[1].toFixed(1)})</div>
+      `;
+      document.getElementById('castLevel3Text').innerHTML = `
+        <div>P(t) = (1-t)R₀ + tR₁ = (${dc.P[0].toFixed(1)}, ${dc.P[1].toFixed(1)})</div>
+        <div>P'(t) = 3(R₁ - R₀) = (${dc.vel[0].toFixed(1)}, ${dc.vel[1].toFixed(1)})</div>
+      `;
+    }
+
+    // ==================== TAB 4: 3-MISSION MINI-GAME ====================
+    let gameMission = 1;
+    let gamePts = [
+      [85, 290],
+      [215, 80],
+      [425, 320],
+      [555, 110]
+    ];
+    let draggingGameIdx = -1;
+
+    function selectGameMission(m) {
+      gameMission = m;
+      [1, 2, 3].forEach((id) => {
+        document.getElementById('gBtn' + id).className = id === m
+          ? 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white'
+          : 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      if (m === 1) {
+        gamePts = [[85, 310], [220, 310], [420, 310], [555, 310]];
+      } else if (m === 2) {
+        gamePts = [[95, 290], [160, 260], [470, 140], [545, 110]];
+      } else {
+        gamePts = [[90, 310], [210, 220], [430, 220], [550, 310]];
+        document.getElementById('gSplitTSlider').value = 0.35;
+      }
+      document.getElementById('gP1YSlider').value = Math.round(gamePts[1][1]);
+      document.getElementById('gP2YSlider').value = Math.round(gamePts[2][1]);
+      drawGameCanvas();
+    }
+
+    function syncGameFromSliders() {
+      gamePts[1][1] = parseFloat(document.getElementById('gP1YSlider').value);
+      gamePts[2][1] = parseFloat(document.getElementById('gP2YSlider').value);
+      drawGameCanvas();
+    }
+
+    function drawGameCanvas() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // Grid
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+      const [P0, P1, P2, P3] = gamePts;
+      const tProbe = parseFloat(document.getElementById('gSplitTSlider').value);
+      document.getElementById('gP1YVal').textContent = Math.round(P1[1]);
+      document.getElementById('gP2YVal').textContent = Math.round(P2[1]);
+      document.getElementById('gSplitTVal').textContent = tProbe.toFixed(2);
+      document.getElementById('gP1Readout').textContent = `(${Math.round(P1[0])}, ${Math.round(P1[1])})`;
+      document.getElementById('gP2Readout').textContent = `(${Math.round(P2[0])}, ${Math.round(P2[1])})`;
+
+      const dcMid = deCasteljauCubic(P0, P1, P2, P3, 0.5);
+      const dcProbe = deCasteljauCubic(P0, P1, P2, P3, tProbe);
+
+      let passed = false;
+      let metricText = '';
+
+      if (gameMission === 1) {
+        // Mission 1: Arch over bottom radiation zone and pass through gate (320, 145) at t=0.5
+        const gate = [320, 145];
+        const hazard = [320, 310];
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.22)';
+        ctx.strokeStyle = '#f43f5e';
+        ctx.beginPath(); ctx.arc(hazard[0], hazard[1], 52, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#fda4af';
+        ctx.font = 'bold 11px Inter';
+        ctx.fillText('☢️ 辐射禁飞区', hazard[0] - 36, hazard[1] + 4);
+
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(gate[0], gate[1], 20, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = '#6ee7b7';
+        ctx.fillText('★ 跃迁门 (t=0.5)', gate[0] - 42, gate[1] - 26);
+
+        const err = Math.hypot(dcMid.P[0] - gate[0], dcMid.P[1] - gate[1]);
+        passed = err < 18;
+        metricText = `Gate Dist: ${err.toFixed(1)} px`;
+
+        document.getElementById('gMissionTitle').textContent = currentLang === 'zh'
+          ? '第 1 关：凸包避障 — 拉高控制点 P₁, P₂ 绕过辐射区并穿过上方跃迁门'
+          : 'Mission 1: Convex Hull Bypass — Arch Over Radiation Zone to Warp Gate';
+        document.getElementById('gMissionDesc').textContent = currentLang === 'zh'
+          ? '当前控制点都在底部，航线直接撞入红色辐射区！请向上拖拽 P₁ 与 P₂（或将 P₁.y 与 P₂.y 滑块调至约 90 px），使曲线中点 P(0.5) 精准穿过上方绿色跃迁门（误差 < 18 px）！'
+          : 'Drag P₁ and P₂ upward (around Y = 90) so the curve midpoint P(0.5) passes through the green Warp Gate!';
+      } else if (gameMission === 2) {
+        // Mission 2: Hermite 1/3 tangent targets: Ideal P1=(215, 95), Ideal P2=(425, 295)
+        const targetP1 = [215, 95];
+        const targetP2 = [425, 295];
+
+        // Draw Hermite velocity vectors v0 = 3(targetP1 - P0), v1 = 3(P3 - targetP2)
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(targetP1[0] - 12, targetP1[1] - 12, 24, 24);
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.5)';
+        ctx.strokeRect(targetP2[0] - 12, targetP2[1] - 12, 24, 24);
+
+        const err1 = Math.hypot(P1[0] - targetP1[0], P1[1] - targetP1[1]);
+        const err2 = Math.hypot(P2[0] - targetP2[0], P2[1] - targetP2[1]);
+        passed = err1 < 18 && err2 < 18;
+        metricText = `ΔP₁:${err1.toFixed(0)}px | ΔP₂:${err2.toFixed(0)}px`;
+
+        document.getElementById('gMissionTitle').textContent = currentLang === 'zh'
+          ? '第 2 关：Hermite 切线转换 — 按 P₁ = P₀ + v₀/3 锁定发射与对接切柄'
+          : 'Mission 2: Hermite Tangent Lock — Place P₁ = P₀ + v₀/3 & P₂ = P₃ - v₁/3';
+        document.getElementById('gMissionDesc').textContent = currentLang === 'zh'
+          ? '给定 Hermite 起点速度 v₀ 与终点速度 v₁，根据公式 P₁ = P₀ + v₀/3 与 P₂ = P₃ - v₁/3，请将 P₁ 拖入左上琥珀色方框 (215, 95)，将 P₂ 拖入右下青色方框 (425, 295)！'
+          : 'Match the Hermite tangents by dragging P₁ into the amber target box (215, 95) and P₂ into the cyan box (425, 295)!';
+      } else {
+        // Mission 3: de Casteljau Subdivision Lock at t = 0.50 and apex (320, 140)
+        const beacon = [320, 140];
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(beacon[0], beacon[1], 18, 0, Math.PI * 2); ctx.stroke();
+
+        // Draw de Casteljau R0-R1 tangent bar at tProbe
+        ctx.strokeStyle = '#a78bfa';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(dcProbe.R0[0], dcProbe.R0[1]);
+        ctx.lineTo(dcProbe.R1[0], dcProbe.R1[1]);
+        ctx.stroke();
+
+        const distErr = Math.hypot(dcProbe.P[0] - beacon[0], dcProbe.P[1] - beacon[1]);
+        const slopeErr = Math.abs(dcProbe.R1[1] - dcProbe.R0[1]);
+        passed = distErr < 18 && slopeErr < 16;
+        metricText = `Dist:${distErr.toFixed(0)}px | Tilt:${slopeErr.toFixed(0)}`;
+
+        document.getElementById('gMissionTitle').textContent = currentLang === 'zh'
+          ? '第 3 关：de Casteljau 细分切线锁定 — 水平切线对接中继站'
+          : 'Mission 3: de Casteljau Subdivision & Horizontal Tangent Lock';
+        document.getElementById('gMissionDesc').textContent = currentLang === 'zh'
+          ? '请将 P₁.y 与 P₂.y 均调至约 85 px，并将采样参数 t 滑至 0.50，使细分点 P(t) 落入黄色中继站 (320, 140) 且紫色切线段 R₀R₁ 保持水平！'
+          : 'Set P₁.y and P₂.y near 85 and slide t to 0.50 so P(t) hits the relay beacon with a horizontal R₀R₁ tangent!';
+      }
+
+      // Draw Control Polygon
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.lineTo(P3[0], P3[1]);
+      ctx.stroke();
+
+      // Draw Bézier Curve
+      ctx.strokeStyle = passed ? '#10b981' : '#6366f1';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      for (let s = 0; s <= 100; s++) {
+        const pt = deCasteljauCubic(P0, P1, P2, P3, s / 100).P;
+        if (s === 0) ctx.moveTo(pt[0], pt[1]);
+        else ctx.lineTo(pt[0], pt[1]);
+      }
+      ctx.stroke();
+
+      // Draw P0..P3 handles
+      const cols = ['#f43f5e', '#f59e0b', '#22d3ee', '#38bdf8'];
+      gamePts.forEach((p, i) => {
+        ctx.fillStyle = cols[i];
+        ctx.beginPath(); ctx.arc(p[0], p[1], 7.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px JetBrains Mono';
+        ctx.fillText(`P${i}`, p[0] - 8, p[1] - 12);
+      });
+
+      // Draw Probe Point P(t)
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath(); ctx.arc(dcProbe.P[0], dcProbe.P[1], 6.5, 0, Math.PI * 2); ctx.fill();
+
+      document.getElementById('gMetricReadout').textContent = metricText;
+      const badge = document.getElementById('gMissionBadge');
+      const fb = document.getElementById('gFeedbackBox');
+      if (passed) {
+        badge.className = 'px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-400 text-emerald-300 text-xs font-bold';
+        badge.textContent = '★ MISSION CLEARED!';
+        fb.className = 'p-4 rounded-xl bg-emerald-950/50 border border-emerald-500/50 text-xs text-emerald-200 leading-relaxed';
+        fb.innerHTML = currentLang === 'zh'
+          ? `🎉 <strong>第 ${gameMission} 关挑战成功！</strong> 跃迁轨道已完美满足几何约束，点击上方按钮可切换下一关！`
+          : `🎉 <strong>Mission ${gameMission} Cleared!</strong> Trajectory locked!`;
+      } else {
+        badge.className = 'px-2.5 py-0.5 rounded-full bg-amber-950 border border-amber-500/40 text-amber-300 text-xs font-bold';
+        badge.textContent = 'IN PROGRESS';
+        fb.className = 'p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-relaxed';
+        fb.innerHTML = currentLang === 'zh'
+          ? '💡 <strong>操作提示</strong>：你可以直接在左侧画布上按住鼠标拖动琥珀色点 P₁ 和青色点 P₂，也可以使用右侧滑块微调高度与参数 t。'
+          : '💡 <strong>Tip</strong>: Drag P₁ and P₂ directly on the canvas or use the sliders above!';
+      }
+    }
+
+    // Pointer Dragging for Tab 2 & Tab 4 Canvases
+    window.addEventListener('DOMContentLoaded', () => {
+      const labC = document.getElementById('casteljauCanvas');
+      if (labC) {
+        labC.addEventListener('pointerdown', (e) => {
+          const rect = labC.getBoundingClientRect();
+          const mx = (e.clientX - rect.left) * (labC.width / rect.width);
+          const my = (e.clientY - rect.top) * (labC.height / rect.height);
+          labPts.forEach((p, idx) => {
+            if (Math.hypot(p[0] - mx, p[1] - my) < 22) draggingLabIdx = idx;
+          });
+        });
+        window.addEventListener('pointermove', (e) => {
+          if (draggingLabIdx < 0) return;
+          const rect = labC.getBoundingClientRect();
+          labPts[draggingLabIdx][0] = Math.max(25, Math.min(labC.width - 25, (e.clientX - rect.left) * (labC.width / rect.width)));
+          labPts[draggingLabIdx][1] = Math.max(25, Math.min(labC.height - 25, (e.clientY - rect.top) * (labC.height / rect.height)));
+          updateCasteljauLab();
+        });
+        window.addEventListener('pointerup', () => { draggingLabIdx = -1; });
+      }
+
+      const gameC = document.getElementById('gameCanvas');
+      if (gameC) {
+        gameC.addEventListener('pointerdown', (e) => {
+          const rect = gameC.getBoundingClientRect();
+          const mx = (e.clientX - rect.left) * (gameC.width / rect.width);
+          const my = (e.clientY - rect.top) * (gameC.height / rect.height);
+          [1, 2].forEach((idx) => {
+            if (Math.hypot(gamePts[idx][0] - mx, gamePts[idx][1] - my) < 24) draggingGameIdx = idx;
+          });
+        });
+        window.addEventListener('pointermove', (e) => {
+          if (draggingGameIdx < 0) return;
+          const rect = gameC.getBoundingClientRect();
+          gamePts[draggingGameIdx][0] = Math.max(30, Math.min(gameC.width - 30, (e.clientX - rect.left) * (gameC.width / rect.width)));
+          gamePts[draggingGameIdx][1] = Math.max(30, Math.min(gameC.height - 30, (e.clientY - rect.top) * (gameC.height / rect.height)));
+          document.getElementById('gP1YSlider').value = Math.round(gamePts[1][1]);
+          document.getElementById('gP2YSlider').value = Math.round(gamePts[2][1]);
+          drawGameCanvas();
+        });
+        window.addEventListener('pointerup', () => { draggingGameIdx = -1; });
+      }
+
+      drawBernsteinCanvas();
+      updateCasteljauLab();
+      drawGameCanvas();
+    });
+  </script>
+</body>
+</html>

@@ -228,7 +228,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Parametric Curves, Bernstein Polynomials & de Casteljau Algorithm',
     concepts: ['显式/隐式/参数曲线对比', 'Hermite 插值', 'Bernstein 基函数', 'de Casteljau 递归线性插值'],
     playgroundTitle: 'de Casteljau 步进交互画板',
-    playgroundDescription: '拖拽控制点并滑动参数 t，逐层绘制递归插值线段、切向量与 Bernstein 多项式权重分布。',
+    playgroundDescription: '亲手拖拽控制点体验 3 层 de Casteljau 递归插值金字塔、凸包阴影、切向量 P''(t)=3(R₁-R₀) 与左右子树细分，测试破坏单位分解 (ΣBᵢ≠1) 引发的仿射崩塌，并畅玩 3 关星际跃迁轨道设计师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
