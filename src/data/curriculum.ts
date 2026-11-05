@@ -182,7 +182,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Scene Graphs, Matrix Stacks & Forward Kinematics',
     concepts: ['局部空间 vs 世界空间', '树状场景图 (Scene Graph)', '矩阵栈 (Push/Pop Matrix)', '多关节正向运动学'],
     playgroundTitle: '交互式场景图与多关节 3D 机械臂',
-    playgroundDescription: '编辑左侧树状节点局部变换，右侧实时驱动多自由度机械臂并高亮父子矩阵级联乘积。',
+    playgroundDescription: '亲手对比矩阵链从左往右与从右往左两种几何读法，单步执行 pushMatrix/popMatrix 并模拟漏写 popMatrix 的分叉错位 Bug，在 3D 场景图中检视父子累积矩阵链与逆变换雷达。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
