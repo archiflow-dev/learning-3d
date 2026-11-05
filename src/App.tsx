@@ -10,6 +10,7 @@ import { Lesson07Bezier } from './lessons/Lesson07Bezier';
 import { Lesson08Splines } from './lessons/Lesson08Splines';
 import { Lesson09Patches } from './lessons/Lesson09Patches';
 import { Lesson10Subdivision1 } from './lessons/Lesson10Subdivision1';
+import { Lesson11Subdivision2 } from './lessons/Lesson11Subdivision2';
 
 const STORAGE_KEY = 'learning_3d_completed_lessons_v1';
 const LANG_KEY = 'learning_3d_lang_v1';
@@ -229,6 +230,13 @@ export const App: React.FC = () => {
             lang={lang}
             isCompleted={completedIds.includes('L10')}
             onToggleComplete={() => toggleLessonComplete('L10')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L11' ? (
+          <Lesson11Subdivision2
+            lang={lang}
+            isCompleted={completedIds.includes('L11')}
+            onToggleComplete={() => toggleLessonComplete('L11')}
             onBackToPortal={() => navigateToLesson(null)}
           />
         ) : activeLessonObj ? (

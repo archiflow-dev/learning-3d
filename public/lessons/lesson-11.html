@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 11: Catmull-Clark, Loop Subdivision & Half-Edge Data Structure | 细分曲面 Part 2</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body { background: #020617; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .math-box { background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(51, 65, 85, 0.85); border-radius: 0.85rem; padding: 1rem 1.25rem; overflow-x: auto; }
+    canvas { touch-action: none; user-select: none; }
+    .tab-btn.active { background: #059669; color: #ffffff; border-color: #10b981; box-shadow: 0 0 20px rgba(16, 185, 129, 0.35); }
+    .lang-en { display: none; }
+    body.en-mode .lang-zh { display: none; }
+    body.en-mode .lang-en { display: inline; }
+    body.en-mode div.lang-en, body.en-mode p.lang-en, body.en-mode ul.lang-en, body.en-mode h3.lang-en, body.en-mode h4.lang-en { display: block; }
+    body.en-mode div.lang-zh, body.en-mode p.lang-zh, body.en-mode ul.lang-zh, body.en-mode h3.lang-zh, body.en-mode h4.lang-zh { display: none; }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          <span class="lang-zh">← 课程总目录 (Index)</span>
+          <span class="lang-en">← Course Index</span>
+        </a>
+        <span class="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950">
+          Stage 2 Capstone • Lesson 11 / 32
+        </span>
+        <div>
+          <h1 class="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+            <span class="lang-zh">细分曲面 (Part 2)：Catmull-Clark、Loop 细分算法与半边数据结构 (Half-Edge)</span>
+            <span class="lang-en">Subdivision Surfaces (Part 2): Catmull-Clark, Loop &amp; Half-Edge Data Structure</span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            3Blue1Brown Tensor Stencil Derivation • UC Davis ECS 175 Lecture 17 (Prof. Kenneth Joy) • Pixar Geri's Game
+          </p>
+        </div>
+      </div>
+
+      <button id="langToggleBtn" onclick="toggleLang()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition">
+        <span>🌐</span>
+        <span id="langBtnText">EN / 中文</span>
+      </button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-3 flex flex-wrap gap-2">
+      <button onclick="switchTab('concepts')" id="tab-btn-concepts" class="tab-btn active px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">1. 3Blue1Brown 精讲：从 1D 掩模张量积到 Catmull-Clark 与 Loop</span>
+        <span class="lang-en">1. 3Blue1Brown Deep Dive: Tensor Stencils, Catmull-Clark &amp; Loop</span>
+      </button>
+      <button onclick="switchTab('lab')" id="tab-btn-lab" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">2. 3D 实时细分实验室：Catmull-Clark vs Loop 与折痕锐度</span>
+        <span class="lang-en">2. 3D Live Subdivision Studio: Catmull-Clark vs Loop &amp; Creases</span>
+      </button>
+      <button onclick="switchTab('halfedge')" id="tab-btn-halfedge" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">3. 半边数据结构 (Half-Edge) 指针漫游器与 UC Davis Lec 17</span>
+        <span class="lang-en">3. Half-Edge Pointer Walker &amp; UC Davis Lec 17</span>
+      </button>
+      <button onclick="switchTab('game')" id="tab-btn-game" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-indigo-500/40 bg-indigo-950/40 text-indigo-300 transition">
+        <span class="lang-zh">🎮 4. 3关实战游戏：皮克斯细分曲面与半边架构师</span>
+        <span class="lang-en">🎮 4. 3-Mission Game: Pixar Subdivision &amp; Half-Edge Architect</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <!-- ==================== TAB 1: 3BLUE1BROWN DEEP CONCEPTS ==================== -->
+    <section id="tab-concepts" class="space-y-8">
+      <!-- Intro Banner -->
+      <div class="rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/40 p-6 sm:p-8 space-y-4">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+          <span>✨ Stage 2 Capstone • 3Blue1Brown Stencil Algebra × Pixar Subdivision</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white">
+          <span class="lang-zh">那些看似神秘的权重（$\frac{1}{64}, \frac{3}{8}, \frac{n-3}{n}$）到底是怎么推导出来的？</span>
+          <span class="lang-en">Where Do Subdivision Weights ($\frac{1}{64}, \frac{3}{8}, \frac{n-3}{n}$) Actually Come From?</span>
+        </h2>
+        <p class="lang-zh text-sm sm:text-base text-slate-300 leading-relaxed">
+          很多图形学教材一讲到 <b>Catmull-Clark 细分</b>（1978）和 <b>Loop 细分</b>（1987），就直接甩出一堆让人死记硬背的神秘分数：比如边点的 $\left(\frac{3}{8}, \frac{3}{8}, \frac{1}{8}, \frac{1}{8}\right)$、规则顶点的 $\frac{1}{64}(36, 6, 1)$ 以及奇异点的 $\frac{n-3}{n}\mathbf{v} + \frac{1}{n}\mathbf{F} + \frac{2}{n}\mathbf{R}$。
+          <br/><br/>
+          今天我们用 <b>3Blue1Brown 的外积乘法表思维</b>（结合 Lesson 09 的张量积与 Lesson 10 的一维 B-Spline 掩模），让你在 3 分钟内自己把这些权重全部推导出来！你会发现：<b>Catmull-Clark 本质上就是把 Lesson 10 的一维三次 B-Spline 细分掩模 $\frac{1}{8}(1, 6, 1)$ 与 $\frac{1}{2}(1, 1)$ 在二维网格上做了一次“外积乘法表”！</b>
+        </p>
+        <p class="lang-en text-sm sm:text-base text-slate-300 leading-relaxed">
+          Many textbooks present Catmull-Clark (1978) and Loop (1987) subdivision rules as magic fractions ($\frac{3}{8}, \frac{1}{8}, \frac{1}{64}, \frac{n-3}{n}$) to memorize. Using <b>3Blue1Brown's outer-product multiplication table</b> (combining Lesson 09 Tensor Products with Lesson 10 1D B-Spline masks), you can derive every single weight from first principles!
+        </p>
+      </div>
+
+      <!-- Part 1: Deriving Catmull-Clark from 1D Cubic B-Spline Tensor Product -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-black flex items-center justify-center">01</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">Catmull-Clark 四边形细分：从一维掩模 $\frac{1}{8}(1,6,1)$ 的外积乘法表到任意价 $n$ 奇异点</span>
+            <span class="lang-en">Catmull-Clark Quad Subdivision: From 1D Mask Tensor Products to Arbitrary Valence $n$</span>
+          </h3>
+        </div>
+
+        <p class="lang-zh text-sm text-slate-300 leading-relaxed">
+          回忆 Lesson 10 中<b>一维均匀三次 B-Spline</b> 的两个细分掩模：
+          <span class="text-cyan-300 font-mono">边分裂 (Midpoint) = $\frac{1}{2}\begin{bmatrix}1 & 1\end{bmatrix}$</span>，
+          <span class="text-amber-300 font-mono">顶点平滑 (Vertex) = $\frac{1}{8}\begin{bmatrix}1 & 6 & 1\end{bmatrix}$</span>。
+          现在假设我们有一张规则的二维四边形网格（每个顶点连接 $n=4$ 个面），同时在横轴 $u$ 和纵轴 $v$ 上做三次 B-Spline 细分——把行向量掩模与列向量掩模做<b>张量外积 (Outer Product)</b>，立刻长出三类新点：
+        </p>
+        <p class="lang-en text-sm text-slate-300 leading-relaxed">
+          Recall Lesson 10's 1D Cubic B-Spline masks: <span class="text-cyan-300 font-mono">Midpoint = $\frac{1}{2}[1, 1]$</span> and <span class="text-amber-300 font-mono">Vertex = $\frac{1}{8}[1, 6, 1]$</span>. Taking their 2D outer products along $u$ and $v$ immediately produces the three Catmull-Clark stencils:
+        </p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <!-- Face Point -->
+          <div class="math-box text-xs space-y-2 border-cyan-500/30">
+            <div class="text-cyan-300 font-bold text-sm">
+              <span class="lang-zh">① 面点 (Face Point $\mathbf{f}$)：Mid × Mid</span>
+              <span class="lang-en">1. Face Point ($\mathbf{f}$): Mid × Mid</span>
+            </div>
+            $$\frac{1}{2}\begin{bmatrix} 1 \\ 1 \end{bmatrix} \begin{bmatrix} 1 & 1 \end{bmatrix} \frac{1}{2} = \frac{1}{4}\begin{bmatrix} 1 & 1 \\ 1 & 1 \end{bmatrix}$$
+            <p class="lang-zh text-slate-300">
+              每个多边形面中心插入一个<b>面点 $\mathbf{f}$</b>，它就是该面所有顶点的算术平均值（重心）：
+              $$\mathbf{f} = \frac{1}{m}\sum_{k=1}^{m} \mathbf{p}_k$$
+            </p>
+            <p class="lang-en text-slate-300">
+              Every face gets a new <b>Face Point $\mathbf{f}$</b> at the centroid of its vertices: $\mathbf{f} = \frac{1}{m}\sum \mathbf{p}_k$.
+            </p>
+          </div>
+
+          <!-- Edge Point -->
+          <div class="math-box text-xs space-y-2 border-amber-500/30">
+            <div class="text-amber-300 font-bold text-sm">
+              <span class="lang-zh">② 边点 (Edge Point $\mathbf{e}$)：Vert × Mid</span>
+              <span class="lang-en">2. Edge Point ($\mathbf{e}$): Vert × Mid</span>
+            </div>
+            $$\frac{1}{8}\begin{bmatrix} 1 \\ 6 \\ 1 \end{bmatrix} \begin{bmatrix} 1 & 1 \end{bmatrix} \frac{1}{2} = \frac{1}{16}\begin{bmatrix} 1 & 1 \\ 6 & 6 \\ 1 & 1 \end{bmatrix}$$
+            <p class="lang-zh text-slate-300">
+              仔细看右边的 $\frac{1}{16}\begin{bmatrix}1&1\\6&6\\1&1\end{bmatrix}$！设共享这条边的两个端点是 $\mathbf{p}_0, \mathbf{p}_1$，左右两个相邻面的面点分别是 $\mathbf{f}_L, \mathbf{f}_R$（每个面点已经是 4 个角点的 $\frac{1}{4}$ 平均）。那么：
+              $$\frac{\mathbf{p}_0 + \mathbf{p}_1 + \mathbf{f}_L + \mathbf{f}_R}{4} = \frac{6}{16}\mathbf{p}_0 + \frac{6}{16}\mathbf{p}_1 + \frac{1}{16}(\text{4个翼点})$$
+              <b>完全相等！</b>所以边点 $\mathbf{e}$ 只需把<b>边两端点与两侧新面点求 4 点平均</b>！
+            </p>
+            <p class="lang-en text-slate-300">
+              Look at $\frac{1}{16}\begin{bmatrix}1&1\\6&6\\1&1\end{bmatrix}$! Since the two adjacent face points $\mathbf{f}_L, \mathbf{f}_R$ each average 4 corners with weight $1/4$, averaging the edge endpoints $\mathbf{p}_0, \mathbf{p}_1$ with $\mathbf{f}_L, \mathbf{f}_R$ gives $\mathbf{e} = \frac{\mathbf{p}_0 + \mathbf{p}_1 + \mathbf{f}_L + \mathbf{f}_R}{4}$, matching $\frac{1}{16}(6,6,1,1,1,1)$!
+            </p>
+          </div>
+
+          <!-- Vertex Point -->
+          <div class="math-box text-xs space-y-2 border-emerald-500/30">
+            <div class="text-emerald-300 font-bold text-sm">
+              <span class="lang-zh">③ 顶点更新 (Vertex $\mathbf{v}'$)：Vert × Vert</span>
+              <span class="lang-en">3. Vertex Point ($\mathbf{v}'$): Vert × Vert</span>
+            </div>
+            $$\frac{1}{8}\begin{bmatrix} 1 \\ 6 \\ 1 \end{bmatrix} \begin{bmatrix} 1 & 6 & 1 \end{bmatrix} \frac{1}{8} = \frac{1}{64}\begin{bmatrix} 1 & 6 & 1 \\ 6 & \mathbf{36} & 6 \\ 1 & 6 & 1 \end{bmatrix}$$
+            <p class="lang-zh text-slate-300">
+              中心权重是 $\frac{36}{64}$，十字相邻 4 个边点各 $\frac{6}{64}$，对角 4 个角点各 $\frac{1}{64}$（总和 $\frac{36+24+4}{64}=1$）。<br/>
+              如果遇到连接了 <b>$n \ne 4$ 条边的奇异点</b>怎么办？Catmull 与 Clark 把 $\frac{1}{64}$ 矩阵拆解成了对任意价 $n$ 都通用的公式：
+              $$\mathbf{v}' = \frac{n-3}{n}\mathbf{v} + \frac{1}{n}\mathbf{F} + \frac{2}{n}\mathbf{R}$$
+              其中 $\mathbf{F}$ 是周围 $n$ 个新面点的平均，$\mathbf{R}$ 是周围 $n$ 条旧边中点的平均！（当 $n=4$ 时，$\frac{1}{4}\mathbf{v} + \frac{1}{4}\mathbf{F} + \frac{2}{4}\mathbf{R}$ 展开正好还原 $\frac{1}{64}\begin{bmatrix}1&6&1\\6&36&6\\1&6&1\end{bmatrix}$！）
+            </p>
+            <p class="lang-en text-slate-300">
+              To generalize $\frac{1}{64}\begin{bmatrix}1&6&1\\6&36&6\\1&6&1\end{bmatrix}$ to an extraordinary vertex of valence $n$, Catmull &amp; Clark factored it into:
+              $$\mathbf{v}' = \frac{n-3}{n}\mathbf{v} + \frac{1}{n}\mathbf{F} + \frac{2}{n}\mathbf{R}$$
+              where $\mathbf{F}$ is the average of the $n$ incident Face Points and $\mathbf{R}$ is the average of the $n$ incident Edge Midpoints!
+            </p>
+          </div>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 text-xs sm:text-sm text-slate-200 leading-relaxed">
+          <b class="text-emerald-300">💡 Catmull-Clark 的两大拓扑不变量定理（为什么角色建模师最爱它）：</b>
+          <ul class="list-disc pl-5 mt-1.5 space-y-1">
+            <li><span class="lang-zh"><b>定理 1（1 步全四边形化）</b>：哪怕你输入的粗网格 $P^0$ 里混杂了三角形、五边形、七边形，只要做完<b>第 1 步 Catmull-Clark 细分</b>（因为每个 $m$ 边形被中心面点 $\mathbf{f}$ 和 $m$ 个边点切成了 $m$ 个四边形），从 $P^1$ 开始全网格<b>100% 全部变成纯四边形</b>！</span><span class="lang-en"><b>Theorem 1 (All-Quads After 1 Step)</b>: Even if $P^0$ contains triangles, pentagons, or $m$-gons, splitting each $m$-gon around its Face Point produces $m$ quads. From $P^1$ onward, the mesh is 100% quads!</span></li>
+            <li><span class="lang-zh"><b>定理 2（奇异点数量永远锁定不变）</b>：第 1 步之后新产生的面点（在四边形内连接 4 条边 $\implies n=4$）和边点（左右两个面、上下两个端点 $\implies n=4$）<b>永远是规则顶点</b>！这意味着无论你细分多少次，全网格的奇异点数量恒定不变，且被隔离在越来越小的局部区域内！</span><span class="lang-en"><b>Theorem 2 (Constant Extraordinary Vertex Count)</b>: After step 1, every newly created Face Point and Edge Point has exact regular valence $n=4$. The number of extraordinary vertices never grows!</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Part 2: Loop Triangle Subdivision & Interactive Stencil Explorer -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-black flex items-center justify-center">02</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">Loop 三角形细分 (1987)：1 拆 4 拓扑分裂与菱形掩模 $(\frac{3}{8}, \frac{3}{8}, \frac{1}{8}, \frac{1}{8})$</span>
+            <span class="lang-en">Loop Triangle Subdivision (1987): 1-to-4 Split &amp; Diamond Stencil $(3/8, 3/8, 1/8, 1/8)$</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm text-slate-300 leading-relaxed">
+          <div class="space-y-3">
+            <p class="lang-zh">
+              如果你的初始网格全部由<b>三角形 (Triangles)</b> 构成（例如激光扫描网格或游戏引擎网格），Charles Loop 在 1987 年基于三方向四次箱样条 (Quartic Box-Splines) 提出了专门针对三角形网格的 <b>Loop 细分算法</b>：
+            </p>
+            <p class="lang-en">
+              For triangle meshes, Charles Loop (1987) derived a $C^2$ scheme based on three-directional quartic box-splines that splits every triangle into 4 sub-triangles:
+            </p>
+            <div class="math-box text-xs space-y-2">
+              <div class="text-cyan-300 font-bold">① 边点菱形掩模 (Edge Point Diamond Stencil):</div>
+              $$\mathbf{e} = \frac{3}{8}\mathbf{p}_0 + \frac{3}{8}\mathbf{p}_1 + \frac{1}{8}\mathbf{p}_{\text{opp},L} + \frac{1}{8}\mathbf{p}_{\text{opp},R}$$
+              <div class="text-xs text-slate-400">
+                （注意：$\frac{3}{8} + \frac{3}{8} + \frac{1}{8} + \frac{1}{8} = \frac{8}{8} = 1$；若是边界边，则退化为 $\frac{1}{2}\mathbf{p}_0 + \frac{1}{2}\mathbf{p}_1$）
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="math-box text-xs space-y-2">
+              <div class="text-amber-300 font-bold">② 顶点一环平滑掩模 (Vertex 1-Ring Stencil, Valence $n$):</div>
+              $$\mathbf{v}' = (1 - n\beta)\,\mathbf{v} + \beta \sum_{i=1}^{n} \mathbf{p}_i$$
+              $$\beta_{\text{Loop}}(n) = \frac{1}{n}\left(\frac{5}{8} - \left(\frac{3}{8} + \frac{1}{4}\cos\frac{2\pi}{n}\right)^2\right), \quad \beta_{\text{Warren}}(n) = \begin{cases} \frac{3}{16}, & n = 3 \\ \frac{3}{8n}, & n > 3 \end{cases}$$
+              <div class="text-xs text-slate-400">
+                当规则价 $n = 6$ 时，$\cos(60^\circ) = \frac{1}{2} \implies \beta = \frac{1}{16}$，中心顶点权重为 $1 - \frac{6}{16} = \frac{10}{16} = \frac{5}{8}$，周围 6 个邻居各占 $\frac{1}{16}$！
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer 1: Dynamic Stencil Calculator (Catmull-Clark vs Loop) -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-bold text-emerald-300">
+                <span class="lang-zh">🔬 交互透视镜 1：Catmull-Clark 与 Loop 细分掩模 (Stencil Weights) 动态计算器</span>
+                <span class="lang-en">🔬 Interactive Visualizer 1: Catmull-Clark vs Loop Dynamic Stencil Explorer</span>
+              </h4>
+              <p class="text-xs text-slate-400">
+                <span class="lang-zh">拖动顶点价（Valence $n = 3 \dots 10$），实时观察中心顶点与一环邻居的精确细分权重分布（始终满足单位分解 $\sum w_i = 1$）！</span>
+                <span class="lang-en">Scrub vertex valence $n \in [3, 10]$ to inspect exact stencil weights and verify Partition of Unity ($\sum w_i = 1$)!</span>
+              </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <button onclick="setStencilMode('cc')" id="st-btn-cc" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white">
+                Catmull-Clark (Quad)
+              </button>
+              <button onclick="setStencilMode('loop')" id="st-btn-loop" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+                Loop Subdivision (Triangle)
+              </button>
+              <div class="flex items-center gap-2 text-xs font-bold text-amber-300 ml-2">
+                <span>Valence n = <span id="stValenceText">4</span></span>
+                <input id="stValenceSlider" type="range" min="3" max="10" step="1" value="4" oninput="onStencilValence(this.value)" class="w-28 accent-emerald-400" />
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-7">
+              <canvas id="stencilCanvas" width="600" height="320" class="w-full rounded-xl border border-slate-800 bg-slate-900/70"></canvas>
+            </div>
+            <div class="lg:col-span-5 text-xs font-mono">
+              <div id="stencilReadout" class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 text-slate-200"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: 3D LIVE SUBDIVISION STUDIO (CATMULL-CLARK & LOOP + CREASES) ==================== -->
+    <section id="tab-lab" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white">
+              <span class="lang-zh">🧊 3D 实时细分曲面工坊：Catmull-Clark vs Loop 与皮克斯折痕锐度 (Crease Sharpness)</span>
+              <span class="lang-en">🧊 3D Real-Time Subdivision Studio: Catmull-Clark vs Loop &amp; Pixar Semi-Sharp Creases</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              <span class="lang-zh">对 3D 控制笼进行 $k = 0 \to 3$ 级实时细分，调节顶部特征折痕锐度 (Crease $s \in [0, 1]$)，观察粗糙低模如何化为光滑有机曲面！</span>
+              <span class="lang-en">Subdivide 3D base meshes across levels $k = 0 \to 3$, adjust top-ring Crease Sharpness $s \in [0, 1]$, and inspect Extraordinary Vertices!</span>
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setLab3DMesh('cube')" id="m3d-cube" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white">Cube (CC Quad)</button>
+            <button onclick="setLab3DMesh('star')" id="m3d-star" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">Star Cage (CC Quad)</button>
+            <button onclick="setLab3DMesh('torus')" id="m3d-torus" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">Blocky Torus (CC Quad)</button>
+            <button onclick="setLab3DMesh('octa')" id="m3d-octa" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-900/70 text-cyan-200 border border-cyan-500/40">Octahedron (Loop Tri)</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-8">
+            <canvas id="subdiv3DCanvas" width="700" height="440" class="w-full rounded-2xl border border-slate-800 bg-slate-950 cursor-grab"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 space-y-4 text-xs">
+            <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-amber-300">Subdivision Level k: <span id="s3dLevelText">2</span></span>
+                <div class="flex gap-1.5">
+                  <button onclick="setS3DLevel(0)" class="px-2 py-1 rounded bg-slate-800 text-slate-200 font-bold">0</button>
+                  <button onclick="setS3DLevel(1)" class="px-2 py-1 rounded bg-slate-800 text-slate-200 font-bold">1</button>
+                  <button onclick="setS3DLevel(2)" class="px-2 py-1 rounded bg-emerald-600 text-white font-bold">2</button>
+                  <button onclick="setS3DLevel(3)" class="px-2 py-1 rounded bg-slate-800 text-slate-200 font-bold">3</button>
+                </div>
+              </div>
+              <input id="s3dLevelSlider" type="range" min="0" max="3" step="1" value="2" oninput="setS3DLevel(Number(this.value))" class="w-full accent-emerald-500" />
+
+              <div class="pt-2 border-t border-slate-800 space-y-1.5">
+                <div class="flex justify-between font-bold text-cyan-300">
+                  <span>Top-Cap Crease Sharpness (s)</span>
+                  <span id="s3dCreaseText">0.00</span>
+                </div>
+                <input id="s3dCreaseSlider" type="range" min="0" max="1" step="0.05" value="0" oninput="onS3DCrease(this.value)" class="w-full accent-cyan-400" />
+                <p class="text-[11px] text-slate-400">
+                  <span class="lang-zh">s = 0：完全光滑 Catmull-Clark；s = 1：顶部 4 条边锁定为硬折痕（模拟圆柱顶盖）！</span>
+                  <span class="lang-en">s = 0: Smooth Catmull-Clark; s = 1: Top ring locked as sharp crease (cylinder cap)!</span>
+                </p>
+              </div>
+
+              <div class="pt-2 border-t border-slate-800 space-y-2">
+                <label class="flex items-center gap-2 text-slate-200 cursor-pointer">
+                  <input type="checkbox" id="s3dShowCage" checked onchange="drawSubdiv3D()" />
+                  <span><span class="lang-zh">显示原始控制笼 $P^0$ 线框 (Control Cage)</span><span class="lang-en">Show Coarse Control Cage $P^0$</span></span>
+                </label>
+                <label class="flex items-center gap-2 text-amber-300 font-bold cursor-pointer">
+                  <input type="checkbox" id="s3dShowExtra" checked onchange="drawSubdiv3D()" />
+                  <span><span class="lang-zh">高亮奇异顶点 (Extraordinary Vertices)</span><span class="lang-en">Highlight Extraordinary Vertices</span></span>
+                </label>
+              </div>
+            </div>
+
+            <div id="s3dStats" class="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono space-y-1.5 text-slate-300"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: HALF-EDGE DATA STRUCTURE WALKER & LECTURE 17 ==================== -->
+    <section id="tab-halfedge" class="hidden space-y-8">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white">
+              <span class="lang-zh">🧭 半边数据结构 (Half-Edge Data Structure) 指针漫游器</span>
+              <span class="lang-en">🧭 Half-Edge Data Structure Interactive Pointer Walker</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              <span class="lang-zh">为什么直接存三角形数组 `faces[F][3]` 做细分会慢到崩溃？因为找一条边的相邻面需要 $O(F)$ 全局扫描！把每条无向边拆成一对反向有向半边 (`h` 与 `h.twin`)，只需四根指针就能实现 **$O(1)$ 常数时间拓扑查询**！</span>
+              <span class="lang-en">Splitting each undirected edge into a pair of oppositely oriented Half-Edges (`h` and `h.twin`) enables $O(1)$ topological queries via 4 pointers (`next`, `twin`, `vert`, `face`)!</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-7">
+            <canvas id="heCanvas" width="640" height="380" class="w-full rounded-2xl border border-slate-800 bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 space-y-4 text-xs">
+            <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div class="font-bold text-white">
+                <span class="lang-zh">点击执行 $O(1)$ 半边指针跳转：</span>
+                <span class="lang-en">Execute $O(1)$ Half-Edge Pointer Transitions:</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2.5">
+                <button onclick="heStep('next')" class="px-3.5 py-2.5 rounded-xl font-mono font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow">
+                  h = h.next ↻
+                </button>
+                <button onclick="heStep('twin')" class="px-3.5 py-2.5 rounded-xl font-mono font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow">
+                  h = h.twin ⇄
+                </button>
+                <button onclick="heStep('onering')" class="col-span-2 px-3.5 py-2.5 rounded-xl font-mono font-bold bg-cyan-600 hover:bg-cyan-500 text-white shadow">
+                  h = h.twin.next (Walk 1-Ring Around Origin Vertex!)
+                </button>
+              </div>
+
+              <div class="math-box text-[11px] font-mono text-slate-300 space-y-1">
+                <div class="text-cyan-300 font-bold">// C++ / TypeScript Half-Edge Struct</div>
+                <div>struct HalfEdge {</div>
+                <div>&nbsp;&nbsp;Vertex* vert; &nbsp;&nbsp;// Target / Origin vertex</div>
+                <div>&nbsp;&nbsp;Face* face; &nbsp;&nbsp;&nbsp;&nbsp;// Incident left face</div>
+                <div>&nbsp;&nbsp;HalfEdge* next; // Next half-edge in face loop</div>
+                <div>&nbsp;&nbsp;HalfEdge* twin; // Opposite half-edge across edge</div>
+                <div>};</div>
+              </div>
+            </div>
+
+            <div id="heReadout" class="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono space-y-1.5 text-slate-200"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- UC Davis ECS 175 Lecture 17 Video & Notes -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <h3 class="text-xl font-bold text-white">
+          <span class="lang-zh">🎥 UC Davis ECS 175 Lecture 17 配套公开课与细分曲面总结</span>
+          <span class="lang-en">🎥 UC Davis ECS 175 Lecture 17 (Subdivision Surfaces, Part 2)</span>
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 text-xs font-mono font-bold">UCD-17 • Prof. Kenneth Joy</span>
+              <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+17" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">YouTube Search ↗</a>
+            </div>
+            <h4 class="font-bold text-white text-base">UC Davis ECS 175 — Lecture 17: Subdivision Surfaces, Part 2</h4>
+            <p class="lang-zh text-xs text-slate-400 leading-relaxed">
+              Kenneth Joy 教授在本讲中将一维 B-Spline 细分推广到三维网格：详解了 Catmull-Clark 的面点 ($\mathbf{f}$)、边点 ($\mathbf{e}$)、顶点 ($\mathbf{v}'$) 三步掩模，Doo-Sabin 二次对偶细分，以及奇异点邻域的 $G^1/C^1$ 连续性分析。
+            </p>
+            <p class="lang-en text-xs text-slate-400 leading-relaxed">
+              Prof. Kenneth Joy generalizes 1D B-spline subdivision to 3D meshes, covering Catmull-Clark Face/Edge/Vertex masks, Doo-Sabin quadratic dual subdivision, and continuity at extraordinary vertices.
+            </p>
+            <div class="aspect-video rounded-xl overflow-hidden border border-slate-800 bg-slate-900">
+              <iframe class="w-full h-full" src="https://www.youtube.com/embed/videoseries?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi&index=4" title="Subdivision Surfaces Lecture" allowfullscreen></iframe>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 overflow-x-auto">
+            <h4 class="font-bold text-white text-sm mb-3">
+              <span class="lang-zh">📊 3D 细分曲面三大流派终极对比表</span>
+              <span class="lang-en">📊 3D Surface Subdivision Schemes Comparison</span>
+            </h4>
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-slate-800 text-slate-400">
+                  <th class="py-2 pr-2">Scheme</th>
+                  <th class="py-2 px-2">Base Mesh</th>
+                  <th class="py-2 px-2">Generalizes</th>
+                  <th class="py-2 pl-2">Continuity (Regular / Extra.)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/70 text-slate-300">
+                <tr>
+                  <td class="py-2.5 pr-2 font-bold text-emerald-300">Catmull-Clark (1978)</td>
+                  <td class="py-2.5 px-2">Quads (Any polygon at $k=0$)</td>
+                  <td class="py-2.5 px-2">Bicubic B-Spline ($C^2$)</td>
+                  <td class="py-2.5 pl-2">$C^2$ regular ($n=4$), $C^1$ at $n \ne 4$</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 pr-2 font-bold text-cyan-300">Loop (1987)</td>
+                  <td class="py-2.5 px-2">Triangles (1-to-4 split)</td>
+                  <td class="py-2.5 px-2">Quartic Box-Spline ($C^2$)</td>
+                  <td class="py-2.5 pl-2">$C^2$ regular ($n=6$), $C^1$ at $n \ne 6$</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 pr-2 font-bold text-amber-300">Doo-Sabin (1978)</td>
+                  <td class="py-2.5 px-2">Dual Corner-Cutting</td>
+                  <td class="py-2.5 px-2">Biquadratic B-Spline ($C^1$)</td>
+                  <td class="py-2.5 pl-2">$C^1$ everywhere</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-game" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-indigo-500/40 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white">
+              <span class="lang-zh">🎮 3 关实战通关小游戏：皮克斯细分曲面与半边架构师</span>
+              <span class="lang-en">🎮 3-Mission Game: Pixar Subdivision &amp; Half-Edge Architect</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              <span class="lang-zh">亲手配平 Catmull-Clark 规则掩模、调校 Loop 菱形边点权重，并编写半边一环遍历指令通关 Stage 2！</span>
+              <span class="lang-en">Complete Stage 2 by balancing Catmull-Clark stencils, calibrating Loop diamond edge weights, and executing Half-Edge 1-ring traversal!</span>
+            </p>
+          </div>
+
+          <div class="flex gap-2">
+            <button onclick="setGameMission(1)" id="game-btn-1" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white">
+              Mission 1: Catmull-Clark Stencil
+            </button>
+            <button onclick="setGameMission(2)" id="game-btn-2" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 2: Loop Diamond Edge
+            </button>
+            <button onclick="setGameMission(3)" id="game-btn-3" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 3: Half-Edge 1-Ring Walker
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-7">
+            <canvas id="gameCanvas" width="640" height="360" class="w-full rounded-2xl border border-slate-800 bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 space-y-4 text-xs">
+            <div id="gameDesc" class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 text-slate-200 leading-relaxed"></div>
+
+            <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div>
+                <div class="flex justify-between font-bold text-amber-300 mb-1">
+                  <span id="gLabel1">Param 1</span>
+                  <span id="gVal1">16</span>
+                </div>
+                <input id="gSlider1" type="range" min="4" max="48" step="2" value="16" oninput="drawGame()" class="w-full accent-amber-400" />
+              </div>
+              <div>
+                <div class="flex justify-between font-bold text-cyan-300 mb-1">
+                  <span id="gLabel2">Param 2</span>
+                  <span id="gVal2">4</span>
+                </div>
+                <input id="gSlider2" type="range" min="1" max="12" step="1" value="4" oninput="drawGame()" class="w-full accent-cyan-400" />
+              </div>
+            </div>
+
+            <div id="gameStatus" class="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== LANGUAGE & TAB CONTROLLER ====================
+    let isEn = false;
+    function toggleLang() {
+      isEn = !isEn;
+      document.body.classList.toggle('en-mode', isEn);
+      drawStencil();
+      drawSubdiv3D();
+      drawHalfEdge();
+      drawGame();
+    }
+
+    function switchTab(tabId) {
+      ['concepts', 'lab', 'halfedge', 'game'].forEach(id => {
+        document.getElementById('tab-' + id).classList.toggle('hidden', id !== tabId);
+        document.getElementById('tab-btn-' + id).classList.toggle('active', id === tabId);
+      });
+      if (tabId === 'concepts') drawStencil();
+      if (tabId === 'lab') drawSubdiv3D();
+      if (tabId === 'halfedge') drawHalfEdge();
+      if (tabId === 'game') drawGame();
+    }
+
+    // ==================== VISUALIZER 1: DYNAMIC STENCIL EXPLORER ====================
+    let stMode = 'cc';
+    let stValence = 4;
+
+    function setStencilMode(m) {
+      stMode = m;
+      document.getElementById('st-btn-cc').className = m === 'cc'
+        ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white'
+        : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      document.getElementById('st-btn-loop').className = m === 'loop'
+        ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white'
+        : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      if (m === 'cc' && stValence === 6) onStencilValence(4);
+      if (m === 'loop' && stValence === 4) onStencilValence(6);
+      drawStencil();
+    }
+
+    function onStencilValence(val) {
+      stValence = Number(val);
+      document.getElementById('stValenceSlider').value = stValence;
+      document.getElementById('stValenceText').textContent = stValence;
+      drawStencil();
+    }
+
+    function drawStencil() {
+      const c = document.getElementById('stencilCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const cx = W * 0.5, cy = H * 0.5, R = 110;
+      const n = stValence;
+
+      if (stMode === 'cc') {
+        // Catmull-Clark Vertex Stencil for valence n:
+        // v' = ((n-3)/n) v + (1/n) F + (2/n) R_mid
+        // In terms of original vertices: center weight = (n-3)/n + 1/(4n)*n + 1/n*n = (4n - 7)/(4n)
+        // Each edge-neighbor weight = 6/(4n^2), each corner-neighbor weight = 1/(4n^2)
+        const wCenter = (4 * n - 7) / (4 * n);
+        const wEdge = 6 / (4 * n * n);
+        const wCorner = 1 / (4 * n * n);
+
+        for (let i = 0; i < n; i++) {
+          const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
+          const angNext = ((i + 0.5) / n) * Math.PI * 2 - Math.PI / 2;
+          const ex = cx + Math.cos(ang) * R, ey = cy + Math.sin(ang) * R;
+          const fx = cx + Math.cos(angNext) * (R * 1.18), fy = cy + Math.sin(angNext) * (R * 1.18);
+
+          ctx.strokeStyle = '#334155'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey); ctx.stroke();
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+          ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(fx, fy); ctx.stroke();
+
+          ctx.fillStyle = '#38bdf8';
+          ctx.beginPath(); ctx.arc(ex, ey, 6.5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 11px monospace';
+          ctx.fillText(wEdge.toFixed(4), ex - 18, ey - 10);
+
+          ctx.fillStyle = '#a855f7';
+          ctx.beginPath(); ctx.arc(fx, fy, 5, 0, Math.PI * 2); ctx.fill();
+        }
+
+        ctx.fillStyle = '#10b981';
+        ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 12px monospace';
+        ctx.fillText(`v: ${wCenter.toFixed(4)}`, cx - 32, cy + 26);
+
+        const sum = wCenter + n * wEdge + n * wCorner;
+        document.getElementById('stencilReadout').innerHTML = `
+          <div class="text-emerald-400 font-bold">Catmull-Clark Vertex Stencil (n = ${n})</div>
+          <div>Formula: v' = ((n-3)/n)v + (1/n)F + (2/n)R</div>
+          <div class="text-amber-300">Center Weight w_v = ${wCenter.toFixed(4)} ${n === 4 ? '(36/64 = 0.5625)' : ''}</div>
+          <div class="text-cyan-300">Each Edge Neighbor (${n}×) = ${wEdge.toFixed(4)} ${n === 4 ? '(6/64 = 0.09375)' : ''}</div>
+          <div class="text-purple-300">Each Diag Corner (${n}×) = ${wCorner.toFixed(4)} ${n === 4 ? '(1/64 = 0.015625)' : ''}</div>
+          <div class="pt-1 border-t border-slate-800 text-emerald-300">Partition of Unity ∑w = ${sum.toFixed(6)}</div>
+        `;
+      } else {
+        // Loop Vertex Stencil for valence n
+        const cTerm = 0.375 + 0.25 * Math.cos((2 * Math.PI) / n);
+        const beta = (1 / n) * (0.625 - cTerm * cTerm);
+        const wCenter = 1 - n * beta;
+
+        for (let i = 0; i < n; i++) {
+          const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
+          const angNext = ((i + 1) / n) * Math.PI * 2 - Math.PI / 2;
+          const ex = cx + Math.cos(ang) * R, ey = cy + Math.sin(ang) * R;
+          const nx = cx + Math.cos(angNext) * R, ny = cy + Math.sin(angNext) * R;
+
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey); ctx.lineTo(nx, ny); ctx.closePath(); ctx.stroke();
+
+          ctx.fillStyle = '#22d3ee';
+          ctx.beginPath(); ctx.arc(ex, ey, 7, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 11px monospace';
+          ctx.fillText(`β=${beta.toFixed(4)}`, ex - 22, ey - 10);
+        }
+
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`1-nβ=${wCenter.toFixed(4)}`, cx - 42, cy + 26);
+
+        document.getElementById('stencilReadout').innerHTML = `
+          <div class="text-cyan-300 font-bold">Loop Triangle Vertex Stencil (n = ${n})</div>
+          <div>Formula: v' = (1 - nβ)v + β ∑ p_i</div>
+          <div class="text-amber-300">Center Weight (1 - nβ) = ${wCenter.toFixed(4)} ${n === 6 ? '(10/16 = 0.625)' : ''}</div>
+          <div class="text-cyan-300">Neighbor Weight β (${n}×) = ${beta.toFixed(4)} ${n === 6 ? '(1/16 = 0.0625)' : ''}</div>
+          <div class="pt-1 border-t border-slate-800 text-emerald-300">Partition of Unity ∑w = ${(wCenter + n * beta).toFixed(6)}</div>
+        `;
+      }
+    }
+
+    // ==================== TAB 2: 3D LIVE CATMULL-CLARK & LOOP SUBDIVISION ENGINE ====================
+    let s3dMeshKind = 'cube';
+    let s3dLevel = 2;
+    let s3dCrease = 0.0;
+    let s3dYaw = 0.65, s3dPitch = 0.42, s3dDragging = false, s3dLastX = 0, s3dLastY = 0;
+
+    function makeBaseMesh3D(kind) {
+      if (kind === 'cube') {
+        const verts = [
+          [-1.1,-1.1,-1.1],[1.1,-1.1,-1.1],[1.1,1.1,-1.1],[-1.1,1.1,-1.1],
+          [-1.1,-1.1,1.1],[1.1,-1.1,1.1],[1.1,1.1,1.1],[-1.1,1.1,1.1]
+        ];
+        const faces = [
+          [0,1,2,3],[4,7,6,5],[0,4,5,1],[1,5,6,2],[2,6,7,3],[3,7,4,0]
+        ];
+        return { verts, faces, scheme: 'cc' };
+      } else if (kind === 'star') {
+        const verts = [
+          [-0.7,-0.7,-0.7],[0.7,-0.7,-0.7],[0.7,0.7,-0.7],[-0.7,0.7,-0.7],
+          [-0.7,-0.7,0.7],[0.7,-0.7,0.7],[0.7,0.7,0.7],[-0.7,0.7,0.7],
+          [0, 1.95, 0], [0, -1.95, 0], [1.95, 0, 0], [-1.95, 0, 0]
+        ];
+        const faces = [
+          [2,6,8],[6,7,8],[7,3,8],[3,2,8],
+          [0,1,9],[1,5,9],[5,4,9],[4,0,9],
+          [1,2,10],[2,6,10],[6,5,10],[5,1,10],
+          [0,4,11],[4,7,11],[7,3,11],[3,0,11]
+        ];
+        return { verts, faces, scheme: 'cc' };
+      } else if (kind === 'torus') {
+        const verts = [], faces = [];
+        const R = 1.15, r = 0.48, N = 6, M = 4;
+        for (let i = 0; i < N; i++) {
+          const u = (i / N) * Math.PI * 2;
+          for (let j = 0; j < M; j++) {
+            const v = (j / M) * Math.PI * 2;
+            verts.push([
+              (R + r * Math.cos(v)) * Math.cos(u),
+              r * Math.sin(v),
+              (R + r * Math.cos(v)) * Math.sin(u)
+            ]);
+          }
+        }
+        for (let i = 0; i < N; i++) {
+          const ni = (i + 1) % N;
+          for (let j = 0; j < M; j++) {
+            const nj = (j + 1) % M;
+            faces.push([i * M + j, ni * M + j, ni * M + nj, i * M + nj]);
+          }
+        }
+        return { verts, faces, scheme: 'cc' };
+      } else {
+        const verts = [[1.45,0,0],[-1.45,0,0],[0,1.45,0],[0,-1.45,0],[0,0,1.45],[0,0,-1.45]];
+        const faces = [
+          [2,0,4],[2,4,1],[2,1,5],[2,5,0],
+          [3,4,0],[3,1,4],[3,5,1],[3,0,5]
+        ];
+        return { verts, faces, scheme: 'loop' };
+      }
+    }
+
+    function catmullClarkStep(mesh, creaseAmount = 0) {
+      const { verts, faces } = mesh;
+      const V = verts.length, F = faces.length;
+
+      // 1. Face points
+      const facePts = faces.map(f => {
+        const s = [0, 0, 0];
+        f.forEach(vi => { s[0] += verts[vi][0]; s[1] += verts[vi][1]; s[2] += verts[vi][2]; });
+        return [s[0] / f.length, s[1] / f.length, s[2] / f.length];
+      });
+
+      // 2. Build edges map
+      const edgeMap = new Map();
+      const edges = [];
+      const vertFaces = Array.from({ length: V }, () => []);
+      const vertEdges = Array.from({ length: V }, () => []);
+
+      faces.forEach((f, fi) => {
+        f.forEach((v0, idx) => {
+          vertFaces[v0].push(fi);
+          const v1 = f[(idx + 1) % f.length];
+          const key = v0 < v1 ? `${v0}_${v1}` : `${v1}_${v0}`;
+          if (!edgeMap.has(key)) {
+            const ei = edges.length;
+            edgeMap.set(key, ei);
+            edges.push({ v0: Math.min(v0, v1), v1: Math.max(v0, v1), faces: [fi] });
+            vertEdges[v0].push(ei);
+            vertEdges[v1].push(ei);
+          } else {
+            edges[edgeMap.get(key)].faces.push(fi);
+          }
+        });
+      });
+
+      // 3. Edge points (with top-cap crease blend if y > 0.5)
+      const edgePts = edges.map(e => {
+        const p0 = verts[e.v0], p1 = verts[e.v1];
+        const mid = [0.5 * (p0[0] + p1[0]), 0.5 * (p0[1] + p1[1]), 0.5 * (p0[2] + p1[2])];
+        if (e.faces.length < 2) return mid;
+        const f0 = facePts[e.faces[0]], f1 = facePts[e.faces[1]];
+        const smooth = [
+          0.25 * (p0[0] + p1[0] + f0[0] + f1[0]),
+          0.25 * (p0[1] + p1[1] + f0[1] + f1[1]),
+          0.25 * (p0[2] + p1[2] + f0[2] + f1[2])
+        ];
+        const isTop = p0[1] > 0.45 && p1[1] > 0.45;
+        const c = isTop ? creaseAmount : 0;
+        return [
+          (1 - c) * smooth[0] + c * mid[0],
+          (1 - c) * smooth[1] + c * mid[1],
+          (1 - c) * smooth[2] + c * mid[2]
+        ];
+      });
+
+      // 4. Updated Original Vertices
+      const newVerts = verts.map((v, vi) => {
+        const n = vertFaces[vi].length;
+        if (n === 0) return [...v];
+        const Favg = [0, 0, 0];
+        vertFaces[vi].forEach(fi => {
+          Favg[0] += facePts[fi][0]; Favg[1] += facePts[fi][1]; Favg[2] += facePts[fi][2];
+        });
+        Favg[0] /= n; Favg[1] /= n; Favg[2] /= n;
+
+        const Ravg = [0, 0, 0];
+        const m = vertEdges[vi].length || 1;
+        vertEdges[vi].forEach(ei => {
+          const e = edges[ei];
+          Ravg[0] += 0.5 * (verts[e.v0][0] + verts[e.v1][0]);
+          Ravg[1] += 0.5 * (verts[e.v0][1] + verts[e.v1][1]);
+          Ravg[2] += 0.5 * (verts[e.v0][2] + verts[e.v1][2]);
+        });
+        Ravg[0] /= m; Ravg[1] /= m; Ravg[2] /= m;
+
+        const smooth = [
+          ((n - 3) * v[0] + Favg[0] + 2 * Ravg[0]) / n,
+          ((n - 3) * v[1] + Favg[1] + 2 * Ravg[1]) / n,
+          ((n - 3) * v[2] + Favg[2] + 2 * Ravg[2]) / n
+        ];
+        const isTop = v[1] > 0.45;
+        const c = isTop ? creaseAmount : 0;
+        return [
+          (1 - c) * smooth[0] + c * v[0],
+          (1 - c) * smooth[1] + c * v[1],
+          (1 - c) * smooth[2] + c * v[2]
+        ];
+      });
+
+      const edgeOffset = V;
+      const faceOffset = V + edges.length;
+      const allVerts = [...newVerts, ...edgePts, ...facePts];
+      const newFaces = [];
+
+      faces.forEach((f, fi) => {
+        const fIdx = faceOffset + fi;
+        const len = f.length;
+        for (let i = 0; i < len; i++) {
+          const vCurr = f[i];
+          const vNext = f[(i + 1) % len];
+          const vPrev = f[(i - 1 + len) % len];
+          const kNext = vCurr < vNext ? `${vCurr}_${vNext}` : `${vNext}_${vCurr}`;
+          const kPrev = vCurr < vPrev ? `${vCurr}_${vPrev}` : `${vPrev}_${vCurr}`;
+          const eNext = edgeOffset + edgeMap.get(kNext);
+          const ePrev = edgeOffset + edgeMap.get(kPrev);
+          newFaces.push([vCurr, eNext, fIdx, ePrev]);
+        }
+      });
+
+      return { verts: allVerts, faces: newFaces, scheme: 'cc' };
+    }
+
+    function loopStep(mesh) {
+      const { verts, faces } = mesh;
+      const V = verts.length;
+      const edgeMap = new Map();
+      const edges = [];
+      const nbrs = Array.from({ length: V }, () => new Set());
+
+      faces.forEach(f => {
+        for (let i = 0; i < 3; i++) {
+          const v0 = f[i], v1 = f[(i + 1) % 3], vOpp = f[(i + 2) % 3];
+          nbrs[v0].add(v1); nbrs[v1].add(v0);
+          const key = v0 < v1 ? `${v0}_${v1}` : `${v1}_${v0}`;
+          if (!edgeMap.has(key)) {
+            edgeMap.set(key, edges.length);
+            edges.push({ v0: Math.min(v0, v1), v1: Math.max(v0, v1), opp: [vOpp] });
+          } else {
+            edges[edgeMap.get(key)].opp.push(vOpp);
+          }
+        }
+      });
+
+      const newVerts = verts.map((v, vi) => {
+        const list = Array.from(nbrs[vi]);
+        const n = list.length;
+        const cTerm = 0.375 + 0.25 * Math.cos((2 * Math.PI) / n);
+        const beta = (1 / n) * (0.625 - cTerm * cTerm);
+        const sum = [0, 0, 0];
+        list.forEach(ni => { sum[0] += verts[ni][0]; sum[1] += verts[ni][1]; sum[2] += verts[ni][2]; });
+        const w0 = 1 - n * beta;
+        return [w0 * v[0] + beta * sum[0], w0 * v[1] + beta * sum[1], w0 * v[2] + beta * sum[2]];
+      });
+
+      const edgePts = edges.map(e => {
+        const p0 = verts[e.v0], p1 = verts[e.v1];
+        if (e.opp.length < 2) return [0.5 * (p0[0] + p1[0]), 0.5 * (p0[1] + p1[1]), 0.5 * (p0[2] + p1[2])];
+        const o0 = verts[e.opp[0]], o1 = verts[e.opp[1]];
+        return [
+          0.375 * (p0[0] + p1[0]) + 0.125 * (o0[0] + o1[0]),
+          0.375 * (p0[1] + p1[1]) + 0.125 * (o0[1] + o1[1]),
+          0.375 * (p0[2] + p1[2]) + 0.125 * (o0[2] + o1[2])
+        ];
+      });
+
+      const allVerts = [...newVerts, ...edgePts];
+      const getE = (a, b) => V + edgeMap.get(a < b ? `${a}_${b}` : `${b}_${a}`);
+      const newFaces = [];
+      faces.forEach(([v0, v1, v2]) => {
+        const e01 = getE(v0, v1), e12 = getE(v1, v2), e20 = getE(v2, v0);
+        newFaces.push([v0, e01, e20], [v1, e12, e01], [v2, e20, e12], [e01, e12, e20]);
+      });
+
+      return { verts: allVerts, faces: newFaces, scheme: 'loop' };
+    }
+
+    function setLab3DMesh(kind) {
+      s3dMeshKind = kind;
+      ['cube', 'star', 'torus', 'octa'].forEach(k => {
+        const btn = document.getElementById('m3d-' + k);
+        btn.className = k === kind
+          ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white'
+          : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      drawSubdiv3D();
+    }
+
+    function setS3DLevel(lv) {
+      s3dLevel = lv;
+      document.getElementById('s3dLevelText').textContent = lv;
+      document.getElementById('s3dLevelSlider').value = lv;
+      drawSubdiv3D();
+    }
+
+    function onS3DCrease(val) {
+      s3dCrease = Number(val);
+      document.getElementById('s3dCreaseText').textContent = s3dCrease.toFixed(2);
+      drawSubdiv3D();
+    }
+
+    function proj3D(p, W, H) {
+      const cy = Math.cos(s3dYaw), sy = Math.sin(s3dYaw);
+      const cp = Math.cos(s3dPitch), sp = Math.sin(s3dPitch);
+      const x1 = p[0] * cy - p[2] * sy;
+      const z1 = p[0] * sy + p[2] * cy;
+      const y2 = p[1] * cp - z1 * sp;
+      const z2 = p[1] * sp + z1 * cp;
+      const s = (4.8 / (4.8 + z2 * 0.4)) * 125;
+      return [W * 0.5 + x1 * s, H * 0.52 - y2 * s, z2];
+    }
+
+    function drawSubdiv3D() {
+      const c = document.getElementById('subdiv3DCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const base = makeBaseMesh3D(s3dMeshKind);
+      let cur = base;
+      for (let k = 0; k < s3dLevel; k++) {
+        cur = cur.scheme === 'cc' ? catmullClarkStep(cur, s3dCrease) : loopStep(cur);
+      }
+
+      const projVerts = cur.verts.map(v => proj3D(v, W, H));
+
+      // Sort faces back-to-front (Painter's order)
+      const sortedFaces = cur.faces.map(f => {
+        let zAvg = 0;
+        f.forEach(vi => { zAvg += projVerts[vi][2]; });
+        return { f, z: zAvg / f.length };
+      }).sort((a, b) => b.z - a.z);
+
+      sortedFaces.forEach(({ f }) => {
+        ctx.fillStyle = cur.scheme === 'cc' ? 'rgba(16, 185, 129, 0.22)' : 'rgba(6, 182, 212, 0.22)';
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        f.forEach((vi, idx) => {
+          const [sx, sy] = projVerts[vi];
+          if (idx === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+        });
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      });
+
+      if (document.getElementById('s3dShowCage').checked && s3dLevel > 0) {
+        const baseProj = base.verts.map(v => proj3D(v, W, H));
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
+        ctx.lineWidth = 1.5;
+        base.faces.forEach(f => {
+          ctx.beginPath();
+          f.forEach((vi, idx) => {
+            const [sx, sy] = baseProj[vi];
+            if (idx === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+          });
+          ctx.closePath();
+          ctx.stroke();
+        });
+      }
+
+      if (document.getElementById('s3dShowExtra').checked) {
+        const extraN = s3dMeshKind === 'torus' ? 0 : base.verts.length;
+        for (let i = 0; i < extraN; i++) {
+          const [sx, sy] = projVerts[i];
+          ctx.fillStyle = '#fbbf24';
+          ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+
+      document.getElementById('s3dStats').innerHTML = `
+        <div class="text-emerald-300 font-bold">Scheme: ${cur.scheme === 'cc' ? 'Catmull-Clark (Quads)' : 'Loop (Triangles)'}</div>
+        <div>Refinement Level k = ${s3dLevel}</div>
+        <div>Vertices |V| = ${cur.verts.length}</div>
+        <div>Faces |F| = ${cur.faces.length}</div>
+        <div class="text-amber-300">Extraordinary Vertices = ${s3dMeshKind === 'torus' ? '0 (Genus 1)' : base.verts.length} (Locked!)</div>
+      `;
+    }
+
+    (function setup3DDrag() {
+      const c = document.getElementById('subdiv3DCanvas');
+      c.addEventListener('pointerdown', (e) => { s3dDragging = true; s3dLastX = e.clientX; s3dLastY = e.clientY; });
+      window.addEventListener('pointermove', (e) => {
+        if (!s3dDragging) return;
+        s3dYaw += (e.clientX - s3dLastX) * 0.01;
+        s3dPitch = Math.max(-1.2, Math.min(1.2, s3dPitch + (e.clientY - s3dLastY) * 0.01));
+        s3dLastX = e.clientX; s3dLastY = e.clientY;
+        drawSubdiv3D();
+      });
+      window.addEventListener('pointerup', () => { s3dDragging = false; });
+    })();
+
+    // ==================== TAB 3: HALF-EDGE POINTER WALKER ====================
+    const heVerts = [
+      [320, 190], // V0 (Center Fan Hub)
+      [320, 45],  // V1 (Top)
+      [530, 130], // V2 (Top-Right)
+      [480, 325], // V3 (Bottom-Right)
+      [160, 325], // V4 (Bottom-Left)
+      [110, 130]  // V5 (Top-Left)
+    ];
+    // 5 triangles around V0: F0(0,1,2), F1(0,2,3), F2(0,3,4), F3(0,4,5), F4(0,5,1)
+    const heFaces = [[0,1,2], [0,2,3], [0,3,4], [0,4,5], [0,5,1]];
+    const halfEdges = [];
+    for (let f = 0; f < 5; f++) {
+      const [a, b, c] = heFaces[f];
+      const base = f * 3;
+      halfEdges.push(
+        { id: base + 0, from: a, to: b, face: f, next: base + 1, twin: ((f + 4) % 5) * 3 + 2 },
+        { id: base + 1, from: b, to: c, face: f, next: base + 2, twin: -1 },
+        { id: base + 2, from: c, to: a, face: f, next: base + 0, twin: ((f + 1) % 5) * 3 + 0 }
+      );
+    }
+    let activeHE = 0;
+
+    function heStep(cmd) {
+      const cur = halfEdges[activeHE];
+      if (cmd === 'next') {
+        activeHE = cur.next;
+      } else if (cmd === 'twin') {
+        if (cur.twin >= 0) activeHE = cur.twin;
+      } else if (cmd === 'onering') {
+        if (cur.twin >= 0) activeHE = halfEdges[cur.twin].next;
+      }
+      drawHalfEdge();
+    }
+
+    function drawHalfEdge() {
+      const c = document.getElementById('heCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // Draw faces
+      heFaces.forEach((f, fi) => {
+        const isActFace = halfEdges[activeHE].face === fi;
+        ctx.fillStyle = isActFace ? 'rgba(16, 185, 129, 0.16)' : 'rgba(15, 23, 42, 0.6)';
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        f.forEach((vi, i) => i === 0 ? ctx.moveTo(heVerts[vi][0], heVerts[vi][1]) : ctx.lineTo(heVerts[vi][0], heVerts[vi][1]));
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      });
+
+      // Draw all half-edges with slight inward offset
+      halfEdges.forEach(he => {
+        const f = heFaces[he.face];
+        const cx = (heVerts[f[0]][0] + heVerts[f[1]][0] + heVerts[f[2]][0]) / 3;
+        const cy = (heVerts[f[0]][1] + heVerts[f[1]][1] + heVerts[f[2]][1]) / 3;
+        const p0 = heVerts[he.from], p1 = heVerts[he.to];
+        const s0 = [0.82 * p0[0] + 0.18 * cx, 0.82 * p0[1] + 0.18 * cy];
+        const s1 = [0.82 * p1[0] + 0.18 * cx, 0.82 * p1[1] + 0.18 * cy];
+
+        const isCur = he.id === activeHE;
+        const isNext = he.id === halfEdges[activeHE].next;
+        const isTwin = he.id === halfEdges[activeHE].twin;
+
+        ctx.strokeStyle = isCur ? '#10b981' : isNext ? '#38bdf8' : isTwin ? '#fbbf24' : 'rgba(100,116,139,0.45)';
+        ctx.lineWidth = isCur ? 4 : (isNext || isTwin) ? 2.5 : 1.2;
+        ctx.beginPath();
+        ctx.moveTo(s0[0], s0[1]);
+        ctx.lineTo(s1[0], s1[1]);
+        ctx.stroke();
+
+        // Arrowhead
+        const ang = Math.atan2(s1[1] - s0[1], s1[0] - s0[0]);
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.beginPath();
+        ctx.moveTo(s1[0], s1[1]);
+        ctx.lineTo(s1[0] - 9 * Math.cos(ang - 0.4), s1[1] - 9 * Math.sin(ang - 0.4));
+        ctx.lineTo(s1[0] - 9 * Math.cos(ang + 0.4), s1[1] - 9 * Math.sin(ang + 0.4));
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      heVerts.forEach((v, idx) => {
+        ctx.fillStyle = idx === 0 ? '#fbbf24' : '#38bdf8';
+        ctx.beginPath(); ctx.arc(v[0], v[1], 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 12px monospace';
+        ctx.fillText(`V${idx}`, v[0] - 8, v[1] - 12);
+      });
+
+      const cur = halfEdges[activeHE];
+      document.getElementById('heReadout').innerHTML = `
+        <div class="text-emerald-400 font-bold">Active Half-Edge: h_${cur.id} (V${cur.from} → V${cur.to})</div>
+        <div>h.face = Face F${cur.face}</div>
+        <div class="text-cyan-300">h.next = h_${cur.next} (Cyan Arrow)</div>
+        <div class="text-amber-300">h.twin = ${cur.twin >= 0 ? 'h_' + cur.twin + ' (Gold Arrow)' : 'null (Boundary Edge!)'}</div>
+      `;
+    }
+
+    // ==================== TAB 4: 3-MISSION MINI-GAME ====================
+    let gameMission = 1;
+    function setGameMission(m) {
+      gameMission = m;
+      [1, 2, 3].forEach(idx => {
+        document.getElementById('game-btn-' + idx).className = idx === m
+          ? 'px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white'
+          : 'px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      const s1 = document.getElementById('gSlider1');
+      const s2 = document.getElementById('gSlider2');
+      if (m === 1) {
+        s1.min = 12; s1.max = 48; s1.step = 2; s1.value = 24;
+        s2.min = 1; s2.max = 12; s2.step = 1; s2.value = 4;
+      } else if (m === 2) {
+        s1.min = 1; s1.max = 6; s1.step = 1; s1.value = 2;
+        s2.min = 1; s2.max = 4; s2.step = 1; s2.value = 2;
+      } else {
+        s1.min = 1; s1.max = 6; s1.step = 1; s1.value = 2;
+        s2.min = 1; s2.max = 6; s2.step = 1; s2.value = 3;
+      }
+      drawGame();
+    }
+
+    function drawGame() {
+      const c = document.getElementById('gameCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const v1 = Number(document.getElementById('gSlider1').value);
+      const v2 = Number(document.getElementById('gSlider2').value);
+      document.getElementById('gVal1').textContent = v1;
+      document.getElementById('gVal2').textContent = v2;
+
+      let passed = false;
+      const desc = document.getElementById('gameDesc');
+      const status = document.getElementById('gameStatus');
+
+      if (gameMission === 1) {
+        document.getElementById('gLabel1').textContent = 'Center Numerator (w_v / 64)';
+        document.getElementById('gLabel2').textContent = 'Edge Neighbor Numerator (w_e / 64)';
+        desc.innerHTML = isEn
+          ? '<b>Mission 1 (Catmull-Clark Regular Stencil)</b>: Set the numerators (/64) for the center vertex and the 4 edge-neighbors of a regular valence-4 quad grid so they match the 1D tensor product [1,6,1]ᵀ × [1,6,1]!'
+          : '<b>第 1 关（Catmull-Clark 规则掩模配平）</b>：调节规则四边形顶点 (n=4) 的中心权重分子 (/64) 与 4 个十字邻居权重分子 (/64)，使其匹配 [1,6,1]ᵀ × [1,6,1] 的张量积（36/64 与 6/64）！';
+        passed = v1 === 36 && v2 === 6;
+      } else if (gameMission === 2) {
+        document.getElementById('gLabel1').textContent = 'Endpoint Numerator (/8)';
+        document.getElementById('gLabel2').textContent = 'Opposite Wing Numerator (/8)';
+        desc.innerHTML = isEn
+          ? '<b>Mission 2 (Loop Diamond Edge Mask)</b>: Set the numerators (/8) for the 2 edge endpoints and 2 opposite wing vertices of Loop subdivision so that 2(w_end) + 2(w_opp) = 8/8!'
+          : '<b>第 2 关（Loop 三角形菱形边点掩模）</b>：调节 Loop 细分边点公式中 2 个端点权重 (/8) 与 2 个对角翼点权重 (/8)，达成黄金比例 (3/8, 3/8, 1/8, 1/8)！';
+        passed = v1 === 3 && v2 === 1;
+      } else {
+        document.getElementById('gLabel1').textContent = 'Steps of h = h.twin.next';
+        document.getElementById('gLabel2').textContent = 'Vertex Valence n';
+        desc.innerHTML = isEn
+          ? '<b>Mission 3 (Half-Edge 1-Ring Completion)</b>: Around center vertex V₀ of valence n = 5, set both the number of `h = h.twin.next` steps and the vertex valence to 5 to complete a full 360° 1-ring cycle!'
+          : '<b>第 3 关（半边一环 360° 闭环漫游）</b>：围绕价为 5 的中心顶点 V₀，将 `h = h.twin.next` 跳转次数与顶点价同时设为 5，完成完整的一环邻域遍历！';
+        passed = v1 === 5 && v2 === 5;
+      }
+
+      ctx.strokeStyle = passed ? '#10b981' : '#38bdf8';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(45, 45, W - 90, H - 90);
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 20px monospace';
+      ctx.fillText(`Mission ${gameMission}: Param1 = ${v1} | Param2 = ${v2}`, 85, 165);
+      ctx.fillStyle = passed ? '#10b981' : '#fbbf24';
+      ctx.fillText(passed ? '★ STENCIL & TOPOLOGY VERIFIED!' : '● Tune sliders to exact mathematical weights', 85, 215);
+
+      status.innerHTML = passed
+        ? `<div class="text-emerald-400 font-bold text-sm">★ MISSION ${gameMission} CLEARED! / 恭喜通关！</div>`
+        : `<div class="text-amber-300 font-bold">● Waiting for exact stencil balance...</div>`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+      drawStencil();
+      drawSubdiv3D();
+      drawHalfEdge();
+      setGameMission(1);
+    });
+  </script>
+</body>
+</html>
