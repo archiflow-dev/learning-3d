@@ -253,7 +253,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'C^n / G^n Continuity, Local Control & B-Splines',
     concepts: ['C0/C1/C2 参数连续性', 'G1/G2 几何连续性', 'Catmull-Rom 插值样条', '均匀三次 B-Spline 与局部控制'],
     playgroundTitle: '样条连续性与曲率梳实验室',
-    playgroundDescription: '在同一控制顶点序列下一键切换 Bézier、Catmull-Rom 与 B-Spline，移动单点观察局部影响区间与曲率梳。',
+    playgroundDescription: '用曲率梳显微镜观察两段曲线接头在 C⁰/G¹/C¹/C² 下的速度与加速度跳变，在 7 点样条竞技场同屏对比 Catmull-Rom (C¹ 穿点) 与均匀三次 B-Spline (C² 逼近) 的局部 4 点滑动窗口，并畅玩 3 关磁悬浮过山车连续性工程师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
