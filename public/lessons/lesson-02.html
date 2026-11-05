@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lesson 02: çº¿æ€§å˜æ¢ã€ä»¿å°„æ ‡æž¶ (Frames) ä¸Ž 4Ã—4 é½æ¬¡åæ ‡çŸ©é˜µ | 3Blue1Brown Geometric Intuition</title>
+  <title>Lesson 02: 线性变换、仿射标架 (Frames) 与 4×4 齐次坐标矩阵 | 3Blue1Brown Geometric Intuition</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root {
@@ -51,31 +51,31 @@
       <div class="space-y-1.5">
         <div class="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wider text-indigo-400">
           <a href="../index.html" class="px-2.5 py-1 rounded-lg bg-[var(--secondary)] border border-[var(--border)] hover:border-indigo-500 text-indigo-300 transition">
-            <span data-lang="zh">ðŸ  è¯¾ç¨‹æ€»ç›®å½• (Index)</span>
-            <span data-lang="en">ðŸ  Course Index</span>
+            <span data-lang="zh">🏠 课程总目录 (Index)</span>
+            <span data-lang="en">🏠 Course Index</span>
           </a>
           <a href="./lesson-01.html" class="px-2.5 py-1 rounded-lg bg-[var(--secondary)] border border-[var(--border)] hover:border-indigo-500 text-[var(--muted-foreground)] hover:text-white transition">
-            <span data-lang="zh">â† L01 å‘é‡ä¸Žç‚¹ç§¯/å‰ç§¯</span>
-            <span data-lang="en">â† L01 Vectors</span>
+            <span data-lang="zh">← L01 向量与点积/叉积</span>
+            <span data-lang="en">← L01 Vectors</span>
           </a>
-          <span>â€¢</span>
-          <span>Stage 1 Â· Lesson 02 / 32</span>
-          <span>â€¢</span>
+          <span>•</span>
+          <span>Stage 1 · Lesson 02 / 32</span>
+          <span>•</span>
           <span>UC Davis Lec 03 + MIT 6.837 Lec 04 + 3Blue1Brown</span>
         </div>
         <h1 class="text-2xl md:text-3xl font-bold tracking-tight">
-          <span data-lang="zh">Lesson 02: çº¿æ€§å˜æ¢ã€ä»¿å°„æ ‡æž¶ (Frames) ä¸Ž 4Ã—4 é½æ¬¡åæ ‡çŸ©é˜µ</span>
-          <span data-lang="en">Lesson 02: Linear Transformations, Coordinate Frames &amp; 4Ã—4 Homogeneous Matrices</span>
+          <span data-lang="zh">Lesson 02: 线性变换、仿射标架 (Frames) 与 4×4 齐次坐标矩阵</span>
+          <span data-lang="en">Lesson 02: Linear Transformations, Coordinate Frames &amp; 4×4 Homogeneous Matrices</span>
         </h1>
         <p class="text-sm text-[var(--muted-foreground)] max-w-3xl leading-relaxed">
-          <span data-lang="zh">ç”¨ 3Blue1Brown çš„å‡ ä½•è§†è§’çœ‹ç©¿çŸ©é˜µæœ¬è´¨ï¼šä¸ºä»€ä¹ˆâ€œçŸ©é˜µçš„æ¯ä¸€åˆ—å°±æ˜¯åŸºå‘é‡å˜æ¢åŽçš„è½ç‚¹â€ï¼Ÿä¸ºä»€ä¹ˆ 3Ã—3 çŸ©é˜µåšä¸åˆ°å¹³ç§»ï¼Œè€ŒæŠŠä¸–ç•ŒæŠ¬å‡åˆ° w=1 è¶…å¹³é¢åšâ€œé«˜ç»´åˆ‡å˜ (Shear)â€å°±èƒ½ä¸€ä¸¾ç»Ÿåˆæ—‹è½¬ã€ç¼©æ”¾ä¸Žå¹³ç§»ï¼Ÿä¸ºä»€ä¹ˆè¡¨é¢æ³•å‘é‡å¿…é¡»ä¹˜é€†è½¬ç½®çŸ©é˜µ (Mâ»Â¹)áµ€ï¼Ÿ</span>
-          <span data-lang="en">See matrices through 3Blue1Brown's geometric lens: Why are matrix columns the transformed basis vectors? Why can't 3Ã—3 matrices translate 3D space, and how does lifting our world to the w=1 hyperplane turn higher-dimensional Shear into Translation? Why must normals transform by (Mâ»Â¹)áµ€?</span>
+          <span data-lang="zh">用 3Blue1Brown 的几何视角看穿矩阵本质：为什么“矩阵的每一列就是基向量变换后的落点”？为什么 3×3 矩阵做不到平移，而把世界抬升到 w=1 超平面做“高维切变 (Shear)”就能一举统合旋转、缩放与平移？为什么表面法向量必须乘逆转置矩阵 (M⁻¹)ᵀ？</span>
+          <span data-lang="en">See matrices through 3Blue1Brown's geometric lens: Why are matrix columns the transformed basis vectors? Why can't 3×3 matrices translate 3D space, and how does lifting our world to the w=1 hyperplane turn higher-dimensional Shear into Translation? Why must normals transform by (M⁻¹)ᵀ?</span>
         </p>
       </div>
 
       <div class="flex items-center gap-3">
         <button id="langToggleBtn" onclick="toggleLanguage()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[var(--secondary)] hover:bg-[var(--muted)] border border-indigo-500/40 text-indigo-300 transition shadow-sm">
-          <span>ðŸŒ</span>
+          <span>🌐</span>
           <span id="langBtnLabel">EN / English</span>
         </button>
       </div>
@@ -84,24 +84,24 @@
     <!-- Navigation Tabs -->
     <div class="flex flex-wrap gap-2 mt-6 pt-4 border-t border-[var(--border)]">
       <button id="tabBtn0" onclick="switchTab(0)" class="tab-active px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all">
-        <span data-lang="zh">1. ðŸ§  æ·±åº¦å‡ ä½•åŽŸç†ä¸ŽæŽ¨å¯¼ (3Blue1Brown è§†è§’)</span>
-        <span data-lang="en">1. ðŸ§  Deep Intuition &amp; Proofs (3B1B Style)</span>
+        <span data-lang="zh">1. 🧠 深度几何原理与推导 (3Blue1Brown 视角)</span>
+        <span data-lang="en">1. 🧠 Deep Intuition &amp; Proofs (3B1B Style)</span>
       </button>
       <button id="tabBtn1" onclick="switchTab(1)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
-        <span data-lang="zh">2. ðŸ”¬ 4Ã—4 é½æ¬¡çŸ©é˜µä¸Ž w é€è§†å®žéªŒå®¤</span>
-        <span data-lang="en">2. ðŸ”¬ 4Ã—4 Homogeneous Matrix &amp; w-Divide Lab</span>
+        <span data-lang="zh">2. 🔬 4×4 齐次矩阵与 w 透视实验室</span>
+        <span data-lang="en">2. 🔬 4×4 Homogeneous Matrix &amp; w-Divide Lab</span>
       </button>
       <button id="tabBtn2" onclick="switchTab(2)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
-        <span data-lang="zh">3. ðŸ¦¾ çˆ¶å­å±‚çº§æ ‡æž¶æ ‘ (Scene Graph æœºæ¢°è‡‚)</span>
-        <span data-lang="en">3. ðŸ¦¾ Hierarchical Frames (Robot Arm Scene Graph)</span>
+        <span data-lang="zh">3. 🦾 父子层级标架树 (Scene Graph 机械臂)</span>
+        <span data-lang="en">3. 🦾 Hierarchical Frames (Robot Arm Scene Graph)</span>
       </button>
       <button id="tabBtn3" onclick="switchTab(3)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
-        <span data-lang="zh">4. ðŸŽ¥ åæ ¡å…¬å¼€è¯¾è§†é¢‘ä¸Žç²¾è¦</span>
-        <span data-lang="en">4. ðŸŽ¥ Lecture Videos &amp; Notes</span>
+        <span data-lang="zh">4. 🎥 名校公开课视频与精要</span>
+        <span data-lang="en">4. 🎥 Lecture Videos &amp; Notes</span>
       </button>
       <button id="tabBtn4" onclick="switchTab(4)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
-        <span data-lang="zh">5. ðŸŽ® ç»ˆæžäº’åŠ¨å°æ¸¸æˆï¼šæ˜Ÿé™…èˆ¹åžçŸ©é˜µé¢†èˆªå‘˜</span>
-        <span data-lang="en">5. ðŸŽ® Mini-Game: Star-Dock Matrix Pilot</span>
+        <span data-lang="zh">5. 🎮 终极互动小游戏：星际船坞矩阵领航员</span>
+        <span data-lang="en">5. 🎮 Mini-Game: Star-Dock Matrix Pilot</span>
       </button>
     </div>
   </header>
@@ -116,12 +116,12 @@
       <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
         <div>
           <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-            <span data-lang="zh">ç¬¬ä¸€æ€§åŽŸç† 1 Â· 3Blue1Brown é»„é‡‘é“å¾‹</span>
-            <span data-lang="en">First Principle 1 Â· 3Blue1Brown Golden Rule</span>
+            <span data-lang="zh">第一性原理 1 · 3Blue1Brown 黄金铁律</span>
+            <span data-lang="en">First Principle 1 · 3Blue1Brown Golden Rule</span>
           </span>
           <h2 class="text-xl font-bold mt-1">
-            <span data-lang="zh">çŸ©é˜µåˆ°åº•æ˜¯ä»€ä¹ˆï¼Ÿâ€”â€”â€œçŸ©é˜µçš„æ¯ä¸€åˆ—ï¼Œå°±æ˜¯åŸºå‘é‡å˜æ¢åŽçš„æ–°è½ç‚¹ï¼â€</span>
-            <span data-lang="en">What Is a Matrix Really? â€” "Each Column Is Where a Basis Vector Lands!"</span>
+            <span data-lang="zh">矩阵到底是什么？——“矩阵的每一列，就是基向量变换后的新落点！”</span>
+            <span data-lang="en">What Is a Matrix Really? — "Each Column Is Where a Basis Vector Lands!"</span>
           </h2>
         </div>
       </div>
@@ -129,60 +129,60 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs leading-relaxed">
         <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
           <div class="font-bold text-amber-400 text-sm">
-            <span data-lang="zh">â‘  ä»€ä¹ˆæ˜¯â€œçº¿æ€§å˜æ¢â€ï¼Ÿä¸¤æ¡å‡ ä½•é“å¾‹</span>
-            <span data-lang="en">â‘  What Makes a Transformation "Linear"?</span>
+            <span data-lang="zh">① 什么是“线性变换”？两条几何铁律</span>
+            <span data-lang="en">① What Makes a Transformation "Linear"?</span>
           </div>
           <p class="text-[var(--muted-foreground)]" data-lang="zh">
-            æŠŠçº¿æ€§å˜æ¢æƒ³è±¡æˆå¯¹æ•´ä¸ªä¸‰ç»´ç©ºé—´çš„æ‰æå˜å½¢ï¼Œä½†å®ƒå¿…é¡»éµå®ˆä¸¤æ¡é“å¾‹ï¼š<br/>
-            1. <b>ç›´çº¿å˜å½¢åŽä¾ç„¶æ˜¯ç›´çº¿</b>ï¼ˆä¸”åŽŸæœ¬å¹³è¡Œçš„ç½‘æ ¼çº¿ä¾ç„¶ä¿æŒå¹³è¡Œã€ç­‰è·åˆ†å¸ƒï¼‰ï¼›<br/>
-            2. <b>åæ ‡åŽŸç‚¹ (0,0,0) å¿…é¡»è¢«é’‰æ­»åœ¨åŽŸåœ°ä¸åŠ¨</b>ã€‚<br/>
-            å› ä¸ºç½‘æ ¼ä¾ç„¶å¹³è¡Œä¸”ç­‰è·ï¼ŒåŽŸæœ¬ç­‰äºŽ <code>xÂ·Ã® + yÂ·Äµ + zÂ·kÌ‚</code> çš„å‘é‡ <b>v</b>ï¼Œåœ¨ç©ºé—´å˜å½¢åŽï¼Œå¿…ç„¶ç­‰äºŽ<b>å˜å½¢åŽçš„æ–°åŸºå‘é‡</b>æŒ‰å®Œå…¨ç›¸åŒçš„å€æ•° <code>(x, y, z)</code> æ‹¼æŽ¥è€Œæˆï¼š
+            把线性变换想象成对整个三维空间的揉捏变形，但它必须遵守两条铁律：<br/>
+            1. <b>直线变形后依然是直线</b>（且原本平行的网格线依然保持平行、等距分布）；<br/>
+            2. <b>坐标原点 (0,0,0) 必须被钉死在原地不动</b>。<br/>
+            因为网格依然平行且等距，原本等于 <code>x·î + y·ĵ + z·k̂</code> 的向量 <b>v</b>，在空间变形后，必然等于<b>变形后的新基向量</b>按完全相同的倍数 <code>(x, y, z)</code> 拼接而成：
           </p>
           <p class="text-[var(--muted-foreground)]" data-lang="en">
             A transformation <b>L</b> is linear if and only if:<br/>
             1. <b>Grid lines remain parallel and evenly spaced</b> (lines stay lines);<br/>
             2. <b>The origin (0,0,0) remains fixed in place</b>.<br/>
-            Because grid lines stay parallel and evenly spaced, a vector <code>v = xÂ·Ã® + yÂ·Äµ + zÂ·kÌ‚</code> transforms into the exact same linear recipe applied to the <b>transformed basis vectors</b>:
+            Because grid lines stay parallel and evenly spaced, a vector <code>v = x·î + y·ĵ + z·k̂</code> transforms into the exact same linear recipe applied to the <b>transformed basis vectors</b>:
           </p>
           <div class="math-box p-2 rounded bg-black/40 text-amber-300 text-center">
-            L(v) = x Â· L(Ã®) + y Â· L(Äµ) + z Â· L(kÌ‚)
+            L(v) = x · L(î) + y · L(ĵ) + z · L(k̂)
           </div>
         </div>
 
         <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
           <div class="font-bold text-cyan-400 text-sm">
-            <span data-lang="zh">â‘¡ ä¸ºä»€ä¹ˆçŸ©é˜µä¹˜å‘é‡è¦é‚£æ ·ç®—ï¼Ÿ</span>
-            <span data-lang="en">â‘¡ Why Is Matrix-Vector Multiplication Defined That Way?</span>
+            <span data-lang="zh">② 为什么矩阵乘向量要那样算？</span>
+            <span data-lang="en">② Why Is Matrix-Vector Multiplication Defined That Way?</span>
           </div>
           <p class="text-[var(--muted-foreground)]" data-lang="zh">
-            è®¾ä¸‰ä¸ªåŸºå‘é‡å˜æ¢åŽçš„æ–°è½ç‚¹åˆ†åˆ«æ˜¯åˆ—å‘é‡ <b>u = L(Ã®)</b>ã€<b>v = L(Äµ)</b>ã€<b>w = L(kÌ‚)</b>ã€‚æŠŠè¿™ä¸‰æ ¹æ–°åŸºå‘é‡è‚©å¹¶è‚©æŽ’æˆä¸€ä¸ª 3Ã—3 è¡¨æ ¼ï¼ˆçŸ©é˜µ <b>M = [u | v | w]</b>ï¼‰ï¼š
+            设三个基向量变换后的新落点分别是列向量 <b>u = L(î)</b>、<b>v = L(ĵ)</b>、<b>w = L(k̂)</b>。把这三根新基向量肩并肩排成一个 3×3 表格（矩阵 <b>M = [u | v | w]</b>）：
           </p>
           <p class="text-[var(--muted-foreground)]" data-lang="en">
-            Let <b>u = L(Ã®)</b>, <b>v = L(Äµ)</b>, <b>w = L(kÌ‚)</b> be the new coordinates where the basis vectors land. Packing them side-by-side as columns of <b>M = [u | v | w]</b> gives:
+            Let <b>u = L(î)</b>, <b>v = L(ĵ)</b>, <b>w = L(k̂)</b> be the new coordinates where the basis vectors land. Packing them side-by-side as columns of <b>M = [u | v | w]</b> gives:
           </p>
           <div class="math-box p-2 rounded bg-black/40 text-cyan-300 text-center">
-            [u | v | w] Â· [x, y, z]áµ€ = xÂ·u + yÂ·v + zÂ·w
+            [u | v | w] · [x, y, z]ᵀ = x·u + y·v + z·w
           </div>
           <p class="text-[var(--muted-foreground)]" data-lang="zh">
-            <b>çž¬é—´é¡¿æ‚Ÿ</b>ï¼šä½ æ ¹æœ¬ä¸éœ€è¦æ­»èƒŒæ—‹è½¬ã€ç¼©æ”¾ã€åˆ‡å˜çŸ©é˜µå…¬å¼ï¼æƒ³çŸ¥é“ä»»ä½•å˜æ¢çš„çŸ©é˜µï¼Œåªéœ€è¦é—®è‡ªå·±ï¼šâ€œ<b>Ã®, Äµ, kÌ‚ è¿™ä¸‰æ ¹é’ˆå˜æ¢åŽè½åœ¨äº†å“ªé‡Œï¼Ÿ</b>â€æŠŠå®ƒä»¬çš„è½ç‚¹ç«–ç€å†™è¿›ç¬¬ 1ã€2ã€3 åˆ—ï¼ŒçŸ©é˜µå°±å†™å®Œäº†ï¼
+            <b>瞬间顿悟</b>：你根本不需要死背旋转、缩放、切变矩阵公式！想知道任何变换的矩阵，只需要问自己：“<b>î, ĵ, k̂ 这三根针变换后落在了哪里？</b>”把它们的落点竖着写进第 1、2、3 列，矩阵就写完了！
           </p>
           <p class="text-[var(--muted-foreground)]" data-lang="en">
-            <b>Aha Moment</b>: Never memorize transformation matrices again! Just ask: <i>"Where do Ã®, Äµ, kÌ‚ land?"</i> and write their landing coordinates as Columns 1, 2, and 3!
+            <b>Aha Moment</b>: Never memorize transformation matrices again! Just ask: <i>"Where do î, ĵ, k̂ land?"</i> and write their landing coordinates as Columns 1, 2, and 3!
           </p>
         </div>
 
         <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
           <div class="font-bold text-purple-400 text-sm">
-            <span data-lang="zh">â‘¢ çŸ©é˜µä¹˜æ³• AB ä¸Žè¡Œåˆ—å¼ det(M) çš„çœŸç›¸</span>
-            <span data-lang="en">â‘¢ Matrix Product AB &amp; Determinant det(M)</span>
+            <span data-lang="zh">③ 矩阵乘法 AB 与行列式 det(M) 的真相</span>
+            <span data-lang="en">③ Matrix Product AB &amp; Determinant det(M)</span>
           </div>
           <p class="text-[var(--muted-foreground)]" data-lang="zh">
-            â€¢ <b>çŸ©é˜µç›¸ä¹˜ AÂ·B</b>ï¼šä»£è¡¨â€œå…ˆå¯¹ç©ºé—´æ–½åŠ å˜æ¢ Bï¼Œå†æ–½åŠ å˜æ¢ Aâ€ï¼ˆåƒå‡½æ•°åµŒå¥— <code>A(B(x))</code> ä¸€æ ·<b>ä»Žå³å¾€å·¦è¯»</b>ï¼‰ã€‚å…ˆæ—‹è½¬å†æ²¿ X æ‹‰ä¼¸ï¼Œä¸Žå…ˆæ²¿ X æ‹‰ä¼¸å†æ—‹è½¬ï¼ŒåŸºå‘é‡æœ€ç»ˆè½ç‚¹æˆªç„¶ä¸åŒï¼Œæ‰€ä»¥ <b>AB â‰  BA</b>ï¼<br/>
-            â€¢ <b>è¡Œåˆ—å¼ det(M)</b>ï¼šä»£è¡¨å•ä½ç«‹æ–¹ä½“ï¼ˆä½“ç§¯=1ï¼‰ç»è¿‡å˜å½¢åŽ<b>ä½“ç§¯è¢«æ”¾å¤§çš„å€çŽ‡</b>ï¼è‹¥ <code>det(M) &lt; 0</code> è¯´æ˜Žç©ºé—´å‘ç”Ÿäº†é•œåƒç¿»è½¬ï¼ˆå³æ‰‹ç³»å˜å·¦æ‰‹ç³»ï¼‰ï¼›è‹¥ <code>det(M) = 0</code> è¯´æ˜Žç©ºé—´è¢«åŽ‹æ‰é™ç»´ï¼Œä¸å¯é€†ï¼
+            • <b>矩阵相乘 A·B</b>：代表“先对空间施加变换 B，再施加变换 A”（像函数嵌套 <code>A(B(x))</code> 一样<b>从右往左读</b>）。先旋转再沿 X 拉伸，与先沿 X 拉伸再旋转，基向量最终落点截然不同，所以 <b>AB ≠ BA</b>！<br/>
+            • <b>行列式 det(M)</b>：代表单位立方体（体积=1）经过变形后<b>体积被放大的倍率</b>！若 <code>det(M) &lt; 0</code> 说明空间发生了镜像翻转（右手系变左手系）；若 <code>det(M) = 0</code> 说明空间被压扁降维，不可逆！
           </p>
           <p class="text-[var(--muted-foreground)]" data-lang="en">
-            â€¢ <b>Matrix Product AÂ·B</b>: Apply transformation B first, then A (read right-to-left like <code>A(B(x))</code>). Order matters: <b>AB â‰  BA</b>!<br/>
-            â€¢ <b>Determinant det(M)</b>: How much a unit cube's volume scales after transformation. <code>det(M) &lt; 0</code> means space flipped orientation; <code>det(M) = 0</code> means space squished into lower dimensions!
+            • <b>Matrix Product A·B</b>: Apply transformation B first, then A (read right-to-left like <code>A(B(x))</code>). Order matters: <b>AB ≠ BA</b>!<br/>
+            • <b>Determinant det(M)</b>: How much a unit cube's volume scales after transformation. <code>det(M) &lt; 0</code> means space flipped orientation; <code>det(M) = 0</code> means space squished into lower dimensions!
           </p>
         </div>
       </div>
@@ -192,12 +192,12 @@
     <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-5">
       <div class="border-b border-[var(--border)] pb-3">
         <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
-          <span data-lang="zh">ç¬¬ä¸€æ€§åŽŸç† 2 Â· é½æ¬¡åæ ‡çš„å‡ ä½•èµ·æº (Homogeneous Coordinates)</span>
-          <span data-lang="en">First Principle 2 Â· Geometric Origin of Homogeneous Coordinates</span>
+          <span data-lang="zh">第一性原理 2 · 齐次坐标的几何起源 (Homogeneous Coordinates)</span>
+          <span data-lang="en">First Principle 2 · Geometric Origin of Homogeneous Coordinates</span>
         </span>
         <h2 class="text-xl font-bold mt-1">
-          <span data-lang="zh">ä¸ºä»€ä¹ˆ 3Ã—3 çŸ©é˜µåšä¸åˆ°å¹³ç§»ï¼Ÿâ€”â€” æŠŠä¸–ç•ŒæŠ¬å‡åˆ° w = 1 è¶…å¹³é¢åšâ€œé«˜ç»´åˆ‡å˜ (Shear)â€ï¼</span>
-          <span data-lang="en">Why Can't a 3Ã—3 Matrix Translate? â€” Lift the World to w = 1 and Apply Higher-Dimensional Shear!</span>
+          <span data-lang="zh">为什么 3×3 矩阵做不到平移？—— 把世界抬升到 w = 1 超平面做“高维切变 (Shear)”！</span>
+          <span data-lang="en">Why Can't a 3×3 Matrix Translate? — Lift the World to w = 1 and Apply Higher-Dimensional Shear!</span>
         </h2>
       </div>
 
@@ -206,8 +206,8 @@
         <div class="lg:col-span-6 bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-3">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-indigo-300">
-              <span data-lang="zh">ðŸ”¬ 3Blue1Brown é™ç»´ç›´è§‰å®žéªŒå®¤ï¼š3D çº¿æ€§åˆ‡å˜å¦‚ä½•åœ¨ w=1 åˆ‡ç‰‡ä¸Šäº§ç”Ÿ 2D å¹³ç§»</span>
-              <span data-lang="en">ðŸ”¬ 3B1B Intuition Lab: How 3D Linear Shear Creates 2D Translation on the w=1 Slice</span>
+              <span data-lang="zh">🔬 3Blue1Brown 降维直觉实验室：3D 线性切变如何在 w=1 切片上产生 2D 平移</span>
+              <span data-lang="en">🔬 3B1B Intuition Lab: How 3D Linear Shear Creates 2D Translation on the w=1 Slice</span>
             </span>
           </div>
 
@@ -215,10 +215,10 @@
             <canvas id="shearSliceCanvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
             <div class="absolute top-2.5 left-2.5 bg-black/75 backdrop-blur px-2.5 py-1.5 rounded border border-slate-800 text-[11px] space-y-0.5 pointer-events-none">
               <div class="text-indigo-300 font-bold">
-                <span data-lang="zh">é«˜ç»´çº¿æ€§çŸ©é˜µ (3D åŽŸç‚¹å›ºå®šåœ¨ (0,0,0)!):</span>
+                <span data-lang="zh">高维线性矩阵 (3D 原点固定在 (0,0,0)!):</span>
                 <span data-lang="en">Higher-Dim Linear Matrix (Origin fixed at (0,0,0)!):</span>
               </div>
-              <div id="shearHudText" class="math-box text-slate-200">wÌ‚ = (0.0, 0.0, 1) | P(w=1) â†’ (1.0, 0.5, 1)</div>
+              <div id="shearHudText" class="math-box text-slate-200">ŵ = (0.0, 0.0, 1) | P(w=1) → (1.0, 0.5, 1)</div>
             </div>
           </div>
 
@@ -226,16 +226,16 @@
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <div class="flex justify-between font-semibold mb-0.5 text-amber-300">
-                  <span data-lang="zh">âœ¨ é«˜ç»´åˆ‡å˜ X (å³å¹³ç§» tâ‚“):</span>
-                  <span data-lang="en">âœ¨ Shear X (Translation tâ‚“):</span>
+                  <span data-lang="zh">✨ 高维切变 X (即平移 tₓ):</span>
+                  <span data-lang="en">✨ Shear X (Translation tₓ):</span>
                   <span id="shearTxLabel" class="math-box">1.2</span>
                 </div>
                 <input id="shearTxSlider" type="range" min="-2.0" max="2.0" step="0.1" value="1.2" oninput="updateTab0Canvases()" class="w-full" />
               </div>
               <div>
                 <div class="flex justify-between font-semibold mb-0.5 text-cyan-300">
-                  <span data-lang="zh">âœ¨ é«˜ç»´åˆ‡å˜ Y (å³å¹³ç§» táµ§):</span>
-                  <span data-lang="en">âœ¨ Shear Y (Translation táµ§):</span>
+                  <span data-lang="zh">✨ 高维切变 Y (即平移 tᵧ):</span>
+                  <span data-lang="en">✨ Shear Y (Translation tᵧ):</span>
                   <span id="shearTyLabel" class="math-box">0.8</span>
                 </div>
                 <input id="shearTySlider" type="range" min="-2.0" max="2.0" step="0.1" value="0.8" oninput="updateTab0Canvases()" class="w-full" />
@@ -243,7 +243,7 @@
             </div>
             <div>
               <div class="flex justify-between mb-0.5 text-[var(--muted-foreground)]">
-                <span data-lang="zh">æµ‹è¯•åˆ‡ç‰‡é«˜åº¦ w (å¯¹æ¯” w=1 ç‚¹å¹³é¢ vs w=0 å‘é‡åœ°é¢):</span>
+                <span data-lang="zh">测试切片高度 w (对比 w=1 点平面 vs w=0 向量地面):</span>
                 <span data-lang="en">Test Slice Height w (Compare w=1 Point Plane vs w=0 Vector Floor):</span>
                 <span id="sliceWLabel" class="math-box text-emerald-400 font-bold">w = 1.0 (Point)</span>
               </div>
@@ -256,56 +256,56 @@
         <div class="lg:col-span-6 space-y-3 text-xs leading-relaxed">
           <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-1.5">
             <div class="font-bold text-rose-400 text-sm">
-              <span data-lang="zh">ç¬¬ 1 æ­¥ï¼šä¸ºä»€ä¹ˆ 3Ã—3 çŸ©é˜µç»å¯¹åšä¸åˆ° 3D å¹³ç§»ï¼Ÿ</span>
-              <span data-lang="en">Step 1: Why Can NO 3Ã—3 Matrix Translate 3D Space?</span>
+              <span data-lang="zh">第 1 步：为什么 3×3 矩阵绝对做不到 3D 平移？</span>
+              <span data-lang="en">Step 1: Why Can NO 3×3 Matrix Translate 3D Space?</span>
             </div>
             <p class="text-[var(--muted-foreground)]" data-lang="zh">
-              å› ä¸ºä»»ä½• 3Ã—3 çŸ©é˜µä¹˜é›¶å‘é‡æ°¸è¿œç­‰äºŽé›¶å‘é‡ï¼š<code>M Â· [0, 0, 0]áµ€ = [0, 0, 0]áµ€</code>ï¼çº¿æ€§å˜æ¢çš„åŽŸç‚¹è¢«æ­»æ­»é’‰åœ¨ <code>(0,0,0)</code>ï¼Œè€Œå¹³ç§»è¦æ±‚æŠŠåŽŸç‚¹æ¬åˆ° <code>(tâ‚“, táµ§, t_z)</code>ã€‚å¦‚æžœä¸èƒ½æŠŠå¹³ç§»ä¹Ÿå¡žè¿›çŸ©é˜µä¹˜æ³•ï¼Œéª¨éª¼å±‚çº§å˜æ¢å°±ä¼šé€€åŒ–æˆä¸€å›¢ä¹±éº»çš„åŠ æ³•åµŒå¥—ã€‚
+              因为任何 3×3 矩阵乘零向量永远等于零向量：<code>M · [0, 0, 0]ᵀ = [0, 0, 0]ᵀ</code>！线性变换的原点被死死钉在 <code>(0,0,0)</code>，而平移要求把原点搬到 <code>(tₓ, tᵧ, t_z)</code>。如果不能把平移也塞进矩阵乘法，骨骼层级变换就会退化成一团乱麻的加法嵌套。
             </p>
             <p class="text-[var(--muted-foreground)]" data-lang="en">
-              Because for ANY 3Ã—3 matrix M, <code>M Â· [0, 0, 0]áµ€ = [0, 0, 0]áµ€</code>! Linear transformations lock the origin in place, whereas translation moves <code>(0,0,0)</code> to <code>(tâ‚“, táµ§, t_z)</code>.
+              Because for ANY 3×3 matrix M, <code>M · [0, 0, 0]ᵀ = [0, 0, 0]ᵀ</code>! Linear transformations lock the origin in place, whereas translation moves <code>(0,0,0)</code> to <code>(tₓ, tᵧ, t_z)</code>.
             </p>
           </div>
 
           <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-1.5">
             <div class="font-bold text-amber-400 text-sm">
-              <span data-lang="zh">ç¬¬ 2 æ­¥ï¼ˆç¥žæ¥ä¹‹ç¬”ï¼‰ï¼šæŠŠä¸–ç•ŒæŠ¬å‡åˆ° w = 1 è¶…å¹³é¢ï¼Œç”¨é«˜ç»´åˆ‡å˜ (Shear) å®žçŽ°å¹³ç§»ï¼</span>
+              <span data-lang="zh">第 2 步（神来之笔）：把世界抬升到 w = 1 超平面，用高维切变 (Shear) 实现平移！</span>
               <span data-lang="en">Step 2 (The Genius Trick): Lift the World to w = 1 and Shear Like a Deck of Cards!</span>
             </div>
             <p class="text-[var(--muted-foreground)]" data-lang="zh">
-              è¯·çœ‹å·¦ä¾§ 3D ç”»å¸ƒï¼ˆå…ˆä»¥ 2D ä¸–ç•Œæ”¾å…¥ 3D ç©ºé—´ä¸ºä¾‹ï¼‰ï¼š<br/>
-              â€¢ å¦‚æžœæˆ‘ä»¬çš„ 2D ä¸–ç•Œèººåœ¨åœ°é¢ <code>w = 0</code> ä¸Šï¼ŒåŽŸç‚¹è¢«é’‰æ­»åœ¨ <code>(0,0,0)</code>ï¼ŒåŠ¨å¼¹ä¸å¾—ã€‚<br/>
-              â€¢ çŽ°åœ¨ï¼ŒæŠŠæ•´ä¸ªäºŒç»´ä¸–ç•Œå‘ä¸ŠæŠ¬å‡åˆ°é«˜åº¦ä¸º <b><code>w = 1</code> çš„å¹³é¢</b>ä¸Šï¼åŽŸæ¥çš„ç‚¹ <code>(x, y)</code> å˜æˆäº† <code>(x, y, 1)</code>ã€‚<br/>
-              â€¢ æŽ¥ç€ï¼Œä¿æŒæ°´å¹³åŸºå‘é‡ <code>Ã®=(1,0,0)</code> å’Œ <code>Äµ=(0,1,0)</code> ä¸åŠ¨ï¼ŒåªæŠŠç¬¬ 3 æ ¹ç«–ç›´åŸºå‘é‡ <code>wÌ‚=(0,0,1)</code> åƒæŽ¨ä¸€æ‘žæ‰‘å…‹ç‰Œä¸€æ ·æ–œæŽ¨åˆ° <b><code>(tâ‚“, táµ§, 1)</code></b>ï¼<br/>
-              â€¢ æ­¤æ—¶åœ¨ 3D ç©ºé—´é‡Œï¼Œ<code>(0,0,0)</code> ä¾ç„¶æ²¡åŠ¨ï¼ˆè¿™æ˜¯çº¯æ­£çš„çº¿æ€§åˆ‡å˜ï¼ï¼‰ï¼Œä½†åœ¨é«˜åº¦ <code>w = 1</code> çš„é‚£å¼ æ‰‘å…‹ç‰Œåˆ‡ç‰‡ä¸Šï¼š
+              请看左侧 3D 画布（先以 2D 世界放入 3D 空间为例）：<br/>
+              • 如果我们的 2D 世界躺在地面 <code>w = 0</code> 上，原点被钉死在 <code>(0,0,0)</code>，动弹不得。<br/>
+              • 现在，把整个二维世界向上抬升到高度为 <b><code>w = 1</code> 的平面</b>上！原来的点 <code>(x, y)</code> 变成了 <code>(x, y, 1)</code>。<br/>
+              • 接着，保持水平基向量 <code>î=(1,0,0)</code> 和 <code>ĵ=(0,1,0)</code> 不动，只把第 3 根竖直基向量 <code>ŵ=(0,0,1)</code> 像推一摞扑克牌一样斜推到 <b><code>(tₓ, tᵧ, 1)</code></b>！<br/>
+              • 此时在 3D 空间里，<code>(0,0,0)</code> 依然没动（这是纯正的线性切变！），但在高度 <code>w = 1</code> 的那张扑克牌切片上：
             </p>
             <p class="text-[var(--muted-foreground)]" data-lang="en">
               Look at the 3D canvas on the left (lifting a 2D world into 3D):<br/>
-              â€¢ Instead of living at <code>w = 0</code> (where the origin is pinned), lift the entire 2D plane up to height <b><code>w = 1</code></b> so points become <code>(x, y, 1)</code>.<br/>
-              â€¢ Now apply a 3D <b>Linear Shear</b> (like pushing a deck of cards): keep <code>Ã®=(1,0,0)</code> and <code>Äµ=(0,1,0)</code> fixed, and tilt the vertical basis vector <code>wÌ‚=(0,0,1)</code> to <b><code>(tâ‚“, táµ§, 1)</code></b>!<br/>
-              â€¢ The 3D origin <code>(0,0,0)</code> never moves, yet on the <code>w = 1</code> card slice:
+              • Instead of living at <code>w = 0</code> (where the origin is pinned), lift the entire 2D plane up to height <b><code>w = 1</code></b> so points become <code>(x, y, 1)</code>.<br/>
+              • Now apply a 3D <b>Linear Shear</b> (like pushing a deck of cards): keep <code>î=(1,0,0)</code> and <code>ĵ=(0,1,0)</code> fixed, and tilt the vertical basis vector <code>ŵ=(0,0,1)</code> to <b><code>(tₓ, tᵧ, 1)</code></b>!<br/>
+              • The 3D origin <code>(0,0,0)</code> never moves, yet on the <code>w = 1</code> card slice:
             </p>
             <div class="math-box p-2 rounded bg-black/40 text-amber-300 text-center">
-              xÂ·(1,0,0) + yÂ·(0,1,0) + 1Â·(tâ‚“, táµ§, 1) = (x + tâ‚“, y + táµ§, 1)
+              x·(1,0,0) + y·(0,1,0) + 1·(tₓ, tᵧ, 1) = (x + tₓ, y + tᵧ, 1)
             </div>
           </div>
 
           <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-1.5">
             <div class="font-bold text-emerald-400 text-sm">
-              <span data-lang="zh">ç¬¬ 3 æ­¥ï¼šä¸ºä»€ä¹ˆç‚¹æ˜¯ w = 1ï¼Œå‘é‡æ˜¯ w = 0ï¼Œè€Œä¸¤ç‚¹ä¸èƒ½ç›¸åŠ ï¼Ÿ</span>
+              <span data-lang="zh">第 3 步：为什么点是 w = 1，向量是 w = 0，而两点不能相加？</span>
               <span data-lang="en">Step 3: Why Points Have w = 1, Vectors Have w = 0, and P + Q Is Illegal!</span>
             </div>
             <p class="text-[var(--muted-foreground)]" data-lang="zh">
-              æ‹–åŠ¨å·¦ä¾§çš„ <b><code>æµ‹è¯•åˆ‡ç‰‡é«˜åº¦ w</code></b> æ»‘å—ä»Ž <code>1.0</code> é™åˆ° <code>0.0</code>ï¼š<br/>
-              â€¢ <b>ç‚¹ P = (x, y, z, 1)</b> ä½åœ¨ <code>w = 1</code> çš„åˆ‡ç‰‡ä¸Šï¼Œæ‰‘å…‹ç‰Œå€¾æ–œæ—¶å®ƒè·Ÿç€å¹³ç§» <code>+ 1Â·t</code>ï¼›<br/>
-              â€¢ <b>å‘é‡ v = (vâ‚“, váµ§, v_z, 0) = Q - P</b> ä½åœ¨ <code>w = 1 - 1 = 0</code> çš„æœ€åº•å±‚åœ°é¢ä¸Šï¼Œæ‰‘å…‹ç‰Œæœ€åº•å±‚ä½ç§»ä¸º <code>0Â·t = 0</code>ï¼Œæ‰€ä»¥<b>å‘é‡å¤©ç”Ÿå¯¹å¹³ç§»å…ç–«</b>ï¼<br/>
-              â€¢ <b>ä¸ºä»€ä¹ˆä»¿å°„ç»„åˆè¦æ±‚æƒé‡å’Œ Î± + Î² = 1ï¼Ÿ</b> å› ä¸º <code>Î±(Pâ‚“,Páµ§,P_z,1) + Î²(Qâ‚“,Qáµ§,Q_z,1)</code> çš„ç¬¬ 4 ä¸ªåˆ†é‡æ˜¯ <code>w = Î± + Î²</code>ï¼åªæœ‰å½“ <code>Î± + Î² = 1</code> æ—¶ï¼Œç»“æžœæ‰ç»§ç»­ç•™åœ¨ <code>w = 1</code> çš„åˆæ³•ç‚¹å¹³é¢ä¸Šï¼
+              拖动左侧的 <b><code>测试切片高度 w</code></b> 滑块从 <code>1.0</code> 降到 <code>0.0</code>：<br/>
+              • <b>点 P = (x, y, z, 1)</b> 住在 <code>w = 1</code> 的切片上，扑克牌倾斜时它跟着平移 <code>+ 1·t</code>；<br/>
+              • <b>向量 v = (vₓ, vᵧ, v_z, 0) = Q - P</b> 住在 <code>w = 1 - 1 = 0</code> 的最底层地面上，扑克牌最底层位移为 <code>0·t = 0</code>，所以<b>向量天生对平移免疫</b>！<br/>
+              • <b>为什么仿射组合要求权重和 α + β = 1？</b> 因为 <code>α(Pₓ,Pᵧ,P_z,1) + β(Qₓ,Qᵧ,Q_z,1)</code> 的第 4 个分量是 <code>w = α + β</code>！只有当 <code>α + β = 1</code> 时，结果才继续留在 <code>w = 1</code> 的合法点平面上！
             </p>
             <p class="text-[var(--muted-foreground)]" data-lang="en">
               Drag the <b>Slice Height w</b> slider from <code>1.0</code> down to <code>0.0</code>:<br/>
-              â€¢ <b>Points (w = 1)</b> live on the <code>w = 1</code> slice and shift by <code>+ 1Â·t</code>.<br/>
-              â€¢ <b>Vectors (w = 0)</b> come from <code>Q - P</code> (<code>w = 1 - 1 = 0</code>) on the ground floor, where shear displacement is <code>0Â·t = 0</code>!<br/>
-              â€¢ <b>Affine combinations</b> <code>Î±P + Î²Q</code> have fourth coordinate <code>w = Î± + Î²</code>, which stays on the <code>w = 1</code> plane if and only if <code>Î± + Î² = 1</code>!
+              • <b>Points (w = 1)</b> live on the <code>w = 1</code> slice and shift by <code>+ 1·t</code>.<br/>
+              • <b>Vectors (w = 0)</b> come from <code>Q - P</code> (<code>w = 1 - 1 = 0</code>) on the ground floor, where shear displacement is <code>0·t = 0</code>!<br/>
+              • <b>Affine combinations</b> <code>αP + βQ</code> have fourth coordinate <code>w = α + β</code>, which stays on the <code>w = 1</code> plane if and only if <code>α + β = 1</code>!
             </p>
           </div>
         </div>
@@ -316,12 +316,12 @@
     <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-5">
       <div class="border-b border-[var(--border)] pb-3">
         <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30">
-          <span data-lang="zh">ç¬¬ä¸€æ€§åŽŸç† 3 Â· MIT 6.837 Lecture 4 æ ¸å¿ƒå¿…è€ƒæŽ¨å¯¼</span>
-          <span data-lang="en">First Principle 3 Â· MIT 6.837 Lecture 4 Essential Proof</span>
+          <span data-lang="zh">第一性原理 3 · MIT 6.837 Lecture 4 核心必考推导</span>
+          <span data-lang="en">First Principle 3 · MIT 6.837 Lecture 4 Essential Proof</span>
         </span>
         <h2 class="text-xl font-bold mt-1">
-          <span data-lang="zh">ä¸ºä»€ä¹ˆç½‘æ ¼å˜å½¢æ—¶ï¼Œè¡¨é¢æ³•å‘é‡ N ä¸èƒ½ä¹˜ Mï¼Œè€Œå¿…é¡»ä¹˜é€†è½¬ç½®çŸ©é˜µ (Mâ»Â¹)áµ€ï¼Ÿ</span>
-          <span data-lang="en">Why Must Surface Normals Transform by the Inverse-Transpose Matrix (Mâ»Â¹)áµ€ Instead of M?</span>
+          <span data-lang="zh">为什么网格变形时，表面法向量 N 不能乘 M，而必须乘逆转置矩阵 (M⁻¹)ᵀ？</span>
+          <span data-lang="en">Why Must Surface Normals Transform by the Inverse-Transpose Matrix (M⁻¹)ᵀ Instead of M?</span>
         </h2>
       </div>
 
@@ -329,42 +329,42 @@
         <div class="lg:col-span-6 space-y-3 text-xs leading-relaxed">
           <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
             <div class="font-bold text-white text-sm">
-              <span data-lang="zh">â‘  åˆ‡å‘é‡ (Tangent) ä¸Žæ³•å‘é‡ (Normal) çš„æ ¹æœ¬å‡ ä½•åŒºåˆ«</span>
-              <span data-lang="en">â‘  Tangent Vectors vs. Normal Vectors</span>
+              <span data-lang="zh">① 切向量 (Tangent) 与法向量 (Normal) 的根本几何区别</span>
+              <span data-lang="en">① Tangent Vectors vs. Normal Vectors</span>
             </div>
             <p class="text-[var(--muted-foreground)]" data-lang="zh">
-              â€¢ <b>è¡¨é¢åˆ‡å‘é‡ t = Pâ‚‚ - Pâ‚</b> æ˜¯è¿žæŽ¥è¡¨é¢ä¸¤ä¸ªé¡¶ç‚¹çš„ä½ç§»å‘é‡ã€‚å½“é¡¶ç‚¹ä¹˜çŸ©é˜µ M å˜å½¢æ—¶ï¼Œåˆ‡å‘é‡ç¡®å®žè·Ÿç€ä¹˜ Mï¼š<b><code>t' = MÂ·t</code></b>ã€‚<br/>
-              â€¢ ä½†<b>æ³•å‘é‡ n</b> ä¸æ˜¯è¡¨é¢ä¸Šçš„çº¿æ®µï¼Œå®ƒçš„å”¯ä¸€èŒè´£æ˜¯<b>â€œä¸Žè¡¨é¢åˆ‡å‘é‡ä¿æŒ 90Â° åž‚ç›´ï¼ˆç‚¹ç§¯ä¸º 0ï¼‰â€</b>ï¼<br/>
-              â€¢ è¯·çœ‹å³ä¾§ç”»å¸ƒï¼šå½“ä½ æŠŠåœ†åœ¨ X æ–¹å‘æ‹‰å®½ 2 å€ï¼ˆ<code>sâ‚“ = 2, sáµ§ = 1</code>ï¼‰æ—¶ï¼Œæ–œçŽ‡ä¸º -1 çš„åˆ‡çº¿å˜å¾—æ›´å¹³ç¼“äº†ï¼›å¦‚æžœæŠŠæ³•çº¿ n ä¹Ÿå‚»å‚»åœ°ä¹˜ä»¥ Mï¼ˆX åˆ†é‡ä¹Ÿæ‹‰é•¿ 2 å€ï¼Œè§<b>çº¢è‰²ç®­å¤´ MÂ·n</b>ï¼‰ï¼Œæ³•çº¿åè€Œæ›´å¾€æ°´å¹³æ–¹å‘å€’ï¼Œè·Ÿè¡¨é¢å®Œå…¨ä¸åž‚ç›´äº†ï¼è¦ç»§ç»­åž‚ç›´äºŽå˜å¹³ç¼“çš„è¡¨é¢ï¼Œæ³•çº¿çš„ X åˆ†é‡åè€Œå¿…é¡»<b>ç¼©å°ä¸º 1/2</b>ï¼
+              • <b>表面切向量 t = P₂ - P₁</b> 是连接表面两个顶点的位移向量。当顶点乘矩阵 M 变形时，切向量确实跟着乘 M：<b><code>t' = M·t</code></b>。<br/>
+              • 但<b>法向量 n</b> 不是表面上的线段，它的唯一职责是<b>“与表面切向量保持 90° 垂直（点积为 0）”</b>！<br/>
+              • 请看右侧画布：当你把圆在 X 方向拉宽 2 倍（<code>sₓ = 2, sᵧ = 1</code>）时，斜率为 -1 的切线变得更平缓了；如果把法线 n 也傻傻地乘以 M（X 分量也拉长 2 倍，见<b>红色箭头 M·n</b>），法线反而更往水平方向倒，跟表面完全不垂直了！要继续垂直于变平缓的表面，法线的 X 分量反而必须<b>缩小为 1/2</b>！
             </p>
             <p class="text-[var(--muted-foreground)]" data-lang="en">
-              â€¢ <b>Tangent vectors t = Pâ‚‚ - Pâ‚</b> connect two surface points, so they transform directly by M: <b><code>t' = MÂ·t</code></b>.<br/>
-              â€¢ <b>Normal vectors n</b> are defined by an orthogonality constraint: <b>"stay perpendicular to tangents (dot product = 0)"</b>!<br/>
-              â€¢ Look at the right canvas: stretching X by 2Ã— flattens the surface slope; multiplying the normal by M (red arrow <code>MÂ·n</code>) tilts it horizontally too, breaking perpendicularity!
+              • <b>Tangent vectors t = P₂ - P₁</b> connect two surface points, so they transform directly by M: <b><code>t' = M·t</code></b>.<br/>
+              • <b>Normal vectors n</b> are defined by an orthogonality constraint: <b>"stay perpendicular to tangents (dot product = 0)"</b>!<br/>
+              • Look at the right canvas: stretching X by 2× flattens the surface slope; multiplying the normal by M (red arrow <code>M·n</code>) tilts it horizontally too, breaking perpendicularity!
             </p>
           </div>
 
           <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
             <div class="font-bold text-emerald-400 text-sm">
-              <span data-lang="zh">â‘¡ ä¸‰è¡Œä»£æ•°æŽ¨å¯¼ï¼šä»Žç‚¹ç§¯å®ˆæ’ náµ€Â·t = 0 æŽ¨å¯¼å‡º (Mâ»Â¹)áµ€</span>
-              <span data-lang="en">â‘¡ 3-Line Proof: Preserving Orthogonality náµ€Â·t = 0</span>
+              <span data-lang="zh">② 三行代数推导：从点积守恒 nᵀ·t = 0 推导出 (M⁻¹)ᵀ</span>
+              <span data-lang="en">② 3-Line Proof: Preserving Orthogonality nᵀ·t = 0</span>
             </div>
             <p class="text-[var(--muted-foreground)]" data-lang="zh">
-              æŠŠç‚¹ç§¯å†™æˆçŸ©é˜µä¹˜æ³• <code>n Â· t = náµ€ t = 0</code>ã€‚åœ¨ä¸­é—´æ’å…¥å•ä½çŸ©é˜µ <code>I = Mâ»Â¹ M</code>ï¼š
+              把点积写成矩阵乘法 <code>n · t = nᵀ t = 0</code>。在中间插入单位矩阵 <code>I = M⁻¹ M</code>：
             </p>
             <p class="text-[var(--muted-foreground)]" data-lang="en">
-              Write the dot product as <code>n Â· t = náµ€ t = 0</code> and insert the identity matrix <code>I = Mâ»Â¹ M</code>:
+              Write the dot product as <code>n · t = nᵀ t = 0</code> and insert the identity matrix <code>I = M⁻¹ M</code>:
             </p>
             <div class="math-box p-3 rounded bg-black/50 text-emerald-300 space-y-1">
-              <div>0 = náµ€ Â· t = náµ€ Â· (Mâ»Â¹ Â· M) Â· t</div>
-              <div>0 = (náµ€ Â· Mâ»Â¹) Â· (M Â· t) = ((Mâ»Â¹)áµ€ Â· n)áµ€ Â· t'</div>
-              <div class="text-amber-300 font-bold pt-1">â‡’ n' = (Mâ»Â¹)áµ€ Â· n  (GLSL: mat3(transpose(inverse(uModel))))</div>
+              <div>0 = nᵀ · t = nᵀ · (M⁻¹ · M) · t</div>
+              <div>0 = (nᵀ · M⁻¹) · (M · t) = ((M⁻¹)ᵀ · n)ᵀ · t'</div>
+              <div class="text-amber-300 font-bold pt-1">⇒ n' = (M⁻¹)ᵀ · n  (GLSL: mat3(transpose(inverse(uModel))))</div>
             </div>
             <p class="text-[var(--muted-foreground)]" data-lang="zh">
-              <b>å·¥ç¨‹æŽ¨è®º</b>ï¼šå¦‚æžœ M åªæ˜¯<b>çº¯æ—‹è½¬çŸ©é˜µ R</b>ï¼Œå› ä¸ºæ­£äº¤çŸ©é˜µæ»¡è¶³ <code>Râ»Â¹ = Ráµ€</code>ï¼Œæ­¤æ—¶ <code>(Râ»Â¹)áµ€ = (Ráµ€)áµ€ = R</code>ï¼Œå¯ä»¥ç›´æŽ¥ä¹˜ Rï¼›ä½†åªè¦å«<b>éžå‡åŒ€ç¼©æ”¾æˆ–åˆ‡å˜</b>ï¼Œå°±å¿…é¡»ä¹˜ <code>(Mâ»Â¹)áµ€</code>ï¼
+              <b>工程推论</b>：如果 M 只是<b>纯旋转矩阵 R</b>，因为正交矩阵满足 <code>R⁻¹ = Rᵀ</code>，此时 <code>(R⁻¹)ᵀ = (Rᵀ)ᵀ = R</code>，可以直接乘 R；但只要含<b>非均匀缩放或切变</b>，就必须乘 <code>(M⁻¹)ᵀ</code>！
             </p>
             <p class="text-[var(--muted-foreground)]" data-lang="en">
-              <b>Takeaway</b>: For pure rotations <code>Râ»Â¹ = Ráµ€</code> so <code>(Râ»Â¹)áµ€ = R</code>. Whenever non-uniform scaling or shear is present, you MUST use <code>(Mâ»Â¹)áµ€</code>!
+              <b>Takeaway</b>: For pure rotations <code>R⁻¹ = Rᵀ</code> so <code>(R⁻¹)ᵀ = R</code>. Whenever non-uniform scaling or shear is present, you MUST use <code>(M⁻¹)ᵀ</code>!
             </p>
           </div>
         </div>
@@ -373,40 +373,40 @@
         <div class="lg:col-span-6 bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-3">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-purple-300">
-              <span data-lang="zh">ðŸ”¬ å®žæ—¶å¯¹æ¯”å®žéªŒå®¤ï¼šé”™è¯¯æ³•çº¿ MÂ·n (çº¢) vs æ­£ç¡®é€†è½¬ç½®æ³•çº¿ (Mâ»Â¹)áµ€Â·n (ç»¿)</span>
-              <span data-lang="en">ðŸ”¬ Live Comparison: Wrong Normal MÂ·n (Red) vs. Inverse-Transpose (Mâ»Â¹)áµ€Â·n (Green)</span>
+              <span data-lang="zh">🔬 实时对比实验室：错误法线 M·n (红) vs 正确逆转置法线 (M⁻¹)ᵀ·n (绿)</span>
+              <span data-lang="en">🔬 Live Comparison: Wrong Normal M·n (Red) vs. Inverse-Transpose (M⁻¹)ᵀ·n (Green)</span>
             </span>
           </div>
 
           <div class="relative w-full rounded-lg overflow-hidden border border-[var(--border)] bg-[#070b14]" style="height: 310px;">
             <canvas id="normalMatrixCanvas" class="w-full h-full"></canvas>
             <div class="absolute top-2.5 left-2.5 bg-black/75 backdrop-blur px-2.5 py-1.5 rounded border border-slate-800 text-[11px] space-y-0.5 pointer-events-none">
-              <div id="normalAngleWrong" class="math-box text-rose-400 font-bold">âŒ Angle(MÂ·n, MÂ·t) = 53.1Â° (Not 90Â°!)</div>
-              <div id="normalAngleRight" class="math-box text-emerald-400 font-bold">âœ… Angle((Mâ»Â¹)áµ€Â·n, MÂ·t) = 90.0Â° (Exact!)</div>
+              <div id="normalAngleWrong" class="math-box text-rose-400 font-bold">❌ Angle(M·n, M·t) = 53.1° (Not 90°!)</div>
+              <div id="normalAngleRight" class="math-box text-emerald-400 font-bold">✅ Angle((M⁻¹)ᵀ·n, M·t) = 90.0° (Exact!)</div>
             </div>
           </div>
 
           <div class="grid grid-cols-3 gap-3 text-xs">
             <div>
               <div class="flex justify-between mb-0.5">
-                <span data-lang="zh">X è½´ç¼©æ”¾ sâ‚“</span>
-                <span data-lang="en">Scale sâ‚“</span>
+                <span data-lang="zh">X 轴缩放 sₓ</span>
+                <span data-lang="en">Scale sₓ</span>
                 <span id="nmSxLabel" class="math-box text-amber-300">2.1</span>
               </div>
               <input id="nmSxSlider" type="range" min="0.5" max="2.5" step="0.1" value="2.1" oninput="updateTab0Canvases()" class="w-full" />
             </div>
             <div>
               <div class="flex justify-between mb-0.5">
-                <span data-lang="zh">Y è½´ç¼©æ”¾ sáµ§</span>
-                <span data-lang="en">Scale sáµ§</span>
+                <span data-lang="zh">Y 轴缩放 sᵧ</span>
+                <span data-lang="en">Scale sᵧ</span>
                 <span id="nmSyLabel" class="math-box text-cyan-300">0.7</span>
               </div>
               <input id="nmSySlider" type="range" min="0.5" max="2.5" step="0.1" value="0.7" oninput="updateTab0Canvases()" class="w-full" />
             </div>
             <div>
               <div class="flex justify-between mb-0.5">
-                <span data-lang="zh">æ°´å¹³åˆ‡å˜ kâ‚“áµ§</span>
-                <span data-lang="en">Shear kâ‚“áµ§</span>
+                <span data-lang="zh">水平切变 kₓᵧ</span>
+                <span data-lang="en">Shear kₓᵧ</span>
                 <span id="nmShearLabel" class="math-box text-purple-300">0.4</span>
               </div>
               <input id="nmShearSlider" type="range" min="-1.2" max="1.2" step="0.1" value="0.4" oninput="updateTab0Canvases()" class="w-full" />
@@ -427,22 +427,22 @@
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 class="text-lg font-bold">
-            <span data-lang="zh">3D ä»¿å°„æ ‡æž¶ (O; u, v, w) ä¸Ž 4Ã—4 é½æ¬¡çŸ©é˜µé€è§†æ²™ç›’</span>
-            <span data-lang="en">3D Coordinate Frame (O; u, v, w) &amp; 4Ã—4 Homogeneous Matrix Sandbox</span>
+            <span data-lang="zh">3D 仿射标架 (O; u, v, w) 与 4×4 齐次矩阵透视沙盒</span>
+            <span data-lang="en">3D Coordinate Frame (O; u, v, w) &amp; 4×4 Homogeneous Matrix Sandbox</span>
           </h2>
           <p class="text-xs text-[var(--muted-foreground)]">
-            <span data-lang="zh">è§‚å¯Ÿ 4Ã—4 çŸ©é˜µçš„ 4 åˆ—å¦‚ä½•ç›´æŽ¥å¯¹åº”å±€éƒ¨æ ‡æž¶çš„ä¸‰æ ¹è½´ (u, v, w) ä¸Žæ–°åŽŸç‚¹ Oï¼æŒ‰ä½é¼ æ ‡æ‹–æ‹½æ—‹è½¬ç›¸æœºã€‚</span>
-            <span data-lang="en">Watch how the 4 columns of the 4Ã—4 matrix directly represent the local axes (u, v, w) and origin O! Drag to orbit.</span>
+            <span data-lang="zh">观察 4×4 矩阵的 4 列如何直接对应局部标架的三根轴 (u, v, w) 与新原点 O！按住鼠标拖拽旋转相机。</span>
+            <span data-lang="en">Watch how the 4 columns of the 4×4 matrix directly represent the local axes (u, v, w) and origin O! Drag to orbit.</span>
           </p>
         </div>
 
         <div class="flex items-center gap-2">
           <button id="orderToggleBtn" onclick="toggleComposeOrder()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">
-            Order: M = T Â· R Â· S
+            Order: M = T · R · S
           </button>
           <button onclick="resetMatrixLab()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--secondary)] hover:bg-[var(--muted)] border border-[var(--border)]">
-            <span data-lang="zh">é‡ç½®ä¸ºå•ä½é˜µ Iâ‚„</span>
-            <span data-lang="en">Reset to Identity Iâ‚„</span>
+            <span data-lang="zh">重置为单位阵 I₄</span>
+            <span data-lang="en">Reset to Identity I₄</span>
           </button>
         </div>
       </div>
@@ -451,8 +451,8 @@
         <canvas id="matrixSandboxCanvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
 
         <div class="absolute top-3 left-3 bg-black/75 backdrop-blur px-3 py-2 rounded-lg border border-slate-800 text-xs space-y-1 pointer-events-none">
-          <div id="detBadge" class="math-box font-bold text-emerald-400">det(Mâ‚ƒâ‚“â‚ƒ) = +1.00 (Volume Ã—1.00, Right-Handed)</div>
-          <div id="probeResultHud" class="math-box text-amber-300">Point P(1,1,1, w=1) â†’ World (2.20, 1.80, 1.00)</div>
+          <div id="detBadge" class="math-box font-bold text-emerald-400">det(M₃ₓ₃) = +1.00 (Volume ×1.00, Right-Handed)</div>
+          <div id="probeResultHud" class="math-box text-amber-300">Point P(1,1,1, w=1) → World (2.20, 1.80, 1.00)</div>
         </div>
       </div>
     </div>
@@ -463,19 +463,19 @@
       <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-3">
         <div class="flex items-center justify-between">
           <h3 class="text-sm font-bold">
-            <span data-lang="zh">å®žæ—¶ 4Ã—4 é½æ¬¡çŸ©é˜µ M = [ u | v | w | O ]</span>
-            <span data-lang="en">Live 4Ã—4 Homogeneous Matrix M = [ u | v | w | O ]</span>
+            <span data-lang="zh">实时 4×4 齐次矩阵 M = [ u | v | w | O ]</span>
+            <span data-lang="en">Live 4×4 Homogeneous Matrix M = [ u | v | w | O ]</span>
           </h3>
           <span class="text-[11px] text-[var(--muted-foreground)]">
-            <span data-lang="zh">æŒ‰åˆ—ç€è‰²å¯¹åº” 3D æ ‡æž¶è½´</span>
+            <span data-lang="zh">按列着色对应 3D 标架轴</span>
             <span data-lang="en">Columns color-coded to 3D frame</span>
           </span>
         </div>
 
         <div class="grid grid-cols-4 gap-1.5 text-center text-[11px] font-bold">
-          <div class="text-red-400">Col 1: u = L(Ã®)</div>
-          <div class="text-emerald-400">Col 2: v = L(Äµ)</div>
-          <div class="text-sky-400">Col 3: w = L(kÌ‚)</div>
+          <div class="text-red-400">Col 1: u = L(î)</div>
+          <div class="text-emerald-400">Col 2: v = L(ĵ)</div>
+          <div class="text-sky-400">Col 3: w = L(k̂)</div>
           <div class="text-purple-400">Col 4: O (Trans)</div>
         </div>
 
@@ -487,16 +487,16 @@
       <!-- Transformation Sliders -->
       <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-3 text-xs">
         <div class="font-bold text-purple-300">
-          <span data-lang="zh">â‘  ç¬¬ 4 åˆ—ï¼šå¹³ç§»å‘é‡ t = (tâ‚“, táµ§, t_z) â€” ç§»åŠ¨å±€éƒ¨æ ‡æž¶åŽŸç‚¹ O</span>
-          <span data-lang="en">â‘  Column 4: Translation t = (tâ‚“, táµ§, t_z) â€” Moves Frame Origin O</span>
+          <span data-lang="zh">① 第 4 列：平移向量 t = (tₓ, tᵧ, t_z) — 移动局部标架原点 O</span>
+          <span data-lang="en">① Column 4: Translation t = (tₓ, tᵧ, t_z) — Moves Frame Origin O</span>
         </div>
         <div class="grid grid-cols-3 gap-2">
           <div>
-            <label class="text-[var(--muted-foreground)] block">tâ‚“: <span id="valTx" class="math-box text-white">1.2</span></label>
+            <label class="text-[var(--muted-foreground)] block">tₓ: <span id="valTx" class="math-box text-white">1.2</span></label>
             <input id="sliderTx" type="range" min="-2.5" max="2.5" step="0.1" value="1.2" oninput="updateMatrixSandbox()" class="w-full" />
           </div>
           <div>
-            <label class="text-[var(--muted-foreground)] block">táµ§: <span id="valTy" class="math-box text-white">0.8</span></label>
+            <label class="text-[var(--muted-foreground)] block">tᵧ: <span id="valTy" class="math-box text-white">0.8</span></label>
             <input id="sliderTy" type="range" min="-2.5" max="2.5" step="0.1" value="0.8" oninput="updateMatrixSandbox()" class="w-full" />
           </div>
           <div>
@@ -506,35 +506,35 @@
         </div>
 
         <div class="font-bold text-amber-300 pt-2 border-t border-[var(--border)]">
-          <span data-lang="zh">â‘¡ å‰ 3 åˆ—æ–¹å‘ï¼šæ—‹è½¬è§’åº¦ (Yaw / Pitch / Roll)</span>
-          <span data-lang="en">â‘¡ Columns 1â€“3 Orientation: Rotation (Yaw / Pitch / Roll)</span>
+          <span data-lang="zh">② 前 3 列方向：旋转角度 (Yaw / Pitch / Roll)</span>
+          <span data-lang="en">② Columns 1–3 Orientation: Rotation (Yaw / Pitch / Roll)</span>
         </div>
         <div class="grid grid-cols-3 gap-2">
           <div>
-            <label class="text-[var(--muted-foreground)] block">Yaw Y: <span id="valYaw" class="math-box text-white">25Â°</span></label>
+            <label class="text-[var(--muted-foreground)] block">Yaw Y: <span id="valYaw" class="math-box text-white">25°</span></label>
             <input id="sliderYaw" type="range" min="-180" max="180" step="1" value="25" oninput="updateMatrixSandbox()" class="w-full" />
           </div>
           <div>
-            <label class="text-[var(--muted-foreground)] block">Pitch X: <span id="valPitch" class="math-box text-white">15Â°</span></label>
+            <label class="text-[var(--muted-foreground)] block">Pitch X: <span id="valPitch" class="math-box text-white">15°</span></label>
             <input id="sliderPitch" type="range" min="-90" max="90" step="1" value="15" oninput="updateMatrixSandbox()" class="w-full" />
           </div>
           <div>
-            <label class="text-[var(--muted-foreground)] block">Roll Z: <span id="valRoll" class="math-box text-white">0Â°</span></label>
+            <label class="text-[var(--muted-foreground)] block">Roll Z: <span id="valRoll" class="math-box text-white">0°</span></label>
             <input id="sliderRoll" type="range" min="-180" max="180" step="1" value="0" oninput="updateMatrixSandbox()" class="w-full" />
           </div>
         </div>
 
         <div class="font-bold text-cyan-300 pt-2 border-t border-[var(--border)]">
-          <span data-lang="zh">â‘¢ å‰ 3 åˆ—ä¼¸ç¼©ä¸Žåˆ‡å˜ï¼šç¼©æ”¾ (sâ‚“, sáµ§, s_z) ä¸Žé”™åˆ‡ (Shear)</span>
-          <span data-lang="en">â‘¢ Columns 1â€“3 Stretch &amp; Shear: Scale (sâ‚“, sáµ§, s_z) &amp; Shear</span>
+          <span data-lang="zh">③ 前 3 列伸缩与切变：缩放 (sₓ, sᵧ, s_z) 与错切 (Shear)</span>
+          <span data-lang="en">③ Columns 1–3 Stretch &amp; Shear: Scale (sₓ, sᵧ, s_z) &amp; Shear</span>
         </div>
         <div class="grid grid-cols-4 gap-2">
           <div>
-            <label class="text-[var(--muted-foreground)] block">sâ‚“: <span id="valSx" class="math-box text-white">1.0</span></label>
+            <label class="text-[var(--muted-foreground)] block">sₓ: <span id="valSx" class="math-box text-white">1.0</span></label>
             <input id="sliderSx" type="range" min="-2.0" max="2.0" step="0.1" value="1.0" oninput="updateMatrixSandbox()" class="w-full" />
           </div>
           <div>
-            <label class="text-[var(--muted-foreground)] block">sáµ§: <span id="valSy" class="math-box text-white">1.0</span></label>
+            <label class="text-[var(--muted-foreground)] block">sᵧ: <span id="valSy" class="math-box text-white">1.0</span></label>
             <input id="sliderSy" type="range" min="-2.0" max="2.0" step="0.1" value="1.0" oninput="updateMatrixSandbox()" class="w-full" />
           </div>
           <div>
@@ -548,8 +548,8 @@
         </div>
 
         <div class="font-bold text-emerald-300 pt-2 border-t border-[var(--border)]">
-          <span data-lang="zh">â‘£ é½æ¬¡åæ ‡ç¬¬ 4 åˆ†é‡ w æŽ§åˆ¶ (ä½“éªŒ w=1 ç‚¹ã€w=0 å‘é‡ä¸Ž (X/w, Y/w, Z/w) é€è§†é™¤æ³•)</span>
-          <span data-lang="en">â‘£ Homogeneous w Component (Point w=1, Vector w=0 &amp; Perspective Divide)</span>
+          <span data-lang="zh">④ 齐次坐标第 4 分量 w 控制 (体验 w=1 点、w=0 向量与 (X/w, Y/w, Z/w) 透视除法)</span>
+          <span data-lang="en">④ Homogeneous w Component (Point w=1, Vector w=0 &amp; Perspective Divide)</span>
         </div>
         <div class="flex items-center gap-2">
           <button onclick="setHomogeneousW(1.0)" class="px-2.5 py-1 rounded bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-semibold">
@@ -572,19 +572,19 @@
     <div class="lg:col-span-7 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col space-y-3">
       <div>
         <h2 class="text-lg font-bold">
-          <span data-lang="zh">å±‚çº§å±€éƒ¨æ ‡æž¶æ ‘ (Scene Graph)ï¼š3D ç©ºé—´ç«™æœºæ¢°è‡‚æ­£å‘è¿åŠ¨å­¦</span>
+          <span data-lang="zh">层级局部标架树 (Scene Graph)：3D 空间站机械臂正向运动学</span>
           <span data-lang="en">Hierarchical Local Coordinate Frames: 3D Space Station Robot Arm</span>
         </h2>
         <p class="text-xs text-[var(--muted-foreground)]">
-          <span data-lang="zh">UC Davis Lecture 3 ä¸Ž MIT 6.837 Lecture 4 æ ¸å¿ƒåº”ç”¨ï¼šå­å…³èŠ‚åªéœ€è¦åœ¨çˆ¶å…³èŠ‚çš„å±€éƒ¨æ ‡æž¶ä¸‹æ—‹è½¬ï¼Œä¸–ç•ŒçŸ©é˜µè‡ªåŠ¨ç”± 4Ã—4 çŸ©é˜µé“¾ç›¸ä¹˜ M_world = M_base Â· M_shoulder Â· M_elbow Â· M_claw å¾—åˆ°ï¼</span>
-          <span data-lang="en">Each child joint rotates purely in its parent's local frame; its world transformation is automatically the 4Ã—4 matrix chain product M_world = M_base Â· M_shoulder Â· M_elbow Â· M_claw!</span>
+          <span data-lang="zh">UC Davis Lecture 3 与 MIT 6.837 Lecture 4 核心应用：子关节只需要在父关节的局部标架下旋转，世界矩阵自动由 4×4 矩阵链相乘 M_world = M_base · M_shoulder · M_elbow · M_claw 得到！</span>
+          <span data-lang="en">Each child joint rotates purely in its parent's local frame; its world transformation is automatically the 4×4 matrix chain product M_world = M_base · M_shoulder · M_elbow · M_claw!</span>
         </p>
       </div>
 
       <div class="relative flex-1 min-h-[420px] bg-[#070b14] rounded-xl overflow-hidden border border-[var(--border)]">
         <canvas id="hierarchyCanvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
         <div class="absolute top-3 left-3 bg-black/75 backdrop-blur px-3 py-2 rounded-lg border border-slate-800 text-xs space-y-1 pointer-events-none">
-          <div class="text-indigo-300 font-bold">M_tip = T_base Â· R_y(Î¸â‚) Â· T_L1 Â· R_z(Î¸â‚‚) Â· T_L2 Â· R_z(Î¸â‚ƒ)</div>
+          <div class="text-indigo-300 font-bold">M_tip = T_base · R_y(θ₁) · T_L1 · R_z(θ₂) · T_L2 · R_z(θ₃)</div>
           <div id="effectorPosHud" class="math-box text-emerald-400">End-Effector World Pos: (1.42, 2.15, 0.00)</div>
         </div>
       </div>
@@ -592,14 +592,14 @@
 
     <div class="lg:col-span-5 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 text-xs">
       <h3 class="text-sm font-bold border-b border-[var(--border)] pb-2">
-        <span data-lang="zh">æ“æŽ§å„çº§å±€éƒ¨æ ‡æž¶ (Local Coordinate Frames)</span>
+        <span data-lang="zh">操控各级局部标架 (Local Coordinate Frames)</span>
         <span data-lang="en">Control Hierarchical Local Frames</span>
       </h3>
 
       <div class="p-3.5 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
         <div class="font-bold text-amber-400">
-          <span data-lang="zh">1. åº•åº§æ ‡æž¶ Frame 1 (Base Translation &amp; Yaw Î¸â‚)</span>
-          <span data-lang="en">1. Base Frame 1 (Base Translation &amp; Yaw Î¸â‚)</span>
+          <span data-lang="zh">1. 底座标架 Frame 1 (Base Translation &amp; Yaw θ₁)</span>
+          <span data-lang="en">1. Base Frame 1 (Base Translation &amp; Yaw θ₁)</span>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -607,7 +607,7 @@
             <input id="armBaseX" type="range" min="-1.8" max="1.8" step="0.1" value="0.0" oninput="drawHierarchyLab()" class="w-full" />
           </div>
           <div>
-            <label class="text-[var(--muted-foreground)] block">Base Yaw Î¸â‚: <span id="armYawVal" class="math-box text-white">25Â°</span></label>
+            <label class="text-[var(--muted-foreground)] block">Base Yaw θ₁: <span id="armYawVal" class="math-box text-white">25°</span></label>
             <input id="armYaw" type="range" min="-180" max="180" step="1" value="25" oninput="drawHierarchyLab()" class="w-full" />
           </div>
         </div>
@@ -615,36 +615,36 @@
 
       <div class="p-3.5 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
         <div class="font-bold text-cyan-400">
-          <span data-lang="zh">2. å¤§è‡‚æ ‡æž¶ Frame 2 (Shoulder Pitch Î¸â‚‚, ç»§æ‰¿åº•åº§æ ‡æž¶)</span>
-          <span data-lang="en">2. Upper Arm Frame 2 (Shoulder Pitch Î¸â‚‚, child of Base)</span>
+          <span data-lang="zh">2. 大臂标架 Frame 2 (Shoulder Pitch θ₂, 继承底座标架)</span>
+          <span data-lang="en">2. Upper Arm Frame 2 (Shoulder Pitch θ₂, child of Base)</span>
         </div>
         <div>
-          <label class="text-[var(--muted-foreground)] block">Shoulder Pitch Î¸â‚‚: <span id="armShoulderVal" class="math-box text-white">35Â°</span></label>
+          <label class="text-[var(--muted-foreground)] block">Shoulder Pitch θ₂: <span id="armShoulderVal" class="math-box text-white">35°</span></label>
           <input id="armShoulder" type="range" min="-75" max="85" step="1" value="35" oninput="drawHierarchyLab()" class="w-full" />
         </div>
       </div>
 
       <div class="p-3.5 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
         <div class="font-bold text-purple-400">
-          <span data-lang="zh">3. å°è‡‚æ ‡æž¶ Frame 3 (Elbow Pitch Î¸â‚ƒ, ç»§æ‰¿å¤§è‡‚æ ‡æž¶)</span>
-          <span data-lang="en">3. Forearm Frame 3 (Elbow Pitch Î¸â‚ƒ, child of Upper Arm)</span>
+          <span data-lang="zh">3. 小臂标架 Frame 3 (Elbow Pitch θ₃, 继承大臂标架)</span>
+          <span data-lang="en">3. Forearm Frame 3 (Elbow Pitch θ₃, child of Upper Arm)</span>
         </div>
         <div>
-          <label class="text-[var(--muted-foreground)] block">Elbow Bend Î¸â‚ƒ: <span id="armElbowVal" class="math-box text-white">-50Â°</span></label>
+          <label class="text-[var(--muted-foreground)] block">Elbow Bend θ₃: <span id="armElbowVal" class="math-box text-white">-50°</span></label>
           <input id="armElbow" type="range" min="-120" max="90" step="1" value="-50" oninput="drawHierarchyLab()" class="w-full" />
         </div>
       </div>
 
       <div class="p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/30 space-y-1.5 leading-relaxed text-[var(--muted-foreground)]">
         <div class="font-bold text-indigo-300">
-          <span data-lang="zh">ðŸ’¡ ä¸ºä»€ä¹ˆè¿™å®Œç¾Žä½“çŽ°äº† 4Ã—4 é½æ¬¡çŸ©é˜µçš„å¨åŠ›ï¼Ÿ</span>
-          <span data-lang="en">ðŸ’¡ Why Does This Showcase the Power of 4Ã—4 Homogeneous Matrices?</span>
+          <span data-lang="zh">💡 为什么这完美体现了 4×4 齐次矩阵的威力？</span>
+          <span data-lang="en">💡 Why Does This Showcase the Power of 4×4 Homogeneous Matrices?</span>
         </div>
         <p data-lang="zh">
-          å¦‚æžœæ²¡æœ‰ 4Ã—4 é½æ¬¡çŸ©é˜µï¼Œæ¯ç»è¿‡ä¸€çº§å…³èŠ‚ï¼Œä½ éƒ½å¿…é¡»æŠŠ 3Ã—3 æ—‹è½¬çŸ©é˜µå’Œ 3D å¹³ç§»å‘é‡åˆ†å¼€ç®—ï¼›æœ‰äº† 4Ã—4 é½æ¬¡çŸ©é˜µï¼Œæ¯ä¸€çº§å…³èŠ‚çš„â€œå±€éƒ¨å¹³ç§» + å±€éƒ¨æ—‹è½¬â€éƒ½æ˜¯ä¸€ä¸ªå•ç‹¬çš„ 4Ã—4 çŸ©é˜µ <code>Máµ¢</code>ï¼Œæœºæ¢°çˆªä¸Šä»»æ„ä¸€ç‚¹ <code>p_local</code> åœ¨ä¸–ç•Œä¸­çš„ä½ç½®ç›´æŽ¥å°±æ˜¯è¿žä¹˜ï¼š<code>p_world = Mâ‚ Â· Mâ‚‚ Â· Mâ‚ƒ Â· p_local</code>ï¼
+          如果没有 4×4 齐次矩阵，每经过一级关节，你都必须把 3×3 旋转矩阵和 3D 平移向量分开算；有了 4×4 齐次矩阵，每一级关节的“局部平移 + 局部旋转”都是一个单独的 4×4 矩阵 <code>Mᵢ</code>，机械爪上任意一点 <code>p_local</code> 在世界中的位置直接就是连乘：<code>p_world = M₁ · M₂ · M₃ · p_local</code>！
         </p>
         <p data-lang="en">
-          Because translation and rotation are unified into single 4Ã—4 matrices <code>Máµ¢</code>, transforming a point from claw-local space to world space is a single clean matrix chain product: <code>p_world = Mâ‚ Â· Mâ‚‚ Â· Mâ‚ƒ Â· p_local</code>!
+          Because translation and rotation are unified into single 4×4 matrices <code>Mᵢ</code>, transforming a point from claw-local space to world space is a single clean matrix chain product: <code>p_world = M₁ · M₂ · M₃ · p_local</code>!
         </p>
       </div>
     </div>
@@ -658,11 +658,11 @@
       <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-4">
         <div class="flex items-center justify-between">
           <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-            MIT 6.837 Â· Fall 2021 Â· Lecture 04
+            MIT 6.837 · Fall 2021 · Lecture 04
           </span>
           <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">
-            <span data-lang="zh">æ‰“å¼€å®Œæ•´ YouTube æ’­æ”¾åˆ—è¡¨ â†—</span>
-            <span data-lang="en">Open Full YouTube Playlist â†—</span>
+            <span data-lang="zh">打开完整 YouTube 播放列表 ↗</span>
+            <span data-lang="en">Open Full YouTube Playlist ↗</span>
           </a>
         </div>
         <h3 class="text-lg font-bold">MIT 6.837 Lecture 4: Coordinates and Transformations (Prof. Justin Solomon)</h3>
@@ -670,38 +670,38 @@
           <iframe class="w-full h-full" src="https://www.youtube.com/embed/videoseries?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi&index=3" title="MIT 6.837 Lecture 4" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
         </div>
         <ul class="text-xs text-[var(--muted-foreground)] space-y-1.5 list-disc pl-4">
-          <li data-lang="zh"><b>Linear vs. Affine Transformations</b>ï¼šä¸ºä»€ä¹ˆçº¿æ€§å˜æ¢ä¿æŒåŽŸç‚¹ä¸åŠ¨ï¼Œè€Œä»¿å°„å˜æ¢ = çº¿æ€§å˜æ¢ + å¹³ç§»ã€‚</li>
-          <li data-lang="zh"><b>Homogeneous Coordinates (x, y, z, w)</b>ï¼šå¦‚ä½•é€šè¿‡å¢žåŠ ç¬¬ 4 ç»´ w æŠŠ 3D ä»¿å°„å˜æ¢å˜æˆ 4D çº¿æ€§å˜æ¢ã€‚</li>
-          <li data-lang="zh"><b>Transforming Normals</b>ï¼šè¯¦ç»†æŽ¨å¯¼ä¸ºä»€ä¹ˆæ³•å‘é‡ä½äºŽå¯¹å¶ç©ºé—´ï¼ˆCotangent/Dual Spaceï¼‰ï¼Œå¿…é¡»ä¹˜ <code>(Mâ»Â¹)áµ€</code>ã€‚</li>
+          <li data-lang="zh"><b>Linear vs. Affine Transformations</b>：为什么线性变换保持原点不动，而仿射变换 = 线性变换 + 平移。</li>
+          <li data-lang="zh"><b>Homogeneous Coordinates (x, y, z, w)</b>：如何通过增加第 4 维 w 把 3D 仿射变换变成 4D 线性变换。</li>
+          <li data-lang="zh"><b>Transforming Normals</b>：详细推导为什么法向量位于对偶空间（Cotangent/Dual Space），必须乘 <code>(M⁻¹)ᵀ</code>。</li>
           <li data-lang="en"><b>Linear vs. Affine Transformations</b>: Why linear maps fix the origin, and affine maps = linear + translation.</li>
           <li data-lang="en"><b>Homogeneous Coordinates (x, y, z, w)</b>: Turning 3D affine transformations into 4D linear transformations.</li>
-          <li data-lang="en"><b>Transforming Normals</b>: Why surface normals live in dual space and transform via <code>(Mâ»Â¹)áµ€</code>.</li>
+          <li data-lang="en"><b>Transforming Normals</b>: Why surface normals live in dual space and transform via <code>(M⁻¹)ᵀ</code>.</li>
         </ul>
       </div>
 
       <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-4">
         <div class="flex items-center justify-between">
           <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-            UC Davis ECS 175 Â· Fall 2009 Â· Lecture 03
+            UC Davis ECS 175 · Fall 2009 · Lecture 03
           </span>
           <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+3+Kenneth+Joy" target="_blank" rel="noreferrer" class="text-xs text-amber-400 hover:underline">
-            <span data-lang="zh">åœ¨ YouTube æœç´¢/è§‚çœ‹æœ¬è®² â†—</span>
-            <span data-lang="en">Watch on YouTube â†—</span>
+            <span data-lang="zh">在 YouTube 搜索/观看本讲 ↗</span>
+            <span data-lang="en">Watch on YouTube ↗</span>
           </a>
         </div>
         <h3 class="text-lg font-bold">UC Davis Lecture 3: Moving Objects in Space (Prof. Kenneth Joy)</h3>
         <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-3 text-xs leading-relaxed">
           <div class="font-semibold text-amber-300">
-            <span data-lang="zh">Kenneth Joy æ•™æŽˆçš„â€œä»¿å°„æ ‡æž¶ (Coordinate Frames)â€æ ¸å¿ƒå“²å­¦ï¼š</span>
+            <span data-lang="zh">Kenneth Joy 教授的“仿射标架 (Coordinate Frames)”核心哲学：</span>
             <span data-lang="en">Prof. Kenneth Joy's Coordinate Frame Philosophy:</span>
           </div>
           <p class="text-[var(--muted-foreground)]" data-lang="zh">
-            1. <b>æ ‡æž¶ (O; u, v, w) æ˜¯å‡ ä½•ä¸Žä»£æ•°çš„æ¡¥æ¢</b>ï¼šä¸è¦å­¤ç«‹åœ°çœ‹å¾…çŸ©é˜µé‡Œçš„ 16 ä¸ªæ•°å­—ï¼å‰ 3 åˆ—æ°¸è¿œæ˜¯å±€éƒ¨åæ ‡è½´ <code>u, v, w</code> åœ¨ä¸–ç•Œä¸­çš„æœå‘ä¸Žå°ºåº¦ï¼Œç¬¬ 4 åˆ—æ°¸è¿œæ˜¯å±€éƒ¨åŽŸç‚¹ <code>O</code> åœ¨ä¸–ç•Œä¸­çš„è½ç‚¹ã€‚<br/>
-            2. <b>ä¸»åŠ¨ç§»åŠ¨ç‰©ä½“ vs. è¢«åŠ¨åˆ‡æ¢æ ‡æž¶</b>ï¼šæŠŠä¸€ä¸ªå±€éƒ¨åæ ‡ä¸º <code>(x, y, z, 1)</code> çš„é¡¶ç‚¹æ”¾è¿›æ ‡æž¶ <code>(O; u, v, w)</code>ï¼Œå¾—åˆ°çš„ä¸–ç•Œä½ç½® <code>O + xÂ·u + yÂ·v + zÂ·w</code>ï¼Œæ—¢å¯ä»¥çœ‹ä½œæŠŠæ ‡å‡†æ¨¡åž‹æ¬åˆ°äº†è¯¥æ ‡æž¶å¤„ï¼Œä¹Ÿå¯ä»¥çœ‹ä½œæŠŠå±€éƒ¨åæ ‡ç¿»è¯‘æˆäº†ä¸–ç•Œåæ ‡ï¼
+            1. <b>标架 (O; u, v, w) 是几何与代数的桥梁</b>：不要孤立地看待矩阵里的 16 个数字！前 3 列永远是局部坐标轴 <code>u, v, w</code> 在世界中的朝向与尺度，第 4 列永远是局部原点 <code>O</code> 在世界中的落点。<br/>
+            2. <b>主动移动物体 vs. 被动切换标架</b>：把一个局部坐标为 <code>(x, y, z, 1)</code> 的顶点放进标架 <code>(O; u, v, w)</code>，得到的世界位置 <code>O + x·u + y·v + z·w</code>，既可以看作把标准模型搬到了该标架处，也可以看作把局部坐标翻译成了世界坐标！
           </p>
           <p class="text-[var(--muted-foreground)]" data-lang="en">
-            1. <b>Frames (O; u, v, w) Bridge Geometry and Algebra</b>: Never view a 4Ã—4 matrix as 16 arbitrary numbers! Columns 1â€“3 are the new basis vectors <code>u, v, w</code>; Column 4 is the new origin <code>O</code>.<br/>
-            2. <b>Moving Objects vs. Changing Frames</b>: Evaluating <code>O + xÂ·u + yÂ·v + zÂ·w</code> both moves a canonical object into the frame and converts local coordinates to world coordinates!
+            1. <b>Frames (O; u, v, w) Bridge Geometry and Algebra</b>: Never view a 4×4 matrix as 16 arbitrary numbers! Columns 1–3 are the new basis vectors <code>u, v, w</code>; Column 4 is the new origin <code>O</code>.<br/>
+            2. <b>Moving Objects vs. Changing Frames</b>: Evaluating <code>O + x·u + y·v + z·w</code> both moves a canonical object into the frame and converts local coordinates to world coordinates!
           </p>
         </div>
       </div>
@@ -717,29 +717,29 @@
         <div>
           <div class="flex items-center gap-2">
             <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-              ðŸŽ® Play to Learn Â· Interactive Mini-Game
+              🎮 Play to Learn · Interactive Mini-Game
             </span>
             <span id="gameScoreBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
               Cleared: 0 / 3 Missions
             </span>
           </div>
           <h2 class="text-xl font-bold mt-1">
-            <span data-lang="zh">æ˜Ÿé™…èˆ¹åžçŸ©é˜µé¢†èˆªå‘˜ (Star-Dock Matrix Pilot Â· 3 å…³çŸ©é˜µå®žæˆ˜é—¯å…³)</span>
+            <span data-lang="zh">星际船坞矩阵领航员 (Star-Dock Matrix Pilot · 3 关矩阵实战闯关)</span>
             <span data-lang="en">Star-Dock Matrix Pilot (3-Mission Matrix Transformation Challenge)</span>
           </h2>
         </div>
 
         <div class="flex flex-wrap gap-2">
           <button id="mBtn1" onclick="selectMission(1)" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white transition">
-            <span data-lang="zh">å…³å¡ 1: åŸºå‘é‡é›•å¡‘å¸ˆ [u | v]</span>
+            <span data-lang="zh">关卡 1: 基向量雕塑师 [u | v]</span>
             <span data-lang="en">Mission 1: Basis Sculptor [u | v]</span>
           </button>
           <button id="mBtn2" onclick="selectMission(2)" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)] border border-[var(--border)] transition">
-            <span data-lang="zh">å…³å¡ 2: çŸ©é˜µé¡ºåºè½¨é“å¯¹æŽ¥ (TÂ·R vs RÂ·T)</span>
-            <span data-lang="en">Mission 2: Orbital Docking (TÂ·R vs RÂ·T)</span>
+            <span data-lang="zh">关卡 2: 矩阵顺序轨道对接 (T·R vs R·T)</span>
+            <span data-lang="en">Mission 2: Orbital Docking (T·R vs R·T)</span>
           </button>
           <button id="mBtn3" onclick="selectMission(3)" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)] border border-[var(--border)] transition">
-            <span data-lang="zh">å…³å¡ 3: é€†è½¬ç½®æ³•çº¿æ¿€å…‰åå°„</span>
+            <span data-lang="zh">关卡 3: 逆转置法线激光反射</span>
             <span data-lang="en">Mission 3: Normal Matrix Laser Deflector</span>
           </button>
         </div>
@@ -765,71 +765,71 @@
           <!-- Mission 1 Panel -->
           <div id="missionPanel1" class="bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-5 space-y-3 text-xs">
             <div class="font-bold text-sm text-amber-400">
-              <span data-lang="zh">ðŸŽ¯ ä»»åŠ¡ 1ï¼šè°ƒèŠ‚çŸ©é˜µçš„ä¸¤åˆ—ï¼ˆæ–°åŸºå‘é‡ u å’Œ vï¼‰åŒ¹é…ç›®æ ‡é£žèˆ¹è™šå½±ï¼</span>
-              <span data-lang="en">ðŸŽ¯ Mission 1: Sculpt Basis Columns u &amp; v to Match the Target Hull!</span>
+              <span data-lang="zh">🎯 任务 1：调节矩阵的两列（新基向量 u 和 v）匹配目标飞船虚影！</span>
+              <span data-lang="en">🎯 Mission 1: Sculpt Basis Columns u &amp; v to Match the Target Hull!</span>
             </div>
             <p class="text-[var(--muted-foreground)] leading-relaxed">
-              <span data-lang="zh">åˆ©ç”¨ 3Blue1Brown é»„é‡‘æ³•åˆ™ï¼šçº¢è‰²ç®­å¤´æ˜¯ç¬¬ 1 åˆ— <code>u = (uâ‚“, uáµ§)</code>ï¼Œç»¿è‰²ç®­å¤´æ˜¯ç¬¬ 2 åˆ— <code>v = (vâ‚“, váµ§)</code>ã€‚è°ƒèŠ‚ä¸‹æ–¹å››ä¸ªåˆ†é‡ï¼Œè®©å®žçº¿é£žèˆ¹ä¸Žé‡‘è‰²è™šçº¿ç›®æ ‡å®Œå…¨é‡åˆï¼ˆé¡¶ç‚¹è¯¯å·® â‰¤ 0.18 å³å¯è¿‡å…³ï¼‰ï¼</span>
-              <span data-lang="en">Use 3Blue1Brown's Golden Rule: Red arrow is Column 1 <code>u = (uâ‚“, uáµ§)</code>, Green arrow is Column 2 <code>v = (vâ‚“, váµ§)</code>. Match the solid ship to the golden target wireframe (error â‰¤ 0.18)!</span>
+              <span data-lang="zh">利用 3Blue1Brown 黄金法则：红色箭头是第 1 列 <code>u = (uₓ, uᵧ)</code>，绿色箭头是第 2 列 <code>v = (vₓ, vᵧ)</code>。调节下方四个分量，让实线飞船与金色虚线目标完全重合（顶点误差 ≤ 0.18 即可过关）！</span>
+              <span data-lang="en">Use 3Blue1Brown's Golden Rule: Red arrow is Column 1 <code>u = (uₓ, uᵧ)</code>, Green arrow is Column 2 <code>v = (vₓ, vᵧ)</code>. Match the solid ship to the golden target wireframe (error ≤ 0.18)!</span>
             </p>
 
             <div class="grid grid-cols-2 gap-3 pt-1">
               <div class="p-3 rounded-lg bg-black/30 border border-red-500/30 space-y-2">
-                <div class="font-bold text-red-400">Col 1: u = (uâ‚“, uáµ§)</div>
+                <div class="font-bold text-red-400">Col 1: u = (uₓ, uᵧ)</div>
                 <div>
-                  <label class="flex justify-between"><span>uâ‚“</span><span id="m1UxVal" class="math-box">1.0</span></label>
+                  <label class="flex justify-between"><span>uₓ</span><span id="m1UxVal" class="math-box">1.0</span></label>
                   <input id="m1Ux" type="range" min="-2.0" max="2.0" step="0.1" value="1.0" oninput="updateGame()" class="w-full" />
                 </div>
                 <div>
-                  <label class="flex justify-between"><span>uáµ§</span><span id="m1UyVal" class="math-box">0.0</span></label>
+                  <label class="flex justify-between"><span>uᵧ</span><span id="m1UyVal" class="math-box">0.0</span></label>
                   <input id="m1Uy" type="range" min="-2.0" max="2.0" step="0.1" value="0.0" oninput="updateGame()" class="w-full" />
                 </div>
               </div>
 
               <div class="p-3 rounded-lg bg-black/30 border border-emerald-500/30 space-y-2">
-                <div class="font-bold text-emerald-400">Col 2: v = (vâ‚“, váµ§)</div>
+                <div class="font-bold text-emerald-400">Col 2: v = (vₓ, vᵧ)</div>
                 <div>
-                  <label class="flex justify-between"><span>vâ‚“</span><span id="m1VxVal" class="math-box">0.0</span></label>
+                  <label class="flex justify-between"><span>vₓ</span><span id="m1VxVal" class="math-box">0.0</span></label>
                   <input id="m1Vx" type="range" min="-2.0" max="2.0" step="0.1" value="0.0" oninput="updateGame()" class="w-full" />
                 </div>
                 <div>
-                  <label class="flex justify-between"><span>váµ§</span><span id="m1VyVal" class="math-box">1.0</span></label>
+                  <label class="flex justify-between"><span>vᵧ</span><span id="m1VyVal" class="math-box">1.0</span></label>
                   <input id="m1Vy" type="range" min="-2.0" max="2.0" step="0.1" value="1.0" oninput="updateGame()" class="w-full" />
                 </div>
               </div>
             </div>
 
             <button onclick="randomizeMission1()" class="w-full py-2 rounded-lg font-semibold bg-[var(--card)] hover:bg-[var(--muted)] border border-[var(--border)]">
-              <span data-lang="zh">ðŸŽ² éšæœºç”Ÿæˆæ–°ç›®æ ‡çŸ©é˜µè™šå½±</span>
-              <span data-lang="en">ðŸŽ² Randomize Target Matrix</span>
+              <span data-lang="zh">🎲 随机生成新目标矩阵虚影</span>
+              <span data-lang="en">🎲 Randomize Target Matrix</span>
             </button>
           </div>
 
           <!-- Mission 2 Panel -->
           <div id="missionPanel2" class="hidden bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-5 space-y-3 text-xs">
             <div class="font-bold text-sm text-cyan-400">
-              <span data-lang="zh">ðŸ›¸ ä»»åŠ¡ 2ï¼šé€‰æ‹©æ­£ç¡®çš„çŸ©é˜µé¡ºåº (TÂ·R vs RÂ·T) å°†é£žèˆ¹æ³Šå…¥å¤ªç©ºèˆ±å£ï¼</span>
-              <span data-lang="en">ðŸ›¸ Mission 2: Choose Matrix Order (TÂ·R vs RÂ·T) to Dock at the Station!</span>
+              <span data-lang="zh">🛸 任务 2：选择正确的矩阵顺序 (T·R vs R·T) 将飞船泊入太空舱口！</span>
+              <span data-lang="en">🛸 Mission 2: Choose Matrix Order (T·R vs R·T) to Dock at the Station!</span>
             </div>
             <p class="text-[var(--muted-foreground)] leading-relaxed">
-              <span data-lang="zh">ç›®æ ‡èˆ±å£ä½äºŽåæ ‡ <code>(tâ‚“, táµ§)</code> ä¸”è‡ªèº«åè½¬äº†è§’åº¦ <code>Î¸</code>ã€‚è¯·ä½“ä¼š <code>M = T Â· R</code>ï¼ˆå…ˆåœ¨åŽŸåœ°è‡ªè½¬ Î¸ï¼Œå†å¹³ç§»åˆ° (tâ‚“, táµ§)ï¼‰ä¸Ž <code>M = R Â· T</code>ï¼ˆå…ˆå¹³ç§»ï¼Œå†è¿žåŒä½ç½®ä¸€èµ·ç»•ä¸–ç•ŒåŽŸç‚¹å…¬è½¬ Î¸ï¼‰çš„å¤©å£¤ä¹‹åˆ«ï¼</span>
-              <span data-lang="en">See the dramatic difference between <code>M = T Â· R</code> (rotate in place, then translate) vs. <code>M = R Â· T</code> (translate first, then orbit around the world origin)!</span>
+              <span data-lang="zh">目标舱口位于坐标 <code>(tₓ, tᵧ)</code> 且自身偏转了角度 <code>θ</code>。请体会 <code>M = T · R</code>（先在原地自转 θ，再平移到 (tₓ, tᵧ)）与 <code>M = R · T</code>（先平移，再连同位置一起绕世界原点公转 θ）的天壤之别！</span>
+              <span data-lang="en">See the dramatic difference between <code>M = T · R</code> (rotate in place, then translate) vs. <code>M = R · T</code> (translate first, then orbit around the world origin)!</span>
             </p>
 
             <div class="space-y-2.5">
               <button id="m2OrderBtn" onclick="toggleM2Order()" class="w-full py-2 rounded-lg font-bold bg-indigo-600 hover:bg-indigo-500 text-white">
-                Current Order: M = R Â· T (Orbiting Origin!)
+                Current Order: M = R · T (Orbiting Origin!)
               </button>
               <div>
-                <label class="flex justify-between"><span>Translation tâ‚“</span><span id="m2TxVal" class="math-box">1.5</span></label>
+                <label class="flex justify-between"><span>Translation tₓ</span><span id="m2TxVal" class="math-box">1.5</span></label>
                 <input id="m2Tx" type="range" min="-2.2" max="2.2" step="0.1" value="1.5" oninput="updateGame()" class="w-full" />
               </div>
               <div>
-                <label class="flex justify-between"><span>Translation táµ§</span><span id="m2TyVal" class="math-box">0.5</span></label>
+                <label class="flex justify-between"><span>Translation tᵧ</span><span id="m2TyVal" class="math-box">0.5</span></label>
                 <input id="m2Ty" type="range" min="-2.2" max="2.2" step="0.1" value="0.5" oninput="updateGame()" class="w-full" />
               </div>
               <div>
-                <label class="flex justify-between"><span>Rotation Angle Î¸</span><span id="m2AngleVal" class="math-box">45Â°</span></label>
+                <label class="flex justify-between"><span>Rotation Angle θ</span><span id="m2AngleVal" class="math-box">45°</span></label>
                 <input id="m2Angle" type="range" min="-180" max="180" step="5" value="45" oninput="updateGame()" class="w-full" />
               </div>
             </div>
@@ -838,22 +838,22 @@
           <!-- Mission 3 Panel -->
           <div id="missionPanel3" class="hidden bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-5 space-y-3 text-xs">
             <div class="font-bold text-sm text-purple-400">
-              <span data-lang="zh">âš¡ ä»»åŠ¡ 3ï¼šå¯åŠ¨é€†è½¬ç½®æ³•çº¿çŸ©é˜µ (Mâ»Â¹)áµ€ï¼Œå°†æ¿€å…‰ç²¾å‡†åå°„è¿›èƒ½é‡æ ¸å¿ƒï¼</span>
-              <span data-lang="en">âš¡ Mission 3: Activate Inverse-Transpose Normal (Mâ»Â¹)áµ€ to Hit the Core!</span>
+              <span data-lang="zh">⚡ 任务 3：启动逆转置法线矩阵 (M⁻¹)ᵀ，将激光精准反射进能量核心！</span>
+              <span data-lang="en">⚡ Mission 3: Activate Inverse-Transpose Normal (M⁻¹)ᵀ to Hit the Core!</span>
             </div>
             <p class="text-[var(--muted-foreground)] leading-relaxed">
-              <span data-lang="zh">åå°„é•œç»åŽ†äº†å¼ºçƒˆçš„éžå‡åŒ€ç¼©æ”¾ã€‚å¦‚æžœå…³é—­é€†è½¬ç½®ä¿®æ­£ï¼ˆä½¿ç”¨é”™è¯¯çš„ <code>MÂ·n</code>ï¼‰ï¼Œåå°„å®šå¾‹ä¼šå½»åº•å¤±çµï¼è¯·å…ˆå¼€å¯ <b><code>(Mâ»Â¹)áµ€ æ³•çº¿ä¿®æ­£å™¨</code></b>ï¼Œå†è°ƒèŠ‚åå°„é•œçš„ X è½´ç¼©æ”¾ç³»æ•° <code>sâ‚“</code> ä½¿ç»¿è‰²åå°„æ¿€å…‰å‘½ä¸­å³ä¸Šè§’çš„é‡‘è‰²èƒ½é‡æ ¸å¿ƒï¼</span>
-              <span data-lang="en">The mirror is non-uniformly scaled. First enable the <b><code>(Mâ»Â¹)áµ€ Normal Matrix Fix</code></b>, then tune the mirror's X-scale <code>sâ‚“</code> until the reflected laser hits the golden core!</span>
+              <span data-lang="zh">反射镜经历了强烈的非均匀缩放。如果关闭逆转置修正（使用错误的 <code>M·n</code>），反射定律会彻底失灵！请先开启 <b><code>(M⁻¹)ᵀ 法线修正器</code></b>，再调节反射镜的 X 轴缩放系数 <code>sₓ</code> 使绿色反射激光命中右上角的金色能量核心！</span>
+              <span data-lang="en">The mirror is non-uniformly scaled. First enable the <b><code>(M⁻¹)ᵀ Normal Matrix Fix</code></b>, then tune the mirror's X-scale <code>sₓ</code> until the reflected laser hits the golden core!</span>
             </p>
 
             <div class="space-y-3 pt-1">
               <button id="m3FixBtn" onclick="toggleM3NormalFix()" class="w-full py-2.5 rounded-lg font-bold bg-rose-600 hover:bg-rose-500 text-white">
-                âŒ Using Wrong Normal: n' = M Â· n (Click to Enable (Mâ»Â¹)áµ€!)
+                ❌ Using Wrong Normal: n' = M · n (Click to Enable (M⁻¹)ᵀ!)
               </button>
               <div>
                 <label class="flex justify-between">
-                  <span data-lang="zh">åå°„é•œæ°´å¹³æ‹‰ä¼¸ç³»æ•° sâ‚“:</span>
-                  <span data-lang="en">Mirror Horizontal Scale sâ‚“:</span>
+                  <span data-lang="zh">反射镜水平拉伸系数 sₓ:</span>
+                  <span data-lang="en">Mirror Horizontal Scale sₓ:</span>
                   <span id="m3ScaleVal" class="math-box font-bold text-amber-300">1.00</span>
                 </label>
                 <input id="m3Scale" type="range" min="0.5" max="2.5" step="0.05" value="1.0" oninput="updateGame()" class="w-full" />
@@ -893,7 +893,7 @@
     function toggleLanguage() {
       currentLang = currentLang === 'zh' ? 'en' : 'zh';
       document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
-      document.getElementById('langBtnLabel').textContent = currentLang === 'zh' ? 'EN / English' : 'ä¸­æ–‡ / Chinese';
+      document.getElementById('langBtnLabel').textContent = currentLang === 'zh' ? 'EN / English' : '中文 / Chinese';
       updateTab0Canvases();
       updateMatrixSandbox();
       drawHierarchyLab();
@@ -1071,12 +1071,12 @@
 
       // Draw Basis Vectors from 3D Origin (0,0,0)
       const o0 = mapPt(0, 0, 0);
-      drawArrow2D(ctx, o0, mapPt(1.2, 0, 0), '#ef4444', 2.5, 'Ã®=(1,0,0)');
-      drawArrow2D(ctx, o0, mapPt(0, 1.2, 0), '#22c55e', 2.5, 'Äµ=(0,1,0)');
+      drawArrow2D(ctx, o0, mapPt(1.2, 0, 0), '#ef4444', 2.5, 'î=(1,0,0)');
+      drawArrow2D(ctx, o0, mapPt(0, 1.2, 0), '#22c55e', 2.5, 'ĵ=(0,1,0)');
 
       // Sheared w-basis vector from (0,0,0) to (tx, ty, 1)
       const wTip = mapPt(0, 0, 1);
-      drawArrow2D(ctx, o0, wTip, '#a855f7', 3.2, `wÌ‚'=(${tx.toFixed(1)},${ty.toFixed(1)},1)`);
+      drawArrow2D(ctx, o0, wTip, '#a855f7', 3.2, `ŵ'=(${tx.toFixed(1)},${ty.toFixed(1)},1)`);
 
       // Draw a 2D Triangle on the active slice (x,y,sliceW)
       const triPts = [
@@ -1103,7 +1103,7 @@
       const outX = (1.0 + sliceW * tx).toFixed(2);
       const outY = (0.5 + sliceW * ty).toFixed(2);
       document.getElementById('shearHudText').textContent =
-        `wÌ‚' = (${tx.toFixed(1)}, ${ty.toFixed(1)}, 1) | (1.0, 0.5, w=${sliceW.toFixed(1)}) â†’ (${outX}, ${outY}, ${sliceW.toFixed(1)})`;
+        `ŵ' = (${tx.toFixed(1)}, ${ty.toFixed(1)}, 1) | (1.0, 0.5, w=${sliceW.toFixed(1)}) → (${outX}, ${outY}, ${sliceW.toFixed(1)})`;
     }
 
     function drawNormalMatrixCanvas() {
@@ -1205,16 +1205,16 @@
       const wTip = toScreen({ x: pTrans.x + wUnit.x * 1.15, y: pTrans.y + wUnit.y * 1.15 });
       const rTip = toScreen({ x: pTrans.x + rUnit.x * 1.15, y: pTrans.y + rUnit.y * 1.15 });
 
-      drawArrow2D(ctx, sPt, wTip, '#f43f5e', 3, 'Wrong: MÂ·n');
-      drawArrow2D(ctx, sPt, rTip, '#10b981', 3.5, 'Correct: (Mâ»Â¹)áµ€Â·n');
+      drawArrow2D(ctx, sPt, wTip, '#f43f5e', 3, 'Wrong: M·n');
+      drawArrow2D(ctx, sPt, rTip, '#10b981', 3.5, 'Correct: (M⁻¹)ᵀ·n');
 
       const wrongDeg = Math.acos(Math.max(-1, Math.min(1, wUnit.x * tUnit.x + wUnit.y * tUnit.y))) * 180 / Math.PI;
       const rightDeg = Math.acos(Math.max(-1, Math.min(1, rUnit.x * tUnit.x + rUnit.y * tUnit.y))) * 180 / Math.PI;
 
       document.getElementById('normalAngleWrong').textContent =
-        `âŒ Angle(MÂ·n, Tangent) = ${wrongDeg.toFixed(1)}Â° (Error: ${Math.abs(90 - wrongDeg).toFixed(1)}Â°)`;
+        `❌ Angle(M·n, Tangent) = ${wrongDeg.toFixed(1)}° (Error: ${Math.abs(90 - wrongDeg).toFixed(1)}°)`;
       document.getElementById('normalAngleRight').textContent =
-        `âœ… Angle((Mâ»Â¹)áµ€Â·n, Tangent) = ${rightDeg.toFixed(1)}Â° (Perpendicular!)`;
+        `✅ Angle((M⁻¹)ᵀ·n, Tangent) = ${rightDeg.toFixed(1)}° (Perpendicular!)`;
     }
 
     // ============================================================================
@@ -1246,7 +1246,7 @@
     function toggleComposeOrder() {
       composeTRS = !composeTRS;
       document.getElementById('orderToggleBtn').textContent =
-        composeTRS ? 'Order: M = T Â· R Â· S (Local)' : 'Order: M = R Â· T Â· S (Orbit)';
+        composeTRS ? 'Order: M = T · R · S (Local)' : 'Order: M = R · T · S (Orbit)';
       updateMatrixSandbox();
     }
 
@@ -1311,9 +1311,9 @@
       document.getElementById('valTx').textContent = parseFloat(document.getElementById('sliderTx').value).toFixed(1);
       document.getElementById('valTy').textContent = parseFloat(document.getElementById('sliderTy').value).toFixed(1);
       document.getElementById('valTz').textContent = parseFloat(document.getElementById('sliderTz').value).toFixed(1);
-      document.getElementById('valYaw').textContent = document.getElementById('sliderYaw').value + 'Â°';
-      document.getElementById('valPitch').textContent = document.getElementById('sliderPitch').value + 'Â°';
-      document.getElementById('valRoll').textContent = document.getElementById('sliderRoll').value + 'Â°';
+      document.getElementById('valYaw').textContent = document.getElementById('sliderYaw').value + '°';
+      document.getElementById('valPitch').textContent = document.getElementById('sliderPitch').value + '°';
+      document.getElementById('valRoll').textContent = document.getElementById('sliderRoll').value + '°';
       document.getElementById('valSx').textContent = parseFloat(document.getElementById('sliderSx').value).toFixed(1);
       document.getElementById('valSy').textContent = parseFloat(document.getElementById('sliderSy').value).toFixed(1);
       document.getElementById('valSz').textContent = parseFloat(document.getElementById('sliderSz').value).toFixed(1);
@@ -1351,7 +1351,7 @@
       const detBadge = document.getElementById('detBadge');
       if (detBadge) {
         const handed = det3 < -1e-4 ? 'Flipped (Left-Handed!)' : Math.abs(det3) < 1e-4 ? 'Singular (Collapsed!)' : 'Right-Handed';
-        detBadge.textContent = `det(Mâ‚ƒâ‚“â‚ƒ) = ${det3 >= 0 ? '+' : ''}${det3.toFixed(2)} (${handed})`;
+        detBadge.textContent = `det(M₃ₓ₃) = ${det3 >= 0 ? '+' : ''}${det3.toFixed(2)} (${handed})`;
         detBadge.className = det3 < 0 ? 'math-box font-bold text-rose-400' : 'math-box font-bold text-emerald-400';
       }
 
@@ -1429,8 +1429,8 @@
       const testOut = mat4Vec4(M, { x: 1, y: 1, z: 1, w: wVal });
       document.getElementById('probeResultHud').textContent =
         Math.abs(wVal) < 1e-3
-          ? `Vector (1,1,1, w=0) â†’ (${testOut.x.toFixed(2)}, ${testOut.y.toFixed(2)}, ${testOut.z.toFixed(2)}, 0) [Immune to Trans!]`
-          : `Point (1,1,1, w=${wVal.toFixed(1)}) Ã· w â†’ (${(testOut.x / divW).toFixed(2)}, ${(testOut.y / divW).toFixed(2)}, ${(testOut.z / divW).toFixed(2)})`;
+          ? `Vector (1,1,1, w=0) → (${testOut.x.toFixed(2)}, ${testOut.y.toFixed(2)}, ${testOut.z.toFixed(2)}, 0) [Immune to Trans!]`
+          : `Point (1,1,1, w=${wVal.toFixed(1)}) ÷ w → (${(testOut.x / divW).toFixed(2)}, ${(testOut.y / divW).toFixed(2)}, ${(testOut.z / divW).toFixed(2)})`;
     }
 
     // ============================================================================
@@ -1452,9 +1452,9 @@
       const elbowDeg = parseFloat(document.getElementById('armElbow').value);
 
       document.getElementById('armBaseXVal').textContent = baseX.toFixed(1);
-      document.getElementById('armYawVal').textContent = yawDeg + 'Â°';
-      document.getElementById('armShoulderVal').textContent = shoulderDeg + 'Â°';
-      document.getElementById('armElbowVal').textContent = elbowDeg + 'Â°';
+      document.getElementById('armYawVal').textContent = yawDeg + '°';
+      document.getElementById('armShoulderVal').textContent = shoulderDeg + '°';
+      document.getElementById('armElbowVal').textContent = elbowDeg + '°';
 
       // Draw World Floor Grid
       ctx.save();
@@ -1549,8 +1549,8 @@
       m2UseTR = !m2UseTR;
       const btn = document.getElementById('m2OrderBtn');
       btn.textContent = m2UseTR
-        ? 'âœ… Current Order: M = T Â· R (Rotate Locally, Then Translate!)'
-        : 'âš ï¸ Current Order: M = R Â· T (Translate First, Then Orbit Origin!)';
+        ? '✅ Current Order: M = T · R (Rotate Locally, Then Translate!)'
+        : '⚠️ Current Order: M = R · T (Translate First, Then Orbit Origin!)';
       btn.className = m2UseTR
         ? 'w-full py-2 rounded-lg font-bold bg-emerald-600 hover:bg-emerald-500 text-white'
         : 'w-full py-2 rounded-lg font-bold bg-indigo-600 hover:bg-indigo-500 text-white';
@@ -1561,8 +1561,8 @@
       m3UseInverseTranspose = !m3UseInverseTranspose;
       const btn = document.getElementById('m3FixBtn');
       btn.textContent = m3UseInverseTranspose
-        ? 'âœ… Enabled: Correct Normal n\' = (Mâ»Â¹)áµ€ Â· n'
-        : 'âŒ Using Wrong Normal: n\' = M Â· n (Click to Enable (Mâ»Â¹)áµ€!)';
+        ? '✅ Enabled: Correct Normal n\' = (M⁻¹)ᵀ · n'
+        : '❌ Using Wrong Normal: n\' = M · n (Click to Enable (M⁻¹)ᵀ!)';
       btn.className = m3UseInverseTranspose
         ? 'w-full py-2.5 rounded-lg font-bold bg-emerald-600 hover:bg-emerald-500 text-white'
         : 'w-full py-2.5 rounded-lg font-bold bg-rose-600 hover:bg-rose-500 text-white';
@@ -1642,7 +1642,7 @@
         drawArrow2D(ctx, toScr(0, 0), toScr(ux, uy), '#ef4444', 3.2, `u=(${ux.toFixed(1)},${uy.toFixed(1)})`);
         drawArrow2D(ctx, toScr(0, 0), toScr(vx, vy), '#10b981', 3.2, `v=(${vx.toFixed(1)},${vy.toFixed(1)})`);
 
-        document.getElementById('gameHudLeft').textContent = `Basis Error: ${err.toFixed(2)} (Target â‰¤ 0.22)`;
+        document.getElementById('gameHudLeft').textContent = `Basis Error: ${err.toFixed(2)} (Target ≤ 0.22)`;
         updateGameBadges(cleared);
       } else if (currentMission === 2) {
         const tx = parseFloat(document.getElementById('m2Tx').value);
@@ -1650,7 +1650,7 @@
         const ang = parseFloat(document.getElementById('m2Angle').value);
         document.getElementById('m2TxVal').textContent = tx.toFixed(1);
         document.getElementById('m2TyVal').textContent = ty.toFixed(1);
-        document.getElementById('m2AngleVal').textContent = ang + 'Â°';
+        document.getElementById('m2AngleVal').textContent = ang + '°';
 
         const transformShip = (pts, tX, tY, deg, isTR) => {
           const rad = deg * Math.PI / 180;
@@ -1695,7 +1695,7 @@
         ctx.restore();
 
         document.getElementById('gameHudLeft').textContent =
-          `Target Dock: T(1.6, 1.0) Â· R(60Â°) | Distance Error: ${distErr.toFixed(2)}`;
+          `Target Dock: T(1.6, 1.0) · R(60°) | Distance Error: ${distErr.toFixed(2)}`;
         updateGameBadges(cleared);
       } else if (currentMission === 3) {
         const sx = parseFloat(document.getElementById('m3Scale').value);
@@ -1728,7 +1728,7 @@
           toScr(nx * 1.3, ny * 1.3),
           m3UseInverseTranspose ? '#10b981' : '#f43f5e',
           3,
-          m3UseInverseTranspose ? 'n\'=(Mâ»Â¹)áµ€n' : 'Wrong MÂ·n'
+          m3UseInverseTranspose ? 'n\'=(M⁻¹)ᵀn' : 'Wrong M·n'
         );
 
         // Incoming Laser from (-2.2, 0.8) hitting (0,0)
@@ -1737,7 +1737,7 @@
         const ix = -src.x / iLen, iy = -src.y / iLen;
         drawArrow2D(ctx, toScr(src.x, src.y), toScr(0, 0), '#f59e0b', 3, 'Incident Laser I');
 
-        // Reflected Laser R = I - 2(IÂ·n)n
+        // Reflected Laser R = I - 2(I·n)n
         const idotn = ix * nx + iy * ny;
         const rx = ix - 2 * idotn * nx;
         const ry = iy - 2 * idotn * ny;
@@ -1766,7 +1766,7 @@
         ctx.restore();
 
         document.getElementById('gameHudLeft').textContent =
-          `Target Core Scale: sâ‚“ â‰ˆ ${m3TargetSx} | Normal Matrix: ${m3UseInverseTranspose ? 'ON' : 'OFF'}`;
+          `Target Core Scale: sₓ ≈ ${m3TargetSx} | Normal Matrix: ${m3UseInverseTranspose ? 'ON' : 'OFF'}`;
         updateGameBadges(cleared);
       }
     }
@@ -1776,7 +1776,7 @@
       document.getElementById('gameScoreBadge').textContent = `Cleared: ${count} / 3 Missions`;
       const pill = document.getElementById('gameStatusPill');
       if (isCurrentCleared) {
-        pill.textContent = 'âœ“ MISSION CLEARED!';
+        pill.textContent = '✓ MISSION CLEARED!';
         pill.className = 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 px-3 py-1 rounded-full text-xs font-bold';
       } else {
         pill.textContent = 'IN PROGRESS';

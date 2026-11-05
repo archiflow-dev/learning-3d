@@ -138,7 +138,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: '3D Rotations, Gimbal Lock & Rodrigues Rotation Formula',
     concepts: ['正交矩阵性质', '欧拉角与万向节死锁 (Gimbal Lock)', '绕任意轴旋转几何分解', 'Rodrigues 公式推导'],
     playgroundTitle: '万向节死锁与任意轴旋转模拟器',
-    playgroundDescription: '亲手将 Pitch 推到 90° 触发三环万向节死锁，并可视化向量绕任意轴 n 的平行与垂直分量分解。',
+    playgroundDescription: '亲手将 Pitch 推到 90° 触发三环万向节死锁，体验 SO(3) 转置求逆对偶性与罗德里格斯三维分解探针，并畅玩 3 关深空陀螺仪救援游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
