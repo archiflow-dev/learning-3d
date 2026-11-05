@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 10: Subdivision Curves, Chaikin Corner-Cutting & Mesh Topology | 细分曲线与网格拓扑</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body { background: #020617; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .math-box { background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(51, 65, 85, 0.85); border-radius: 0.85rem; padding: 1rem 1.25rem; overflow-x: auto; }
+    canvas { touch-action: none; user-select: none; }
+    .tab-btn.active { background: #059669; color: #ffffff; border-color: #10b981; box-shadow: 0 0 20px rgba(16, 185, 129, 0.35); }
+    .lang-en { display: none; }
+    body.en-mode .lang-zh { display: none; }
+    body.en-mode .lang-en { display: inline; }
+    body.en-mode div.lang-en, body.en-mode p.lang-en, body.en-mode ul.lang-en, body.en-mode h3.lang-en, body.en-mode h4.lang-en { display: block; }
+    body.en-mode div.lang-zh, body.en-mode p.lang-zh, body.en-mode ul.lang-zh, body.en-mode h3.lang-zh, body.en-mode h4.lang-zh { display: none; }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          <span class="lang-zh">← 课程总目录 (Index)</span>
+          <span class="lang-en">← Course Index</span>
+        </a>
+        <span class="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950">
+          Stage 2 • Lesson 10 / 32
+        </span>
+        <div>
+          <h1 class="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+            <span class="lang-zh">细分曲面 (Part 1)：从 Chaikin 切角、细分矩阵特征值到 3D 网格拓扑</span>
+            <span class="lang-en">Subdivision (Part 1): Chaikin Corner-Cutting, Eigen-Analysis & Mesh Topology</span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            3Blue1Brown Repeated Linear Maps &amp; Eigen-Limits • UC Davis ECS 175 Lecture 16 (Prof. Kenneth Joy)
+          </p>
+        </div>
+      </div>
+
+      <button id="langToggleBtn" onclick="toggleLang()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition">
+        <span>🌐</span>
+        <span id="langBtnText">EN / 中文</span>
+      </button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-3 flex flex-wrap gap-2">
+      <button onclick="switchTab('concepts')" id="tab-btn-concepts" class="tab-btn active px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">1. 3Blue1Brown 精讲：Chaikin 切角、特征值极限与欧拉拓扑</span>
+        <span class="lang-en">1. 3Blue1Brown Deep Dive: Chaikin, Eigen-Limits &amp; Topology</span>
+      </button>
+      <button onclick="switchTab('lab')" id="tab-btn-lab" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">2. 交互实验室：Chaikin / 三次 B-Spline / 4点插值细分放大镜</span>
+        <span class="lang-en">2. Interactive Lab: Multi-Scheme Subdivision Microscope</span>
+      </button>
+      <button onclick="switchTab('topology')" id="tab-btn-topology" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">3. 3D 网格拓扑检验台 (V-E+F=2-2g) 与 UC Davis Lec 16</span>
+        <span class="lang-en">3. 3D Mesh Topology Inspector &amp; UC Davis Lec 16</span>
+      </button>
+      <button onclick="switchTab('game')" id="tab-btn-game" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-indigo-500/40 bg-indigo-950/40 text-indigo-300 transition">
+        <span class="lang-zh">🎮 4. 3关实战游戏：细分雕塑家与网格拓扑医生</span>
+        <span class="lang-en">🎮 4. 3-Mission Game: Subdivision Sculptor &amp; Topology Doctor</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <!-- ==================== TAB 1: 3BLUE1BROWN DEEP CONCEPTS ==================== -->
+    <section id="tab-concepts" class="space-y-8">
+      <!-- Intro Banner -->
+      <div class="rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/40 p-6 sm:p-8 space-y-4">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+          <span>✨ 3Blue1Brown Essence of Linear Algebra × Geometric Modeling</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white">
+          <span class="lang-zh">为什么张量积曲面在复杂模型面前会碰壁？“无限切角”如何生长出光滑样条？</span>
+          <span class="lang-en">Why Tensor Product Patches Struggle with Arbitrary Topology &amp; How Infinite Corner-Cutting Grows Smooth Splines</span>
+        </h2>
+        <p class="lang-zh text-sm sm:text-base text-slate-300 leading-relaxed">
+          在上一课（Lesson 09）中，我们用 $4\times 4$ 张量积 Bézier 曲面片拼出了犹他茶壶。但请注意：每一片张量积曲面在参数域上都是一个<b>严格的矩形 $[0,1]^2$</b>！如果你要建模一只<b>五指张开的人手</b>、一张带有眼眶与嘴唇孔洞的<b>人脸</b>，或者三根管道交汇的三通接头，矩形网格在分叉处必然会撞上<b>3 片、5 片甚至 6 片曲面相交的“奇异顶点 (Extraordinary Vertex)”</b>——在那里凑出跨接缝 $C^1/C^2$ 连续性几乎是噩梦。
+          <br/><br/>
+          1974–1978 年，George Chaikin、Edwin Catmull（皮克斯联合创始人）与 Jim Clark 提出了一种颠覆性的逆向思维——<b>细分 (Subdivision)</b>：<b>不要去解复杂的分片多项式拼接方程，而是从任意拓扑的粗糙多边形笼子 $P^0$ 出发，反复执行极其简单的“局部切角/加权平均规则” $P^{k+1} = S P^k$</b>。当迭代次数 $k \to \infty$ 时，生硬的多边形折线就会像被大自然水流冲刷的鹅卵石一样，自动收敛为光滑的样条曲线与曲面！
+        </p>
+        <p class="lang-en text-sm sm:text-base text-slate-300 leading-relaxed">
+          In Lesson 09, every Tensor Product Bézier Patch was fundamentally a deformed rectangle $[0,1]^2$. Modeling a 5-fingered hand or a character face with rectangular patches forces 3, 5, or 6 patches to meet at <b>Extraordinary Vertices</b>, where maintaining $C^1/C^2$ seam continuity becomes a nightmare. <b>Subdivision</b> flips the problem on its head: start with a coarse polygonal cage $P^0$ of <i>arbitrary topology</i> and repeatedly apply a simple local averaging rule $P^{k+1} = S P^k$. As $k \to \infty$, the polygon converges automatically to a smooth spline limit!
+        </p>
+      </div>
+
+      <!-- Part 1: Chaikin & Cubic B-Spline Subdivision Masks -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-black flex items-center justify-center">01</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">从 Chaikin 切角 $(\frac{3}{4}, \frac{1}{4})$ 到三次 B-Spline 的“分裂-平均”范式 $(\frac{1}{8}, \frac{6}{8}, \frac{1}{8})$</span>
+            <span class="lang-en">From Chaikin Corner-Cutting $(3/4, 1/4)$ to Cubic B-Spline Split-and-Average $(1/8, 6/8, 1/8)$</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="space-y-4 text-sm text-slate-300 leading-relaxed">
+            <h4 class="lang-zh font-bold text-amber-300 text-base">① Chaikin 切角算法 (1974)：为什么偏偏是 $\frac{3}{4}$ 和 $\frac{1}{4}$？</h4>
+            <h4 class="lang-en font-bold text-amber-300 text-base">1. Chaikin's Corner-Cutting (1974): Why $3/4$ and $1/4$?</h4>
+            <p class="lang-zh">
+              Chaikin 的规则简单到小学生都能画出来：对于多边形的每一条边 $\mathbf{p}_i \mathbf{p}_{i+1}$，扔掉原来的尖角顶点，在每条边的 <b>$\frac{1}{4}$ 处和 $\frac{3}{4}$ 处</b>各取一个新顶点，然后把新顶点依次连起来：
+            </p>
+            <p class="lang-en">
+              For every edge $\mathbf{p}_i \mathbf{p}_{i+1}$, discard the old sharp corners and place two new vertices at $1/4$ and $3/4$ along the edge:
+            </p>
+            <div class="math-box text-xs sm:text-sm">
+              $$\mathbf{q}_{2i}^{(k+1)} = \frac{3}{4}\mathbf{p}_i^{(k)} + \frac{1}{4}\mathbf{p}_{i+1}^{(k)}, \qquad \mathbf{q}_{2i+1}^{(k+1)} = \frac{1}{4}\mathbf{p}_i^{(k)} + \frac{3}{4}\mathbf{p}_{i+1}^{(k)}$$
+            </div>
+            <p class="lang-zh">
+              <b>为什么选 $(\frac{3}{4}, \frac{1}{4})$ 而不是 $(\frac{2}{3}, \frac{1}{3})$？</b><br/>
+              回想一段由 $\mathbf{p}_{i-1}, \mathbf{p}_i, \mathbf{p}_{i+1}$ 定义的<b>均匀二次 B-Spline（Quadratic B-Spline）</b>：它的首尾端点正是相邻两边的中点 $\mathbf{b}_0 = \frac{1}{2}(\mathbf{p}_{i-1}+\mathbf{p}_i)$ 和 $\mathbf{b}_2 = \frac{1}{2}(\mathbf{p}_i+\mathbf{p}_{i+1})$，中间控制点是 $\mathbf{b}_1 = \mathbf{p}_i$。如果你对这段二次 Bézier 曲线在 $t = \frac{1}{2}$ 处做一次 <b>de Casteljau 二等分细分</b>（Lesson 07），左半段和右半段的新控制点正好是：
+              $$\frac{1}{2}(\mathbf{b}_0 + \mathbf{b}_1) = \frac{1}{4}\mathbf{p}_{i-1} + \frac{3}{4}\mathbf{p}_i, \qquad \frac{1}{2}(\mathbf{b}_1 + \mathbf{b}_2) = \frac{3}{4}\mathbf{p}_i + \frac{1}{4}\mathbf{p}_{i+1}$$
+              <b>惊人的几何真相</b>：Chaikin 切角根本不是经验凑数，它<b>等价于对均匀二次 B-Spline 曲线做无限次 de Casteljau 中点二分</b>！因此它的极限曲线必然是一条 <b>$C^1$ 连续的均匀二次 B-Spline</b>，且在每条原始边的中点处与原始多边形相切！
+            </p>
+            <p class="lang-en">
+              <b>The Geometric Truth</b>: A uniform quadratic B-Spline span with cage points $\mathbf{p}_{i-1}, \mathbf{p}_i, \mathbf{p}_{i+1}$ has Bézier points $\mathbf{b}_0 = \frac{1}{2}(\mathbf{p}_{i-1}+\mathbf{p}_i)$, $\mathbf{b}_1 = \mathbf{p}_i$, $\mathbf{b}_2 = \frac{1}{2}(\mathbf{p}_i+\mathbf{p}_{i+1})$. Splitting at $t=1/2$ via de Casteljau yields $\frac{1}{4}\mathbf{p}_{i-1} + \frac{3}{4}\mathbf{p}_i$ and $\frac{3}{4}\mathbf{p}_i + \frac{1}{4}\mathbf{p}_{i+1}$. Thus Chaikin's algorithm is literally midpoint de Casteljau subdivision of a $C^1$ Uniform Quadratic B-Spline!
+            </p>
+          </div>
+
+          <div class="space-y-4 text-sm text-slate-300 leading-relaxed">
+            <h4 class="lang-zh font-bold text-cyan-300 text-base">② 三次 B-Spline 细分：分裂 (Split) + 平均 (Average) 范式</h4>
+            <h4 class="lang-en font-bold text-cyan-300 text-base">2. Cubic B-Spline Subdivision: The Split + Average Paradigm</h4>
+            <p class="lang-zh">
+              Chaikin 切角只有 $C^1$ 连续（曲率有跳变），而且每次把老顶点删掉了。为了获得<b>$C^2$ 曲率连续的均匀三次 B-Spline</b>，并且保留“顶点—边”的清晰对应关系（以便推广到下一课的 Catmull-Clark 3D 曲面），我们把一轮细分拆成两步（<b>Lane-Riesenfeld 算法</b>）：
+            </p>
+            <p class="lang-en">
+              To achieve a $C^2$ Uniform Cubic B-Spline while keeping old vertices intact (essential for 3D meshes in Lesson 11), each refinement step decomposes into <b>Topological Split</b> + <b>Geometric Averaging</b>:
+            </p>
+            <div class="math-box text-xs sm:text-sm">
+              $$\text{① 边分裂 (Odd / Edge Point):}\quad \mathbf{e}_{i}^{(k+1)} = \frac{1}{2}\mathbf{p}_i^{(k)} + \frac{1}{2}\mathbf{p}_{i+1}^{(k)}$$
+              $$\text{② 顶点平滑 (Even / Vertex Point):}\quad \mathbf{v}_{i}^{(k+1)} = \frac{1}{8}\mathbf{p}_{i-1}^{(k)} + \frac{6}{8}\mathbf{p}_i^{(k)} + \frac{1}{8}\mathbf{p}_{i+1}^{(k)}$$
+            </div>
+            <p class="lang-zh">
+              <b>为什么平滑权重是 $(\frac{1}{8}, \frac{6}{8}, \frac{1}{8})$？</b><br/>
+              看帕斯卡三角形（杨辉三角）第 4 行：$\frac{1}{8}(1, 4, 6, 4, 1)$。
+              其中的奇数位置是 $\frac{1}{8}(4, 4) = (\frac{1}{2}, \frac{1}{2})$（边中点规则），偶数位置正是 <b>$\frac{1}{8}(1, 6, 1) = (\frac{1}{8}, \frac{6}{8}, \frac{1}{8})$</b>！先在每条边中点插入新点（Split），再把每个点与左右邻居做两次中点平均（Average），帕斯卡二项式卷积自动给出了三次 B-Spline 的精确细分掩模 (Subdivision Mask)！
+            </p>
+            <p class="lang-en">
+              Row 4 of Pascal's Triangle is $\frac{1}{8}(1, 4, 6, 4, 1)$. Its odd entries give $\frac{1}{8}(4,4) = (1/2, 1/2)$ (Edge Midpoint), and its even entries give $\frac{1}{8}(1,6,1) = (1/8, 6/8, 1/8)$ (Vertex Smoothing)!
+            </p>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer 1: Split & Average Step-by-Step Microscope -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-bold text-emerald-300">
+                <span class="lang-zh">🔬 交互透视镜 1：单步拆解“分裂 (Split) → 平均 (Average)”与三种细分掩模对比</span>
+                <span class="lang-en">🔬 Interactive Visualizer 1: Step-by-Step "Split → Average" &amp; Subdivision Mask Microscope</span>
+              </h4>
+              <p class="text-xs text-slate-400">
+                <span class="lang-zh">点击下方半步按钮，亲眼观察粗多边形如何先在边中点分裂出蓝点，再把旧顶点按 (1/8, 6/8, 1/8) 向内收缩平滑！</span>
+                <span class="lang-en">Step through Split and Average half-steps or compare Chaikin (C¹), Cubic B-Spline (C²), and 4-Point Interpolating schemes!</span>
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="setVis1Scheme('chaikin')" id="v1-chaikin" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                Chaikin (3/4, 1/4) [C¹]
+              </button>
+              <button onclick="setVis1Scheme('cubic')" id="v1-cubic" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white border border-emerald-400">
+                Cubic B-Spline (1/8, 6/8, 1/8) [C²]
+              </button>
+              <button onclick="setVis1Scheme('fourpt')" id="v1-fourpt" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                4-Point Interpolating (-1/16, 9/16)
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-8">
+              <canvas id="vis1Canvas" width="680" height="340" class="w-full rounded-xl border border-slate-800 bg-slate-900/70"></canvas>
+            </div>
+            <div class="lg:col-span-4 space-y-3 text-xs">
+              <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                <div class="font-bold text-white">
+                  <span class="lang-zh">控制细分阶段 (Phase):</span>
+                  <span class="lang-en">Subdivision Phase:</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <button onclick="setVis1Phase(0)" id="v1-p0" class="px-3 py-2 rounded-lg font-bold bg-slate-800 text-slate-200 border border-slate-700">
+                    0. Coarse P⁰
+                  </button>
+                  <button onclick="setVis1Phase(1)" id="v1-p1" class="px-3 py-2 rounded-lg font-bold bg-slate-800 text-cyan-300 border border-slate-700">
+                    1. Split (Midpoints)
+                  </button>
+                  <button onclick="setVis1Phase(2)" id="v1-p2" class="px-3 py-2 rounded-lg font-bold bg-emerald-600 text-white border border-emerald-400">
+                    2. Average (P¹)
+                  </button>
+                  <button onclick="setVis1Phase(3)" id="v1-p3" class="px-3 py-2 rounded-lg font-bold bg-slate-800 text-amber-300 border border-slate-700">
+                    3. Limit P^∞ (k=5)
+                  </button>
+                </div>
+
+                <div class="pt-2 border-t border-slate-800 space-y-1.5">
+                  <div class="flex justify-between text-amber-300 font-semibold">
+                    <span>Morph Factor α (Split → Smooth)</span>
+                    <span id="v1AlphaVal">1.00</span>
+                  </div>
+                  <input id="v1AlphaSlider" type="range" min="0" max="1" step="0.02" value="1" oninput="onVis1Alpha(this.value)" class="w-full accent-emerald-500" />
+                </div>
+              </div>
+
+              <div id="vis1Readout" class="p-4 rounded-xl bg-slate-900 border border-slate-800 font-mono space-y-1.5 text-slate-300"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: 3Blue1Brown Eigenvalue & Eigenvector Analysis of Subdivision Matrix S -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-black flex items-center justify-center">02</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">3Blue1Brown 线性代数高光时刻：为什么细分矩阵 $S$ 的特征值能一步算出 $k=\infty$ 的极限？</span>
+            <span class="lang-en">3Blue1Brown Linear Algebra Highlight: How Eigenvalues of the Subdivision Matrix $S$ Jump Straight to $k=\infty$</span>
+          </h3>
+        </div>
+
+        <p class="lang-zh text-sm sm:text-base text-slate-300 leading-relaxed">
+          假设你想知道在经过<b>无穷多次 ($k \to \infty$)</b> 三次 B-Spline 细分之后，顶点 $\mathbf{p}_i^{(0)}$ 最终会停在 3D 空间的哪个精确坐标 $\mathbf{p}_i^\infty$ 上，以及那里的切向量 $\mathbf{t}_i^\infty$ 是什么。难道计算机必须死循环跑几万次细分吗？<br/>
+          <b>完全不需要！这正是线性代数中“特征值与特征向量 (Eigenvalues &amp; Eigenvectors)”最神奇的用武之地！</b>
+        </p>
+        <p class="lang-en text-sm sm:text-base text-slate-300 leading-relaxed">
+          Suppose we want the exact limit position $\mathbf{p}_i^\infty$ and tangent $\mathbf{t}_i^\infty$ of vertex $\mathbf{p}_i^{(0)}$ after $k \to \infty$ subdivision steps. Do we need an infinite loop? <b>No! Eigenvalues and eigenvectors of the local Subdivision Matrix $S$ give us the exact $k=\infty$ answer in $O(1)$ time!</b>
+        </p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="math-box text-xs sm:text-sm space-y-3">
+            <div class="text-cyan-300 font-bold">
+              <span class="lang-zh">1. 局部 $3\times 3$ 细分矩阵 $S$ 的构造</span>
+              <span class="lang-en">1. The Local $3\times 3$ Subdivision Matrix $S$</span>
+            </div>
+            <p class="lang-zh text-slate-300">
+              观察顶点 $\mathbf{p}_i^{(k)}$ 和它左右两个直接邻居组成的局部状态列向量 $\mathbf{x}^{(k)} = [\mathbf{p}_{i-1}^{(k)}, \mathbf{p}_i^{(k)}, \mathbf{p}_{i+1}^{(k)}]^\top$。经过一轮三次 B-Spline 细分后，紧挨着新中心点的左右两个新邻居正是边中点 $\frac{1}{2}\mathbf{p}_{i-1}+\frac{1}{2}\mathbf{p}_i$ 和 $\frac{1}{2}\mathbf{p}_i+\frac{1}{2}\mathbf{p}_{i+1}$，中心点自身变成 $\frac{1}{8}\mathbf{p}_{i-1}+\frac{6}{8}\mathbf{p}_i+\frac{1}{8}\mathbf{p}_{i+1}$：
+            </p>
+            <p class="lang-en text-slate-300">
+              Track the 3-point local neighborhood $\mathbf{x}^{(k)} = [\mathbf{p}_{i-1}^{(k)}, \mathbf{p}_i^{(k)}, \mathbf{p}_{i+1}^{(k)}]^\top$. One step of Cubic B-Spline subdivision multiplies $\mathbf{x}^{(k)}$ by the $3\times 3$ stochastic matrix $S$:
+            </p>
+            $$\underbrace{\begin{bmatrix} \mathbf{p}_{i-1}^{(k+1)} \\ \mathbf{p}_{i}^{(k+1)} \\ \mathbf{p}_{i+1}^{(k+1)} \end{bmatrix}}_{\mathbf{x}^{(k+1)}} = \underbrace{\begin{bmatrix} \frac{1}{2} & \frac{1}{2} & 0 \\ \frac{1}{8} & \frac{6}{8} & \frac{1}{8} \\ 0 & \frac{1}{2} & \frac{1}{2} \end{bmatrix}}_{S} \underbrace{\begin{bmatrix} \mathbf{p}_{i-1}^{(k)} \\ \mathbf{p}_{i}^{(k)} \\ \mathbf{p}_{i+1}^{(k)} \end{bmatrix}}_{\mathbf{x}^{(k)}} \implies \mathbf{x}^{(k)} = S^k \mathbf{x}^{(0)}$$
+          </div>
+
+          <div class="math-box text-xs sm:text-sm space-y-3">
+            <div class="text-amber-300 font-bold">
+              <span class="lang-zh">2. 特征分解：$S$ 的三个特征模式 ($\lambda_0=1, \lambda_1=\frac{1}{2}, \lambda_2=\frac{1}{4}$)</span>
+              <span class="lang-en">2. Eigen-Decomposition of $S$: $\lambda_0=1, \lambda_1=1/2, \lambda_2=1/4$</span>
+            </div>
+            <p class="lang-zh text-slate-300">
+              求 $S$ 的特征值与左右特征向量（满足 $S\mathbf{r}_m = \lambda_m \mathbf{r}_m$，$\boldsymbol{\ell}_m^\top S = \lambda_m \boldsymbol{\ell}_m^\top$）：
+            </p>
+            <p class="lang-en text-slate-300">
+              Compute the eigenvalues and right/left eigenvectors ($S\mathbf{r}_m = \lambda_m \mathbf{r}_m$, $\boldsymbol{\ell}_m^\top S = \lambda_m \boldsymbol{\ell}_m^\top$):
+            </p>
+            $$\begin{aligned}
+              \lambda_0 = 1: &\quad \mathbf{r}_0 = \begin{bmatrix} 1 \\ 1 \\ 1 \end{bmatrix}, \quad \boldsymbol{\ell}_0^\top = \begin{bmatrix} \frac{1}{6} & \frac{4}{6} & \frac{1}{6} \end{bmatrix} \\
+              \lambda_1 = \frac{1}{2}: &\quad \mathbf{r}_1 = \begin{bmatrix} -1 \\ 0 \\ 1 \end{bmatrix}, \quad \boldsymbol{\ell}_1^\top = \begin{bmatrix} -\frac{1}{2} & 0 & \frac{1}{2} \end{bmatrix} \\
+              \lambda_2 = \frac{1}{4}: &\quad \mathbf{r}_2 = \begin{bmatrix} 1 \\ -1 \\ 1 \end{bmatrix}, \quad \boldsymbol{\ell}_2^\top = \begin{bmatrix} \frac{1}{3} & -\frac{2}{3} & \frac{1}{3} \end{bmatrix}
+            \end{aligned}$$
+          </div>
+        </div>
+
+        <div class="math-box text-xs sm:text-sm space-y-3 border-emerald-500/40">
+          <div class="text-emerald-300 font-bold">
+            <span class="lang-zh">3. 见证奇迹：当 $k \to \infty$ 时，为什么三个特征值各自掌管了“位置、切线与曲率”？</span>
+            <span class="lang-en">3. The Miracle as $k \to \infty$: Why $\lambda_0, \lambda_1, \lambda_2$ Govern Position, Tangent &amp; Curvature!</span>
+          </div>
+          $$\mathbf{x}^{(k)} = S^k \mathbf{x}^{(0)} = \underbrace{(1)^k \left(\boldsymbol{\ell}_0^\top \mathbf{x}^{(0)}\right)\begin{bmatrix}1\\1\\1\end{bmatrix}}_{\text{不衰减的极限位置 }\mathbf{p}_i^\infty} + \underbrace{\left(\frac{1}{2}\right)^k \left(\boldsymbol{\ell}_1^\top \mathbf{x}^{(0)}\right)\begin{bmatrix}-1\\0\\1\end{bmatrix}}_{\text{每步减半的切线分量 }\mathbf{t}_i^\infty} + \underbrace{\left(\frac{1}{4}\right)^k \left(\boldsymbol{\ell}_2^\top \mathbf{x}^{(0)}\right)\begin{bmatrix}1\\-1\\1\end{bmatrix}}_{\text{以 1/4 极速消失的弯曲分量}}$$
+          <ul class="lang-zh list-disc pl-5 space-y-1.5 text-slate-300">
+            <li><b>主特征值 $\lambda_0 = 1$（守恒不动点 = 极限位置 $\mathbf{p}_i^\infty$）</b>：因为 $(1/2)^k \to 0$ 且 $(1/4)^k \to 0$，当 $k \to \infty$ 时，三个点全部坍缩到同一个极限坐标：
+              $$\mathbf{p}_i^\infty = \boldsymbol{\ell}_0^\top \mathbf{x}^{(0)} = \frac{1}{6}\mathbf{p}_{i-1}^{(0)} + \frac{4}{6}\mathbf{p}_i^{(0)} + \frac{1}{6}\mathbf{p}_{i+1}^{(0)}$$
+              <b>请揉揉眼睛看这个系数 $\left(\frac{1}{6}, \frac{4}{6}, \frac{1}{6}\right)$</b>！这不就是我们在 <b>Lesson 08</b> 推导出的均匀三次 B-Spline 在节点 $t=0$ 处的精确坐标公式吗？！特征向量 $\boldsymbol{\ell}_0^\top$ 直接从线性代数底层证明了该细分规则收敛于三次 B-Spline，而且让我们<b>无需做任何细分迭代，一步乘法就能直接画出极限点</b>！</li>
+            <li><b>次大特征值 $\lambda_1 = \frac{1}{2}$（衰减最慢的方向 = 极限切向量 $\mathbf{t}_i^\infty$）</b>：因为 $\lambda_2^k = (1/4)^k$ 比 $\lambda_1^k = (1/2)^k$ 死得快一倍，所以在收敛的最后阶段，三个点必定沿着 $\mathbf{r}_1 = [-1, 0, 1]^\top$ 被拉成一条直线！这条直线的方向就是极限切向量：
+              $$\mathbf{t}_i^\infty \propto \boldsymbol{\ell}_1^\top \mathbf{x}^{(0)} = \frac{1}{2}\left(\mathbf{p}_{i+1}^{(0)} - \mathbf{p}_{i-1}^{(0)}\right)$$</li>
+          </ul>
+          <ul class="lang-en list-disc pl-5 space-y-1.5 text-slate-300">
+            <li><b>Dominant Eigenvalue $\lambda_0 = 1$ (Limit Position $\mathbf{p}_i^\infty$)</b>: As $k \to \infty$, $(1/2)^k \to 0$ and $(1/4)^k \to 0$, so all three points converge to $\mathbf{p}_i^\infty = \boldsymbol{\ell}_0^\top \mathbf{x}^{(0)} = \frac{1}{6}\mathbf{p}_{i-1}^{(0)} + \frac{4}{6}\mathbf{p}_i^{(0)} + \frac{1}{6}\mathbf{p}_{i+1}^{(0)}$ — the exact Uniform Cubic B-Spline formula from Lesson 08!</li>
+            <li><b>Subdominant Eigenvalue $\lambda_1 = 1/2$ (Limit Tangent $\mathbf{t}_i^\infty$)</b>: Because $(1/4)^k$ vanishes twice as fast as $(1/2)^k$, the neighborhood flattens along the tangent direction $\mathbf{t}_i^\infty \propto \boldsymbol{\ell}_1^\top \mathbf{x}^{(0)} = \frac{1}{2}(\mathbf{p}_{i+1}^{(0)} - \mathbf{p}_{i-1}^{(0)})$.</li>
+          </ul>
+        </div>
+
+        <!-- Interactive Visualizer 2: Subdivision Matrix Eigen-Mode Decomposer -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-bold text-cyan-300">
+                <span class="lang-zh">🎛️ 交互透视镜 2：细分矩阵幂次 $S^k \mathbf{x}^{(0)}$ 与三大特征模式 $(\lambda_0=1, \lambda_1=\frac{1}{2}, \lambda_2=\frac{1}{4})$ 实时分解仪</span>
+                <span class="lang-en">🎛️ Interactive Visualizer 2: Matrix Power $S^k \mathbf{x}^{(0)}$ &amp; Eigen-Mode Decomposition</span>
+              </h4>
+              <p class="text-xs text-slate-400">
+                <span class="lang-zh">在画布中直接拖动 $\mathbf{p}_{i-1}^{(0)}, \mathbf{p}_i^{(0)}, \mathbf{p}_{i+1}^{(0)}$，滑动幂次 $k$ 观察 $(1/4)^k$ 如何率先把折角压平到切线上，最终收敛至翡翠绿极限点 $\mathbf{p}_i^\infty$！</span>
+                <span class="lang-en">Drag the 3 initial vertices and scrub power $k$ to see $(1/4)^k$ flatten the corner onto the tangent line before converging to $\mathbf{p}_i^\infty$!</span>
+              </p>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-bold text-amber-300">Power k: <span id="v2KText">0</span></span>
+              <input id="v2KSlider" type="range" min="0" max="6" step="0.05" value="0" oninput="onVis2K(this.value)" class="w-40 accent-cyan-400" />
+              <button onclick="onVis2K(6)" class="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white">k → ∞</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-7">
+              <canvas id="vis2Canvas" width="600" height="330" class="w-full rounded-xl border border-slate-800 bg-slate-900/70 cursor-pointer"></canvas>
+            </div>
+            <div class="lg:col-span-5 space-y-3 text-xs font-mono">
+              <div id="vis2EigenReadout" class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2.5 text-slate-200"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 3: 3D Mesh Topology, Manifold Conditions & Extraordinary Vertices -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 font-black flex items-center justify-center">03</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">迈向 3D 曲面：二维流形 (2-Manifold)、欧拉示性数 $V - E + F = 2 - 2g$ 与奇异点不可避免定理</span>
+            <span class="lang-en">Stepping into 3D: 2-Manifold Meshes, Euler Characteristic $V - E + F = 2 - 2g$ &amp; Extraordinary Vertices</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm text-slate-300 leading-relaxed">
+          <div class="space-y-3">
+            <h4 class="font-bold text-purple-300 text-base">
+              <span class="lang-zh">① 什么样的 3D 网格才能安全细分？(2-Manifold 二维流形条件)</span>
+              <span class="lang-en">1. What Makes a 3D Mesh Valid for Subdivision? (2-Manifold Conditions)</span>
+            </h4>
+            <p class="lang-zh">
+              在下一课（Lesson 11）对 3D 多边形网格做 Catmull-Clark 或 Loop 细分之前，网格必须是一个合法的<b>二维流形 (2-Manifold)</b>——即表面上任意一点的局部邻域走起来都像一张平坦的二维圆盘（或者带边界的半圆盘）：
+            </p>
+            <p class="lang-en">
+              Before applying Catmull-Clark or Loop surface subdivision (Lesson 11), a mesh must be a valid <b>2-Manifold</b> — every point's local neighborhood must look like a flat 2D disk:
+            </p>
+            <ul class="lang-zh list-disc pl-5 space-y-1.5 text-xs sm:text-sm">
+              <li><b>边条件 (Edge Manifoldness)</b>：每一条内部边必须<b>恰好被 2 个面共享</b>（边界边恰好属于 1 个面）。如果 1 条边上挂了 3 个面（T-型鳍片 Fin），细分求边点时就会精神分裂！</li>
+              <li><b>顶点条件 (Vertex Disk Condition)</b>：围绕每个顶点的所有面必须能排成<b>唯一一圈扇形 (Single Fan)</b>，不能像沙漏/领结一样在同一个顶点处粘连两个独立的锥体。</li>
+              <li><b>朝向一致性 (Consistent Winding)</b>：相邻两个面沿着公共边的顶点环绕方向必须相反（一正一反），保证全网格法向量一致朝外。</li>
+            </ul>
+            <ul class="lang-en list-disc pl-5 space-y-1.5 text-xs sm:text-sm">
+              <li><b>Edge Condition</b>: Every interior edge is shared by <b>at most 2 faces</b> (3+ faces on one edge = non-manifold fin).</li>
+              <li><b>Vertex Condition</b>: Incident faces around any vertex form a single topological fan (no hourglass pinch vertices).</li>
+              <li><b>Consistent Orientation</b>: Shared edges are traversed in opposite directions by their two adjacent faces.</li>
+            </ul>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="font-bold text-amber-300 text-base">
+              <span class="lang-zh">② 欧拉-庞加莱公式与为什么球面网格“必然存在奇异点”！</span>
+              <span class="lang-en">2. Euler-Poincaré Formula &amp; Why Extraordinary Vertices Are Topologically Inevitable!</span>
+            </h4>
+            <p class="lang-zh">
+              对于任意封闭、可定向、亏格为 $g$（即有 $g$ 个环柄/孔洞）的二维流形网格，顶点数 $V$、边数 $E$、面数 $F$ 永远服从<b>欧拉-庞加莱拓扑不变量</b>：
+            </p>
+            <p class="lang-en">
+              For any closed orientable 2-manifold mesh with genus $g$ (number of handles/holes), vertices $V$, edges $E$, and faces $F$ obey the <b>Euler-Poincaré Invariant</b>:
+            </p>
+            <div class="math-box text-xs sm:text-sm">
+              $$\chi = V - E + F = 2 - 2g$$
+            </div>
+            <p class="lang-zh text-xs sm:text-sm">
+              定义顶点的<b>价 (Valence $n_v$)</b> 为连接该顶点的边数。在规则平面网格中，<b>四边形网格的规则价是 $n=4$</b>（4 个 $90^\circ$ 拼成 $360^\circ$），<b>三角形网格的规则价是 $n=6$</b>（6 个 $60^\circ$ 拼成 $360^\circ$）。凡是 $n \ne 4$（四边形）或 $n \ne 6$（三角形）的顶点，统称为<b>奇异点 (Extraordinary Vertex)</b>。<br/>
+              对任意封闭纯四边形网格（每个面 4 条边 $\implies 4F = 2E$，且 $\sum_{v} n_v = 2E = 4F$），代入 $4V - 4E + 4F = 8(1-g)$ 可得惊人恒等式：
+              $$\sum_{v \in V} (4 - n_v) = 8(1 - g) \quad \text{(Quad Mesh)}, \qquad \sum_{v \in V} (6 - n_v) = 12(1 - g) \quad \text{(Triangle Mesh)}$$
+              <b>结论</b>：只要是类似球体的封闭物体（亏格 $g=0$），左边求和必须等于 $8$（或 $12$），<b>绝对不可能让所有顶点都保持规则价 $n=4$（或 $n=6$）</b>！唯有甜甜圈（轮胎面 Torus，$g=1 \implies 1-g=0$）才能被 $100\%$ 规则的四边形或三角形完美铺满！
+            </p>
+            <p class="lang-en text-xs sm:text-sm">
+              Substituting $2E = 4F$ (quads) or $2E = 3F$ (triangles) into Euler's formula yields:
+              $$\sum_{v \in V} (4 - n_v) = 8(1 - g) \;\text{(Quads)}, \qquad \sum_{v \in V} (6 - n_v) = 12(1 - g) \;\text{(Triangles)}$$
+              Thus <b>no closed genus-0 sphere-like mesh can ever be tiled purely by regular vertices</b>! A cube has eight valence-3 corners: $8\times(4-3)=8$. Only a Torus ($g=1$) can have zero extraordinary vertices!
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: INTERACTIVE SUBDIVISION CURVE LAB ==================== -->
+    <section id="tab-lab" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white">
+              <span class="lang-zh">🧪 交互式切角细分与极限收敛放大镜 (Multi-Scheme Subdivision Lab)</span>
+              <span class="lang-en">🧪 Interactive Multi-Scheme Subdivision &amp; Eigen-Limit Lab</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              <span class="lang-zh">直接拖拽粗控制多边形顶点，对比 Chaikin (1/4, 3/4)、三次 B-Spline (1/8, 6/8, 1/8) 与 4 点插值细分，并验证特征向量一步预测的极限点 $\mathbf{p}_i^\infty$！</span>
+              <span class="lang-en">Drag control vertices, step refinement $k = 0 \to 6$, and verify that the refined curve lands dead-on the $O(1)$ eigen-limit markers $\mathbf{p}_i^\infty$!</span>
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="loadPresetShape('star')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">⭐ Star</button>
+            <button onclick="loadPresetShape('crown')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">👑 Crown</button>
+            <button onclick="loadPresetShape('square')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">⬛ Square</button>
+            <button onclick="loadPresetShape('heart')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">❤️ Heart</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-8">
+            <canvas id="labCanvas" width="740" height="440" class="w-full rounded-2xl border border-slate-800 bg-slate-950 cursor-pointer"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 space-y-4 text-xs">
+            <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div class="font-bold text-white">
+                <span class="lang-zh">1. 选择细分算法 (Subdivision Scheme)</span>
+                <span class="lang-en">1. Select Subdivision Scheme</span>
+              </div>
+              <div class="space-y-2">
+                <button onclick="setLabScheme('chaikin')" id="lab-scheme-chaikin" class="w-full text-left px-3.5 py-2.5 rounded-xl font-bold bg-slate-900 text-slate-300 border border-slate-800">
+                  <div>Chaikin Corner-Cutting (3/4, 1/4)</div>
+                  <div class="text-[11px] font-normal text-slate-400">Approximating • Uniform Quadratic B-Spline (C¹)</div>
+                </button>
+                <button onclick="setLabScheme('cubic')" id="lab-scheme-cubic" class="w-full text-left px-3.5 py-2.5 rounded-xl font-bold bg-emerald-600 text-white border border-emerald-400">
+                  <div>Cubic B-Spline (1/8, 6/8, 1/8 &amp; 1/2, 1/2)</div>
+                  <div class="text-[11px] font-normal text-emerald-100">Approximating • Uniform Cubic B-Spline (C²)</div>
+                </button>
+                <button onclick="setLabScheme('fourpt')" id="lab-scheme-fourpt" class="w-full text-left px-3.5 py-2.5 rounded-xl font-bold bg-slate-900 text-slate-300 border border-slate-800">
+                  <div>DLG 4-Point Interpolating (-1/16, 9/16)</div>
+                  <div class="text-[11px] font-normal text-slate-400">Interpolating • Passes through all P⁰ vertices (C¹)</div>
+                </button>
+              </div>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-amber-300">Subdivision Level k: <span id="labLevelVal">3</span></span>
+                <div class="flex gap-1.5">
+                  <button onclick="stepLabLevel(-1)" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold">-1</button>
+                  <button onclick="stepLabLevel(1)" class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold">+1 Refine</button>
+                </div>
+              </div>
+              <input id="labLevelSlider" type="range" min="0" max="6" step="1" value="3" oninput="setLabLevel(Number(this.value))" class="w-full accent-emerald-500" />
+
+              <div class="space-y-2 pt-2 border-t border-slate-800">
+                <label class="flex items-center gap-2 text-slate-200 cursor-pointer">
+                  <input type="checkbox" id="labShowGhosts" checked onchange="drawLab()" />
+                  <span><span class="lang-zh">显示中间细分层级残影 ($P^0, P^1, \dots$)</span><span class="lang-en">Show Intermediate Ghost Polygons</span></span>
+                </label>
+                <label class="flex items-center gap-2 text-emerald-300 font-semibold cursor-pointer">
+                  <input type="checkbox" id="labShowEigen" checked onchange="drawLab()" />
+                  <span><span class="lang-zh">显示特征向量一步极限点 $\mathbf{p}_i^\infty$ 与切线 $\mathbf{t}_i^\infty$</span><span class="lang-en">Show Eigen-Limit $\mathbf{p}_i^\infty$ &amp; Tangents $\mathbf{t}_i^\infty$</span></span>
+                </label>
+                <label class="flex items-center gap-2 text-cyan-300 cursor-pointer">
+                  <input type="checkbox" id="labClosedLoop" checked onchange="drawLab()" />
+                  <span><span class="lang-zh">闭合多边形环路 (Closed Loop)</span><span class="lang-en">Closed Polygon Loop</span></span>
+                </label>
+              </div>
+            </div>
+
+            <div id="labStatsBox" class="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono space-y-1 text-slate-300"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: 3D MESH TOPOLOGY INSPECTOR & LECTURE 16 ==================== -->
+    <section id="tab-topology" class="hidden space-y-8">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white">
+              <span class="lang-zh">🌐 3D 网格拓扑检验台：欧拉公式 ($V-E+F=2-2g$)、顶点价与非流形警报</span>
+              <span class="lang-en">🌐 3D Mesh Topology Inspector: Euler Characteristic, Vertex Valence &amp; Non-Manifold Detector</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              <span class="lang-zh">拖拽旋转 3D 网格，实时高亮奇异点 (Extraordinary Vertices) 与非流形违规边 (Non-Manifold Fin Edge)！</span>
+              <span class="lang-en">Rotate the 3D mesh to inspect vertex valences, Extraordinary Vertices, Euler characteristic $\chi = 2 - 2g$, and Non-Manifold edge violations!</span>
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setTopoMesh('cube')" id="topo-btn-cube" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white">Cube (Quad, g=0)</button>
+            <button onclick="setTopoMesh('octa')" id="topo-btn-octa" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">Octahedron (Tri, g=0)</button>
+            <button onclick="setTopoMesh('icosa')" id="topo-btn-icosa" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">Icosahedron (Tri, g=0)</button>
+            <button onclick="setTopoMesh('torus')" id="topo-btn-torus" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">Torus (Quad, g=1)</button>
+            <button onclick="setTopoMesh('nonmanifold')" id="topo-btn-nonmanifold" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-950/60 text-rose-300 border border-rose-500/40">⚠️ Non-Manifold T-Fin</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-7">
+            <canvas id="topoCanvas" width="640" height="390" class="w-full rounded-2xl border border-slate-800 bg-slate-950 cursor-grab"></canvas>
+          </div>
+          <div class="lg:col-span-5 space-y-4 text-xs">
+            <div id="topoReadout" class="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 font-mono"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Course Video & Master Comparison Table -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <h3 class="text-xl font-bold text-white">
+          <span class="lang-zh">🎥 UC Davis ECS 175 Lecture 16 配套公开课与细分方案全对比表</span>
+          <span class="lang-en">🎥 UC Davis ECS 175 Lecture 16 &amp; Subdivision Schemes Master Table</span>
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 text-xs font-mono font-bold">UCD-16 • Prof. Kenneth Joy</span>
+              <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+16" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">YouTube Search ↗</a>
+            </div>
+            <h4 class="font-bold text-white text-base">UC Davis ECS 175 — Lecture 16: Subdivision Surfaces, Part 1</h4>
+            <p class="lang-zh text-xs text-slate-400 leading-relaxed">
+              Kenneth Joy 教授正是 Chaikin 切角算法几何证明与细分曲面教材的经典讲授者。本讲从多边形切角操作出发，详细推导了二进制细分掩模、B-Spline 细分的分裂与平均分解，以及为什么任意拓扑控制网格是现代电影动画（如 Pixar《Geri's Game》）取代 NURBS 的关键。
+            </p>
+            <p class="lang-en text-xs text-slate-400 leading-relaxed">
+              Prof. Kenneth Joy derives Chaikin's corner-cutting algorithm, binary subdivision masks, the Split-and-Average decomposition of B-splines, and how subdivision meshes revolutionized character animation at Pixar.
+            </p>
+            <div class="aspect-video rounded-xl overflow-hidden border border-slate-800 bg-slate-900">
+              <iframe class="w-full h-full" src="https://www.youtube.com/embed/videoseries?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi&index=3" title="Computer Graphics Curves and Subdivision" allowfullscreen></iframe>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 overflow-x-auto">
+            <h4 class="font-bold text-white text-sm mb-3">
+              <span class="lang-zh">📊 经典一维细分曲线方案终极对比表</span>
+              <span class="lang-en">📊 1D Subdivision Schemes Master Comparison</span>
+            </h4>
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-slate-800 text-slate-400">
+                  <th class="py-2 pr-2">Scheme</th>
+                  <th class="py-2 px-2">Mask / Stencil</th>
+                  <th class="py-2 px-2">Type</th>
+                  <th class="py-2 pl-2">Limit Curve &amp; Continuity</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/70 text-slate-300">
+                <tr>
+                  <td class="py-2.5 pr-2 font-bold text-amber-300">Chaikin (1974)</td>
+                  <td class="py-2.5 px-2 font-mono">$(3/4, 1/4)$</td>
+                  <td class="py-2.5 px-2">Approximating (Corner-Cut)</td>
+                  <td class="py-2.5 pl-2">Uniform Quadratic B-Spline ($C^1$)</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 pr-2 font-bold text-emerald-300">Cubic B-Spline (Lane-Riesenfeld)</td>
+                  <td class="py-2.5 px-2 font-mono">Odd: $(1/2, 1/2)$<br/>Even: $(1/8, 6/8, 1/8)$</td>
+                  <td class="py-2.5 px-2">Approximating (Split+Avg)</td>
+                  <td class="py-2.5 pl-2">Uniform Cubic B-Spline ($C^2$), Limit $\frac{1}{6}(1,4,1)$</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 pr-2 font-bold text-cyan-300">DLG 4-Point (1987)</td>
+                  <td class="py-2.5 px-2 font-mono">Odd: $\frac{1}{16}(-1, 9, 9, -1)$<br/>Even: $(1)$</td>
+                  <td class="py-2.5 px-2">Interpolating</td>
+                  <td class="py-2.5 pl-2">Passes through all $P^0$ vertices ($C^1$)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-game" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-indigo-500/40 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white">
+              <span class="lang-zh">🎮 3 关实战通关小游戏：细分雕塑家与网格拓扑医生</span>
+              <span class="lang-en">🎮 3-Mission Game: Subdivision Sculptor &amp; Topology Doctor</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              <span class="lang-zh">通过亲手校准 Chaikin 切角比例、用特征向量一步命中三次 B-Spline 极限靶心，以及修复封闭网格欧拉拓扑完成通关！</span>
+              <span class="lang-en">Complete all 3 missions by calibrating Chaikin weights, hitting the Cubic B-Spline eigen-limit bullseye, and solving Euler mesh topology!</span>
+            </p>
+          </div>
+
+          <div class="flex gap-2">
+            <button onclick="setGameMission(1)" id="game-btn-1" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white">
+              Mission 1: Chaikin (3/4, 1/4)
+            </button>
+            <button onclick="setGameMission(2)" id="game-btn-2" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 2: Eigen-Limit (1/6, 4/6, 1/6)
+            </button>
+            <button onclick="setGameMission(3)" id="game-btn-3" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 3: Euler Topology Doctor
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-7">
+            <canvas id="gameCanvas" width="640" height="370" class="w-full rounded-2xl border border-slate-800 bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 space-y-4 text-xs">
+            <div id="gameMissionDesc" class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 text-slate-200 leading-relaxed"></div>
+
+            <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div>
+                <div class="flex justify-between font-bold text-amber-300 mb-1">
+                  <span id="gLabel1">Parameter 1</span>
+                  <span id="gValText1">0.50</span>
+                </div>
+                <input id="gSlider1" type="range" min="0.05" max="0.95" step="0.01" value="0.50" oninput="onGameSlider()" class="w-full accent-amber-400" />
+              </div>
+
+              <div>
+                <div class="flex justify-between font-bold text-cyan-300 mb-1">
+                  <span id="gLabel2">Parameter 2</span>
+                  <span id="gValText2">0.50</span>
+                </div>
+                <input id="gSlider2" type="range" min="0.05" max="0.95" step="0.01" value="0.50" oninput="onGameSlider()" class="w-full accent-cyan-400" />
+              </div>
+            </div>
+
+            <div id="gameStatusBox" class="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== LANGUAGE & TAB CONTROLLER ====================
+    let isEn = false;
+    function toggleLang() {
+      isEn = !isEn;
+      document.body.classList.toggle('en-mode', isEn);
+      drawVis1();
+      drawVis2();
+      drawLab();
+      drawTopo();
+      drawGame();
+    }
+
+    function switchTab(tabId) {
+      ['concepts', 'lab', 'topology', 'game'].forEach(id => {
+        document.getElementById('tab-' + id).classList.toggle('hidden', id !== tabId);
+        document.getElementById('tab-btn-' + id).classList.toggle('active', id === tabId);
+      });
+      if (tabId === 'concepts') { drawVis1(); drawVis2(); }
+      if (tabId === 'lab') drawLab();
+      if (tabId === 'topology') drawTopo();
+      if (tabId === 'game') drawGame();
+    }
+
+    // ==================== SUBDIVISION CORE ALGORITHMS ====================
+    function subdivideStep(pts, scheme, closed = true) {
+      const n = pts.length;
+      if (n < 3) return pts;
+      const out = [];
+      const getPt = (idx) => {
+        if (closed) return pts[((idx % n) + n) % n];
+        return pts[Math.max(0, Math.min(n - 1, idx))];
+      };
+
+      const edgeCount = closed ? n : n - 1;
+      if (scheme === 'chaikin') {
+        for (let i = 0; i < edgeCount; i++) {
+          const p0 = getPt(i), p1 = getPt(i + 1);
+          out.push([0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1]]);
+          out.push([0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1]]);
+        }
+      } else if (scheme === 'cubic') {
+        for (let i = 0; i < n; i++) {
+          if (!closed && (i === 0 || i === n - 1)) {
+            out.push([pts[i][0], pts[i][1]]);
+          } else {
+            const pm1 = getPt(i - 1), p0 = getPt(i), pp1 = getPt(i + 1);
+            out.push([
+              (pm1[0] + 6 * p0[0] + pp1[0]) / 8,
+              (pm1[1] + 6 * p0[1] + pp1[1]) / 8
+            ]);
+          }
+          if (closed || i < n - 1) {
+            const p0 = getPt(i), p1 = getPt(i + 1);
+            out.push([0.5 * p0[0] + 0.5 * p1[0], 0.5 * p0[1] + 0.5 * p1[1]]);
+          }
+        }
+      } else if (scheme === 'fourpt') {
+        for (let i = 0; i < n; i++) {
+          const p0 = getPt(i);
+          out.push([p0[0], p0[1]]);
+          if (closed || i < n - 1) {
+            const pm1 = getPt(i - 1), p1 = getPt(i + 1), p2 = getPt(i + 2);
+            out.push([
+              (-pm1[0] + 9 * p0[0] + 9 * p1[0] - p2[0]) / 16,
+              (-pm1[1] + 9 * p0[1] + 9 * p1[1] - p2[1]) / 16
+            ]);
+          }
+        }
+      }
+      return out;
+    }
+
+    // ==================== VISUALIZER 1: SPLIT -> AVERAGE MICROSCOPE ====================
+    let v1Scheme = 'cubic';
+    let v1Phase = 2;
+    let v1Alpha = 1.0;
+    const v1BasePts = [
+      [120, 255],
+      [215, 75],
+      [465, 75],
+      [560, 255]
+    ];
+
+    function setVis1Scheme(s) {
+      v1Scheme = s;
+      ['chaikin', 'cubic', 'fourpt'].forEach(k => {
+        const btn = document.getElementById('v1-' + k);
+        btn.className = k === s
+          ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white border border-emerald-400'
+          : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700';
+      });
+      drawVis1();
+    }
+
+    function setVis1Phase(p) {
+      v1Phase = p;
+      [0, 1, 2, 3].forEach(idx => {
+        const btn = document.getElementById('v1-p' + idx);
+        btn.className = idx === p
+          ? 'px-3 py-2 rounded-lg font-bold bg-emerald-600 text-white border border-emerald-400'
+          : 'px-3 py-2 rounded-lg font-bold bg-slate-800 text-slate-200 border border-slate-700';
+      });
+      if (p === 1) { v1Alpha = 0; document.getElementById('v1AlphaSlider').value = 0; }
+      if (p === 2) { v1Alpha = 1; document.getElementById('v1AlphaSlider').value = 1; }
+      document.getElementById('v1AlphaVal').textContent = Number(v1Alpha).toFixed(2);
+      drawVis1();
+    }
+
+    function onVis1Alpha(val) {
+      v1Alpha = Number(val);
+      v1Phase = 2;
+      document.getElementById('v1AlphaVal').textContent = v1Alpha.toFixed(2);
+      drawVis1();
+    }
+
+    function drawVis1() {
+      const c = document.getElementById('vis1Canvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // Grid
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+      // Draw Coarse Cage P0
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
+      ctx.setLineDash([6, 5]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      v1BasePts.forEach((p, i) => i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]));
+      ctx.closePath();
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      v1BasePts.forEach((p, i) => {
+        ctx.fillStyle = '#94a3b8';
+        ctx.beginPath(); ctx.arc(p[0], p[1], 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText(`P${i}`, p[0] - 10, p[1] - 12);
+      });
+
+      // Compute Split-only polygon (old vertices + edge midpoints) and Full P1 polygon
+      const n = v1BasePts.length;
+      const splitPts = [];
+      for (let i = 0; i < n; i++) {
+        const p0 = v1BasePts[i], p1 = v1BasePts[(i + 1) % n];
+        if (v1Scheme === 'chaikin') {
+          splitPts.push([p0[0], p0[1]]);
+          splitPts.push([0.5 * (p0[0] + p1[0]), 0.5 * (p0[1] + p1[1])]);
+        } else {
+          splitPts.push([p0[0], p0[1]]);
+          splitPts.push([0.5 * (p0[0] + p1[0]), 0.5 * (p0[1] + p1[1])]);
+        }
+      }
+      const p1Pts = subdivideStep(v1BasePts, v1Scheme, true);
+
+      if (v1Phase >= 1) {
+        const a = v1Phase === 1 ? 0 : v1Alpha;
+        const morphPts = p1Pts.map((pt, idx) => [
+          (1 - a) * splitPts[idx][0] + a * pt[0],
+          (1 - a) * splitPts[idx][1] + a * pt[1]
+        ]);
+
+        // Displacement arrows from splitPts to p1Pts
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.7)';
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < morphPts.length; i++) {
+          ctx.beginPath();
+          ctx.moveTo(splitPts[i][0], splitPts[i][1]);
+          ctx.lineTo(morphPts[i][0], morphPts[i][1]);
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        morphPts.forEach((p, i) => i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]));
+        ctx.closePath();
+        ctx.stroke();
+
+        morphPts.forEach((p, i) => {
+          ctx.fillStyle = i % 2 === 0 ? '#fbbf24' : '#22d3ee';
+          ctx.beginPath(); ctx.arc(p[0], p[1], 5.5, 0, Math.PI * 2); ctx.fill();
+        });
+      }
+
+      if (v1Phase === 3) {
+        let cur = v1BasePts;
+        for (let k = 0; k < 5; k++) cur = subdivideStep(cur, v1Scheme, true);
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        cur.forEach((p, i) => i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]));
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      const readout = document.getElementById('vis1Readout');
+      if (v1Scheme === 'chaikin') {
+        readout.innerHTML = `<div class="text-amber-300 font-bold">Chaikin Corner-Cutting</div>
+          <div>q₂ᵢ = 3/4 Pᵢ + 1/4 Pᵢ₊₁</div>
+          <div>q₂ᵢ₊₁ = 1/4 Pᵢ + 3/4 Pᵢ₊₁</div>
+          <div class="text-emerald-400">Limit: C¹ Quadratic B-Spline</div>`;
+      } else if (v1Scheme === 'cubic') {
+        readout.innerHTML = `<div class="text-emerald-300 font-bold">Cubic B-Spline (Split + Avg)</div>
+          <div>Odd (Edge): 1/2 Pᵢ + 1/2 Pᵢ₊₁</div>
+          <div>Even (Vert): 1/8 Pᵢ₋₁ + 6/8 Pᵢ + 1/8 Pᵢ₊₁</div>
+          <div class="text-cyan-300">Limit: C² Cubic B-Spline</div>`;
+      } else {
+        readout.innerHTML = `<div class="text-cyan-300 font-bold">DLG 4-Point Interpolating</div>
+          <div>Even (Vert): Pᵢ (Unchanged!)</div>
+          <div>Odd (Edge): (-Pᵢ₋₁ + 9Pᵢ + 9Pᵢ₊₁ - Pᵢ₊₂)/16</div>
+          <div class="text-amber-300">Limit: C¹ Interpolating Curve</div>`;
+      }
+    }
+
+    // ==================== VISUALIZER 2: SUBDIVISION MATRIX EIGEN-DECOMPOSER ====================
+    let v2Pts = [
+      [115, 255],
+      [300, 65],
+      [485, 240]
+    ];
+    let v2DragIdx = -1;
+    let v2K = 0;
+
+    function onVis2K(val) {
+      v2K = Number(val);
+      document.getElementById('v2KSlider').value = v2K;
+      document.getElementById('v2KText').textContent = v2K >= 5.95 ? '∞' : v2K.toFixed(2);
+      drawVis2();
+    }
+
+    function drawVis2() {
+      const c = document.getElementById('vis2Canvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      ctx.strokeStyle = '#1e293b';
+      for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+      const [pm1, p0, pp1] = v2Pts;
+      // Left eigenvectors applied to initial neighborhood x^(0):
+      // l0 = [1/6, 4/6, 1/6] -> limit position P_inf
+      const pInf = [
+        (pm1[0] + 4 * p0[0] + pp1[0]) / 6,
+        (pm1[1] + 4 * p0[1] + pp1[1]) / 6
+      ];
+      // l1 = [-1/2, 0, 1/2] -> tangent mode c1
+      const c1 = [
+        0.5 * (pp1[0] - pm1[0]),
+        0.5 * (pp1[1] - pm1[1])
+      ];
+      // l2 = [1/3, -2/3, 1/3] -> curvature mode c2
+      const c2 = [
+        (pm1[0] - 2 * p0[0] + pp1[0]) / 3,
+        (pm1[1] - 2 * p0[1] + pp1[1]) / 3
+      ];
+
+      // Evaluate exact S^k x^(0) using continuous power k
+      const lam1 = v2K >= 5.95 ? 0 : Math.pow(0.5, v2K);
+      const lam2 = v2K >= 5.95 ? 0 : Math.pow(0.25, v2K);
+
+      // Right eigenvectors: r0=[1,1,1], r1=[-1,0,1], r2=[1,-1,1]
+      const km1 = [
+        pInf[0] - lam1 * c1[0] + lam2 * c2[0],
+        pInf[1] - lam1 * c1[1] + lam2 * c2[1]
+      ];
+      const k0 = [
+        pInf[0] - lam2 * c2[0],
+        pInf[1] - lam2 * c2[1]
+      ];
+      const kp1 = [
+        pInf[0] + lam1 * c1[0] + lam2 * c2[0],
+        pInf[1] + lam1 * c1[1] + lam2 * c2[1]
+      ];
+
+      // Draw Initial V-wedge (k=0)
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+      ctx.setLineDash([5, 5]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(pm1[0], pm1[1]); ctx.lineTo(p0[0], p0[1]); ctx.lineTo(pp1[0], pp1[1]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw Limit Tangent Line at pInf
+      const tLen = Math.hypot(c1[0], c1[1]) || 1;
+      const tx = c1[0] / tLen, ty = c1[1] / tLen;
+      ctx.strokeStyle = 'rgba(34, 211, 238, 0.55)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(pInf[0] - tx * 150, pInf[1] - ty * 150);
+      ctx.lineTo(pInf[0] + tx * 150, pInf[1] + ty * 150);
+      ctx.stroke();
+
+      // Draw trajectory of center point k0 -> pInf (along c2 mode!)
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.65)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(p0[0], p0[1]);
+      ctx.lineTo(pInf[0], pInf[1]);
+      ctx.stroke();
+
+      // Draw Current S^k neighborhood
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(km1[0], km1[1]); ctx.lineTo(k0[0], k0[1]); ctx.lineTo(kp1[0], kp1[1]);
+      ctx.stroke();
+
+      [km1, k0, kp1].forEach((pt) => {
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath(); ctx.arc(pt[0], pt[1], 6, 0, Math.PI * 2); ctx.fill();
+      });
+
+      // Draw Limit Point pInf
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath(); ctx.arc(pInf[0], pInf[1], 8.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#a7f3d0';
+      ctx.font = 'bold 12px monospace';
+      ctx.fillText('Pᵢ^∞ (λ₀=1)', pInf[0] + 12, pInf[1] + 5);
+
+      // Draw draggable initial points
+      v2Pts.forEach((pt, idx) => {
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath(); ctx.arc(pt[0], pt[1], 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#f8fafc';
+        const lbl = idx === 0 ? 'Pᵢ₋₁⁽⁰⁾' : idx === 1 ? 'Pᵢ⁽⁰⁾' : 'Pᵢ₊₁⁽⁰⁾';
+        ctx.fillText(lbl, pt[0] - 18, pt[1] - 12);
+      });
+
+      document.getElementById('vis2EigenReadout').innerHTML = `
+        <div class="text-emerald-400 font-bold">λ₀ = 1.000 (1^k = 1.000) • Limit Position</div>
+        <div>Pᵢ^∞ = 1/6 Pᵢ₋₁ + 4/6 Pᵢ + 1/6 Pᵢ₊₁ = (${pInf[0].toFixed(0)}, ${pInf[1].toFixed(0)})</div>
+        <div class="text-cyan-300 font-bold pt-1">λ₁ = 0.500 ((1/2)^k = ${lam1.toFixed(4)}) • Tangent Mode</div>
+        <div>c₁ = 1/2 (Pᵢ₊₁ - Pᵢ₋₁) = (${c1[0].toFixed(1)}, ${c1[1].toFixed(1)})</div>
+        <div class="text-rose-400 font-bold pt-1">λ₂ = 0.250 ((1/4)^k = ${lam2.toFixed(4)}) • Curvature Offset</div>
+        <div>|k₀ - Pᵢ^∞| = ${(Math.hypot(c2[0], c2[1]) * lam2).toFixed(2)} px</div>
+      `;
+    }
+
+    (function setupVis2Drag() {
+      const c = document.getElementById('vis2Canvas');
+      c.addEventListener('pointerdown', (e) => {
+        const r = c.getBoundingClientRect();
+        const mx = (e.clientX - r.left) * (c.width / r.width);
+        const my = (e.clientY - r.top) * (c.height / r.height);
+        v2Pts.forEach((p, idx) => {
+          if (Math.hypot(p[0] - mx, p[1] - my) < 22) v2DragIdx = idx;
+        });
+      });
+      c.addEventListener('pointermove', (e) => {
+        if (v2DragIdx < 0) return;
+        const r = c.getBoundingClientRect();
+        v2Pts[v2DragIdx] = [
+          Math.max(25, Math.min(c.width - 25, (e.clientX - r.left) * (c.width / r.width))),
+          Math.max(25, Math.min(c.height - 25, (e.clientY - r.top) * (c.height / r.height)))
+        ];
+        drawVis2();
+      });
+      window.addEventListener('pointerup', () => { v2DragIdx = -1; });
+    })();
+
+    // ==================== TAB 2: SUBDIVISION CURVE LAB ====================
+    let labScheme = 'cubic';
+    let labLevel = 3;
+    let labDragIdx = -1;
+    let labPts = [];
+
+    function loadPresetShape(name) {
+      const cx = 370, cy = 220;
+      if (name === 'star') {
+        labPts = [];
+        for (let i = 0; i < 10; i++) {
+          const ang = (i * Math.PI) / 5 - Math.PI / 2;
+          const rad = i % 2 === 0 ? 175 : 75;
+          labPts.push([cx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad]);
+        }
+      } else if (name === 'crown') {
+        labPts = [
+          [140, 330], [115, 130], [245, 235], [370, 90], [495, 235], [625, 130], [600, 330]
+        ];
+      } else if (name === 'square') {
+        labPts = [
+          [210, 80], [530, 80], [530, 360], [210, 360]
+        ];
+      } else if (name === 'heart') {
+        labPts = [
+          [370, 145], [475, 65], [600, 155], [535, 290], [370, 385], [205, 290], [140, 155], [265, 65]
+        ];
+      }
+      drawLab();
+    }
+
+    function setLabScheme(s) {
+      labScheme = s;
+      ['chaikin', 'cubic', 'fourpt'].forEach(k => {
+        const btn = document.getElementById('lab-scheme-' + k);
+        btn.className = k === s
+          ? 'w-full text-left px-3.5 py-2.5 rounded-xl font-bold bg-emerald-600 text-white border border-emerald-400'
+          : 'w-full text-left px-3.5 py-2.5 rounded-xl font-bold bg-slate-900 text-slate-300 border border-slate-800';
+      });
+      drawLab();
+    }
+
+    function setLabLevel(lv) {
+      labLevel = Math.max(0, Math.min(6, lv));
+      document.getElementById('labLevelVal').textContent = labLevel;
+      document.getElementById('labLevelSlider').value = labLevel;
+      drawLab();
+    }
+
+    function stepLabLevel(delta) {
+      setLabLevel(labLevel + delta);
+    }
+
+    function drawLab() {
+      const c = document.getElementById('labCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      ctx.strokeStyle = '#1e293b';
+      for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+      const closed = document.getElementById('labClosedLoop').checked;
+      const showGhosts = document.getElementById('labShowGhosts').checked;
+      const showEigen = document.getElementById('labShowEigen').checked;
+
+      const levels = [labPts];
+      for (let k = 1; k <= labLevel; k++) {
+        levels.push(subdivideStep(levels[k - 1], labScheme, closed));
+      }
+
+      if (showGhosts) {
+        for (let k = 0; k < labLevel; k++) {
+          const pts = levels[k];
+          ctx.strokeStyle = k === 0 ? 'rgba(148, 163, 184, 0.5)' : 'rgba(56, 189, 248, 0.25)';
+          ctx.lineWidth = k === 0 ? 2 : 1.2;
+          if (k === 0) ctx.setLineDash([6, 4]);
+          ctx.beginPath();
+          pts.forEach((p, i) => i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]));
+          if (closed) ctx.closePath();
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+
+      // Draw Active Level Curve
+      const activePts = levels[labLevel];
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      activePts.forEach((p, i) => i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]));
+      if (closed) ctx.closePath();
+      ctx.stroke();
+
+      if (labLevel <= 3) {
+        activePts.forEach((p) => {
+          ctx.fillStyle = '#34d399';
+          ctx.beginPath(); ctx.arc(p[0], p[1], 3.5, 0, Math.PI * 2); ctx.fill();
+        });
+      }
+
+      // Draw Eigen-Limit points & tangents
+      if (showEigen && labPts.length >= 3) {
+        const n = labPts.length;
+        for (let i = 0; i < n; i++) {
+          if (!closed && (i === 0 || i === n - 1)) continue;
+          const pm1 = labPts[(i - 1 + n) % n];
+          const p0 = labPts[i];
+          const pp1 = labPts[(i + 1) % n];
+          let lim = [p0[0], p0[1]];
+          if (labScheme === 'cubic') {
+            lim = [(pm1[0] + 4 * p0[0] + pp1[0]) / 6, (pm1[1] + 4 * p0[1] + pp1[1]) / 6];
+          } else if (labScheme === 'chaikin') {
+            lim = [0.5 * (p0[0] + pp1[0]), 0.5 * (p0[1] + pp1[1])];
+          }
+          ctx.strokeStyle = '#fbbf24';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(lim[0], lim[1], 6.5, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      // Draw Coarse Control Vertices
+      labPts.forEach((p, idx) => {
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath(); ctx.arc(p[0], p[1], 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText(`P${idx}`, p[0] + 9, p[1] - 8);
+      });
+
+      document.getElementById('labStatsBox').innerHTML = `
+        <div class="text-emerald-300 font-bold">Active Level k = ${labLevel}</div>
+        <div>Coarse Vertices |P⁰| = ${labPts.length}</div>
+        <div>Refined Vertices |P^${labLevel}| = ${activePts.length}</div>
+        <div class="text-amber-300">Yellow Rings = O(1) Eigen-Limit Points</div>
+      `;
+    }
+
+    (function setupLabDrag() {
+      const c = document.getElementById('labCanvas');
+      c.addEventListener('pointerdown', (e) => {
+        const r = c.getBoundingClientRect();
+        const mx = (e.clientX - r.left) * (c.width / r.width);
+        const my = (e.clientY - r.top) * (c.height / r.height);
+        labPts.forEach((p, idx) => {
+          if (Math.hypot(p[0] - mx, p[1] - my) < 20) labDragIdx = idx;
+        });
+      });
+      c.addEventListener('pointermove', (e) => {
+        if (labDragIdx < 0) return;
+        const r = c.getBoundingClientRect();
+        labPts[labDragIdx] = [
+          Math.max(25, Math.min(c.width - 25, (e.clientX - r.left) * (c.width / r.width))),
+          Math.max(25, Math.min(c.height - 25, (e.clientY - r.top) * (c.height / r.height)))
+        ];
+        drawLab();
+      });
+      window.addEventListener('pointerup', () => { labDragIdx = -1; });
+    })();
+
+    // ==================== TAB 3: 3D MESH TOPOLOGY INSPECTOR ====================
+    let topoMesh = 'cube';
+    let topoYaw = 0.65, topoPitch = 0.45, topoDragging = false, topoLastX = 0, topoLastY = 0;
+
+    function setTopoMesh(m) {
+      topoMesh = m;
+      ['cube', 'octa', 'icosa', 'torus', 'nonmanifold'].forEach(k => {
+        const btn = document.getElementById('topo-btn-' + k);
+        if (k === 'nonmanifold') {
+          btn.className = k === m
+            ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 text-white'
+            : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-950/60 text-rose-300 border border-rose-500/40';
+        } else {
+          btn.className = k === m
+            ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white'
+            : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+        }
+      });
+      drawTopo();
+    }
+
+    function getMeshData(kind) {
+      if (kind === 'cube') {
+        const verts = [
+          [-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],
+          [-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]
+        ];
+        const edges = [
+          [0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]
+        ];
+        return {
+          name: 'Cube (Closed Quad Mesh)',
+          verts, edges,
+          V: 8, E: 12, F: 6, g: 0,
+          regValence: 4, actualValence: 3, extraordinaryCount: 8,
+          isManifold: true, note: 'All 8 corners have valence n=3 ≠ 4: ∑(4 - 3) = 8 = 8(1 - 0).'
+        };
+      } else if (kind === 'octa') {
+        const verts = [[1.4,0,0],[-1.4,0,0],[0,1.4,0],[0,-1.4,0],[0,0,1.4],[0,0,-1.4]];
+        const edges = [
+          [2,0],[2,4],[2,1],[2,5],[3,0],[3,4],[3,1],[3,5],[0,4],[4,1],[1,5],[5,0]
+        ];
+        return {
+          name: 'Octahedron (Closed Triangle Mesh)',
+          verts, edges,
+          V: 6, E: 12, F: 8, g: 0,
+          regValence: 6, actualValence: 4, extraordinaryCount: 6,
+          isManifold: true, note: 'All 6 vertices have valence n=4 ≠ 6: ∑(6 - 4) = 12 = 12(1 - 0).'
+        };
+      } else if (kind === 'icosa') {
+        const t = (1 + Math.sqrt(5)) / 2 * 0.72;
+        const s = 0.72;
+        const verts = [
+          [-s,t,0],[s,t,0],[-s,-t,0],[s,-t,0],
+          [0,-s,t],[0,s,t],[0,-s,-t],[0,s,-t],
+          [t,0,-s],[t,0,s],[-t,0,-s],[-t,0,s]
+        ];
+        const edges = [];
+        for (let i = 0; i < verts.length; i++) {
+          for (let j = i + 1; j < verts.length; j++) {
+            const d = Math.hypot(verts[i][0]-verts[j][0], verts[i][1]-verts[j][1], verts[i][2]-verts[j][2]);
+            if (d < 1.65) edges.push([i, j]);
+          }
+        }
+        return {
+          name: 'Icosahedron (Closed Triangle Mesh)',
+          verts, edges,
+          V: 12, E: 30, F: 20, g: 0,
+          regValence: 6, actualValence: 5, extraordinaryCount: 12,
+          isManifold: true, note: 'All 12 vertices have valence n=5 ≠ 6: ∑(6 - 5) = 12 = 12(1 - 0).'
+        };
+      } else if (kind === 'torus') {
+        const verts = [], edges = [];
+        const R = 1.15, r = 0.48, N = 6, M = 6;
+        for (let i = 0; i < N; i++) {
+          const u = (i / N) * Math.PI * 2;
+          for (let j = 0; j < M; j++) {
+            const v = (j / M) * Math.PI * 2;
+            verts.push([
+              (R + r * Math.cos(v)) * Math.cos(u),
+              r * Math.sin(v),
+              (R + r * Math.cos(v)) * Math.sin(u)
+            ]);
+            const cur = i * M + j;
+            edges.push([cur, i * M + ((j + 1) % M)]);
+            edges.push([cur, ((i + 1) % N) * M + j]);
+          }
+        }
+        return {
+          name: 'Torus 6×6 (Genus g = 1 Quad Mesh)',
+          verts, edges,
+          V: 36, E: 72, F: 36, g: 1,
+          regValence: 4, actualValence: 4, extraordinaryCount: 0,
+          isManifold: true, note: 'Euler V - E + F = 36 - 72 + 36 = 0 = 2 - 2(1). ZERO extraordinary vertices!'
+        };
+      } else {
+        const verts = [
+          [0, 0.9, -0.8], [0, -0.9, -0.8], [-1.3, 0, 0.7], [1.3, 0, 0.7], [0, 0, 1.35]
+        ];
+        const edges = [
+          [0, 1, true], [0, 2], [1, 2], [0, 3], [1, 3], [0, 4], [1, 4]
+        ];
+        return {
+          name: '⚠️ Non-Manifold T-Fin (3 Faces Sharing 1 Edge)',
+          verts, edges,
+          V: 5, E: 7, F: 3, g: -1,
+          regValence: 6, actualValence: 3, extraordinaryCount: 5,
+          isManifold: false, note: 'ILLEGAL NON-MANIFOLD EDGE: Central spine edge (0-1) is shared by 3 triangles!'
+        };
+      }
+    }
+
+    function drawTopo() {
+      const c = document.getElementById('topoCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const data = getMeshData(topoMesh);
+      const cy = Math.cos(topoYaw), sy = Math.sin(topoYaw);
+      const cp = Math.cos(topoPitch), sp = Math.sin(topoPitch);
+      const proj = data.verts.map(v => {
+        const x1 = v[0] * cy - v[2] * sy;
+        const z1 = v[0] * sy + v[2] * cy;
+        const y2 = v[1] * cp - z1 * sp;
+        const z2 = v[1] * sp + z1 * cp;
+        const s = 4.6 / (4.6 + z2 * 0.45) * 118;
+        return [W * 0.5 + x1 * s, H * 0.52 - y2 * s];
+      });
+
+      data.edges.forEach(e => {
+        const p0 = proj[e[0]], p1 = proj[e[1]];
+        ctx.strokeStyle = e[2] ? '#f43f5e' : '#38bdf8';
+        ctx.lineWidth = e[2] ? 5 : 2;
+        ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+      });
+
+      proj.forEach(p => {
+        ctx.fillStyle = data.extraordinaryCount > 0 ? '#fbbf24' : '#10b981';
+        ctx.beginPath(); ctx.arc(p[0], p[1], 6, 0, Math.PI * 2); ctx.fill();
+      });
+
+      const chi = data.V - data.E + data.F;
+      document.getElementById('topoReadout').innerHTML = `
+        <div class="text-sm font-bold ${data.isManifold ? 'text-emerald-400' : 'text-rose-400'}">${data.name}</div>
+        <div class="grid grid-cols-3 gap-2 pt-1">
+          <div class="p-2 rounded bg-slate-900 border border-slate-800">V = ${data.V}</div>
+          <div class="p-2 rounded bg-slate-900 border border-slate-800">E = ${data.E}</div>
+          <div class="p-2 rounded bg-slate-900 border border-slate-800">F = ${data.F}</div>
+        </div>
+        <div class="text-cyan-300">Euler χ = V - E + F = ${data.V} - ${data.E} + ${data.F} = <b>${chi}</b> ${data.isManifold ? `(2 - 2g with g=${data.g})` : ''}</div>
+        <div class="text-amber-300">Regular Valence = ${data.regValence} | Mesh Vertex Valence = ${data.actualValence}</div>
+        <div class="text-purple-300">Extraordinary Vertices: <b>${data.extraordinaryCount}</b></div>
+        <div class="text-slate-300 pt-1 border-t border-slate-800">${data.note}</div>
+      `;
+    }
+
+    (function setupTopoDrag() {
+      const c = document.getElementById('topoCanvas');
+      c.addEventListener('pointerdown', (e) => { topoDragging = true; topoLastX = e.clientX; topoLastY = e.clientY; });
+      window.addEventListener('pointermove', (e) => {
+        if (!topoDragging) return;
+        topoYaw += (e.clientX - topoLastX) * 0.01;
+        topoPitch = Math.max(-1.2, Math.min(1.2, topoPitch + (e.clientY - topoLastY) * 0.01));
+        topoLastX = e.clientX; topoLastY = e.clientY;
+        drawTopo();
+      });
+      window.addEventListener('pointerup', () => { topoDragging = false; });
+    })();
+
+    // ==================== TAB 4: 3-MISSION MINI-GAME ====================
+    let gameMission = 1;
+    function setGameMission(m) {
+      gameMission = m;
+      [1, 2, 3].forEach(idx => {
+        const btn = document.getElementById('game-btn-' + idx);
+        btn.className = idx === m
+          ? 'px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white'
+          : 'px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      const s1 = document.getElementById('gSlider1');
+      const s2 = document.getElementById('gSlider2');
+      if (m === 1) {
+        s1.min = 0.05; s1.max = 0.95; s1.step = 0.01; s1.value = 0.55;
+        s2.min = 0.05; s2.max = 0.95; s2.step = 0.01; s2.value = 0.45;
+      } else if (m === 2) {
+        s1.min = 80; s1.max = 560; s1.step = 2; s1.value = 220;
+        s2.min = 40; s2.max = 310; s2.step = 2; s2.value = 220;
+      } else {
+        s1.min = 36; s1.max = 56; s1.step = 2; s1.value = 40;
+        s2.min = 0; s2.max = 3; s2.step = 1; s2.value = 2;
+      }
+      onGameSlider();
+    }
+
+    function onGameSlider() {
+      drawGame();
+    }
+
+    function drawGame() {
+      const c = document.getElementById('gameCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      ctx.strokeStyle = '#1e293b';
+      for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+      const v1 = Number(document.getElementById('gSlider1').value);
+      const v2 = Number(document.getElementById('gSlider2').value);
+      document.getElementById('gValText1').textContent = v1.toFixed(gameMission === 1 ? 2 : 0);
+      document.getElementById('gValText2').textContent = v2.toFixed(gameMission === 1 ? 2 : 0);
+
+      let passed = false;
+      const desc = document.getElementById('gameMissionDesc');
+      const status = document.getElementById('gameStatusBox');
+
+      if (gameMission === 1) {
+        document.getElementById('gLabel1').textContent = 'First Split Weight w₁ (Target 0.75)';
+        document.getElementById('gLabel2').textContent = 'Second Split Weight w₂ (Target 0.25)';
+        desc.innerHTML = isEn
+          ? '<b>Mission 1 (Chaikin Corner-Cutting Sniper)</b>: Adjust weights w₁ and w₂ on edge P₀P₁ to match Chaikin’s exact (3/4, 1/4) and (1/4, 3/4) corner-cutting ratio!'
+          : '<b>第 1 关（Chaikin 切角精准狙击）</b>：调节边 P₀P₁ 上的两个切角权重 w₁ 与 w₂，使其精确命中 Chaikin 的 (3/4 = 0.75, 1/4 = 0.25) 黄金切角比例！';
+
+        const P0 = [120, 275], P1 = [520, 95];
+        const tQ0 = [0.75 * P0[0] + 0.25 * P1[0], 0.75 * P0[1] + 0.25 * P1[1]];
+        const tQ1 = [0.25 * P0[0] + 0.75 * P1[0], 0.25 * P0[1] + 0.75 * P1[1]];
+        const uQ0 = [v1 * P0[0] + (1 - v1) * P1[0], v1 * P0[1] + (1 - v1) * P1[1]];
+        const uQ1 = [v2 * P0[0] + (1 - v2) * P1[0], v2 * P0[1] + (1 - v2) * P1[1]];
+
+        ctx.strokeStyle = '#475569'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.stroke();
+
+        // Target rings
+        ctx.strokeStyle = '#10b981'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(tQ0[0], tQ0[1], 13, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(tQ1[0], tQ1[1], 13, 0, Math.PI * 2); ctx.stroke();
+
+        // User points
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath(); ctx.arc(uQ0[0], uQ0[1], 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#22d3ee';
+        ctx.beginPath(); ctx.arc(uQ1[0], uQ1[1], 7, 0, Math.PI * 2); ctx.fill();
+
+        passed = Math.abs(v1 - 0.75) <= 0.03 && Math.abs(v2 - 0.25) <= 0.03;
+      } else if (gameMission === 2) {
+        document.getElementById('gLabel1').textContent = 'Control Vertex Pᵢ⁽⁰⁾ X';
+        document.getElementById('gLabel2').textContent = 'Control Vertex Pᵢ⁽⁰⁾ Y';
+        desc.innerHTML = isEn
+          ? '<b>Mission 2 (Eigen-Limit Predictor)</b>: Place control vertex Pᵢ⁽⁰⁾ so that its analytical Cubic B-Spline limit position Pᵢ^∞ = (Pᵢ₋₁ + 4Pᵢ + Pᵢ₊₁)/6 lands inside the golden target at (320, 140)!'
+          : '<b>第 2 关（特征向量一步极限预言家）</b>：移动中间控制点 Pᵢ⁽⁰⁾ 的 (X, Y) 坐标，使其三次 B-Spline 极限位置 Pᵢ^∞ = (Pᵢ₋₁ + 4Pᵢ + Pᵢ₊₁)/6 精确落入 (320, 140) 绿色靶心！（提示：目标 Pᵢ⁽⁰⁾ = (320, 90)）';
+
+        const pm1 = [140, 240], p0 = [v1, v2], pp1 = [500, 240];
+        const pInf = [(pm1[0] + 4 * p0[0] + pp1[0]) / 6, (pm1[1] + 4 * p0[1] + pp1[1]) / 6];
+        const target = [320, 140];
+
+        ctx.strokeStyle = 'rgba(148,163,184,0.5)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(pm1[0], pm1[1]); ctx.lineTo(p0[0], p0[1]); ctx.lineTo(pp1[0], pp1[1]); ctx.stroke();
+
+        ctx.strokeStyle = '#10b981'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(target[0], target[1], 15, 0, Math.PI * 2); ctx.stroke();
+
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath(); ctx.arc(p0[0], p0[1], 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#22d3ee';
+        ctx.beginPath(); ctx.arc(pInf[0], pInf[1], 8, 0, Math.PI * 2); ctx.fill();
+
+        passed = Math.hypot(pInf[0] - target[0], pInf[1] - target[1]) < 12;
+      } else {
+        document.getElementById('gLabel1').textContent = 'Total Edge Count E (4F = 2E)';
+        document.getElementById('gLabel2').textContent = 'Surface Genus g (Holes)';
+        desc.innerHTML = isEn
+          ? '<b>Mission 3 (Euler Topology Doctor)</b>: A closed 2-manifold pure Quad Mesh has V = 22 vertices and F = 22 quad faces. Find the exact Edge count E (since 4F = 2E) and Genus g so that V - E + F = 2 - 2g!'
+          : '<b>第 3 关（欧拉网格拓扑医生）</b>：一个封闭纯四边形流形网格有 V = 22 个顶点与 F = 22 个四边形面。请根据 4F = 2E 与欧拉公式 V - E + F = 2 - 2g 推算出正确的边数 E 与亏格 g！';
+
+        const V = 22, F = 22;
+        const lhs = V - v1 + F;
+        const rhs = 2 - 2 * v2;
+        passed = v1 === 44 && v2 === 1;
+
+        ctx.fillStyle = passed ? '#10b981' : '#38bdf8';
+        ctx.font = 'bold 20px monospace';
+        ctx.fillText(`Quad Mesh: V = 22, F = 22`, 140, 120);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillText(`Your Edge Count E = ${v1} (Need 2E = 4F = 88)`, 140, 175);
+        ctx.fillStyle = '#22d3ee';
+        ctx.fillText(`V - E + F = 22 - ${v1} + 22 = ${lhs}`, 140, 230);
+        ctx.fillText(`2 - 2g = 2 - 2(${v2}) = ${rhs}`, 140, 275);
+      }
+
+      status.innerHTML = passed
+        ? `<div class="text-emerald-400 font-bold text-sm">★ MISSION ${gameMission} CLEARED! / 恭喜通关！</div>`
+        : `<div class="text-amber-300 font-bold">● Calibrating parameters... / 请调整滑块达成几何目标</div>`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+      loadPresetShape('star');
+      drawVis1();
+      drawVis2();
+      drawTopo();
+      setGameMission(1);
+    });
+  </script>
+</body>
+</html>
