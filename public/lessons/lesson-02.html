@@ -1,0 +1,1795 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 02: çº¿æ€§å˜æ¢ã€ä»¿å°„æ ‡æž¶ (Frames) ä¸Ž 4Ã—4 é½æ¬¡åæ ‡çŸ©é˜µ | 3Blue1Brown Geometric Intuition</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --background: #0b1020;
+      --foreground: #f8fafc;
+      --card: #111827;
+      --card-foreground: #f8fafc;
+      --muted: #1e293b;
+      --muted-foreground: #94a3b8;
+      --border: #1e293b;
+      --primary: #6366f1;
+      --primary-foreground: #ffffff;
+      --secondary: #0f172a;
+      --secondary-foreground: #e2e8f0;
+      --accent: #f59e0b;
+    }
+    body {
+      background-color: var(--background);
+      color: var(--foreground);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    canvas {
+      touch-action: none;
+    }
+    input[type="range"] {
+      accent-color: #6366f1;
+    }
+    .tab-active {
+      background-color: var(--primary);
+      color: var(--primary-foreground);
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+    }
+    .math-box {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    html[lang="zh-CN"] [data-lang="en"] { display: none !important; }
+    html[lang="en"] [data-lang="zh"] { display: none !important; }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+
+  <!-- Header Banner with Top-Right Language Switcher -->
+  <header class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-lg">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="space-y-1.5">
+        <div class="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wider text-indigo-400">
+          <a href="../index.html" class="px-2.5 py-1 rounded-lg bg-[var(--secondary)] border border-[var(--border)] hover:border-indigo-500 text-indigo-300 transition">
+            <span data-lang="zh">ðŸ  è¯¾ç¨‹æ€»ç›®å½• (Index)</span>
+            <span data-lang="en">ðŸ  Course Index</span>
+          </a>
+          <a href="./lesson-01.html" class="px-2.5 py-1 rounded-lg bg-[var(--secondary)] border border-[var(--border)] hover:border-indigo-500 text-[var(--muted-foreground)] hover:text-white transition">
+            <span data-lang="zh">â† L01 å‘é‡ä¸Žç‚¹ç§¯/å‰ç§¯</span>
+            <span data-lang="en">â† L01 Vectors</span>
+          </a>
+          <span>â€¢</span>
+          <span>Stage 1 Â· Lesson 02 / 32</span>
+          <span>â€¢</span>
+          <span>UC Davis Lec 03 + MIT 6.837 Lec 04 + 3Blue1Brown</span>
+        </div>
+        <h1 class="text-2xl md:text-3xl font-bold tracking-tight">
+          <span data-lang="zh">Lesson 02: çº¿æ€§å˜æ¢ã€ä»¿å°„æ ‡æž¶ (Frames) ä¸Ž 4Ã—4 é½æ¬¡åæ ‡çŸ©é˜µ</span>
+          <span data-lang="en">Lesson 02: Linear Transformations, Coordinate Frames &amp; 4Ã—4 Homogeneous Matrices</span>
+        </h1>
+        <p class="text-sm text-[var(--muted-foreground)] max-w-3xl leading-relaxed">
+          <span data-lang="zh">ç”¨ 3Blue1Brown çš„å‡ ä½•è§†è§’çœ‹ç©¿çŸ©é˜µæœ¬è´¨ï¼šä¸ºä»€ä¹ˆâ€œçŸ©é˜µçš„æ¯ä¸€åˆ—å°±æ˜¯åŸºå‘é‡å˜æ¢åŽçš„è½ç‚¹â€ï¼Ÿä¸ºä»€ä¹ˆ 3Ã—3 çŸ©é˜µåšä¸åˆ°å¹³ç§»ï¼Œè€ŒæŠŠä¸–ç•ŒæŠ¬å‡åˆ° w=1 è¶…å¹³é¢åšâ€œé«˜ç»´åˆ‡å˜ (Shear)â€å°±èƒ½ä¸€ä¸¾ç»Ÿåˆæ—‹è½¬ã€ç¼©æ”¾ä¸Žå¹³ç§»ï¼Ÿä¸ºä»€ä¹ˆè¡¨é¢æ³•å‘é‡å¿…é¡»ä¹˜é€†è½¬ç½®çŸ©é˜µ (Mâ»Â¹)áµ€ï¼Ÿ</span>
+          <span data-lang="en">See matrices through 3Blue1Brown's geometric lens: Why are matrix columns the transformed basis vectors? Why can't 3Ã—3 matrices translate 3D space, and how does lifting our world to the w=1 hyperplane turn higher-dimensional Shear into Translation? Why must normals transform by (Mâ»Â¹)áµ€?</span>
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="langToggleBtn" onclick="toggleLanguage()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[var(--secondary)] hover:bg-[var(--muted)] border border-indigo-500/40 text-indigo-300 transition shadow-sm">
+          <span>ðŸŒ</span>
+          <span id="langBtnLabel">EN / English</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex flex-wrap gap-2 mt-6 pt-4 border-t border-[var(--border)]">
+      <button id="tabBtn0" onclick="switchTab(0)" class="tab-active px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all">
+        <span data-lang="zh">1. ðŸ§  æ·±åº¦å‡ ä½•åŽŸç†ä¸ŽæŽ¨å¯¼ (3Blue1Brown è§†è§’)</span>
+        <span data-lang="en">1. ðŸ§  Deep Intuition &amp; Proofs (3B1B Style)</span>
+      </button>
+      <button id="tabBtn1" onclick="switchTab(1)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
+        <span data-lang="zh">2. ðŸ”¬ 4Ã—4 é½æ¬¡çŸ©é˜µä¸Ž w é€è§†å®žéªŒå®¤</span>
+        <span data-lang="en">2. ðŸ”¬ 4Ã—4 Homogeneous Matrix &amp; w-Divide Lab</span>
+      </button>
+      <button id="tabBtn2" onclick="switchTab(2)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
+        <span data-lang="zh">3. ðŸ¦¾ çˆ¶å­å±‚çº§æ ‡æž¶æ ‘ (Scene Graph æœºæ¢°è‡‚)</span>
+        <span data-lang="en">3. ðŸ¦¾ Hierarchical Frames (Robot Arm Scene Graph)</span>
+      </button>
+      <button id="tabBtn3" onclick="switchTab(3)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
+        <span data-lang="zh">4. ðŸŽ¥ åæ ¡å…¬å¼€è¯¾è§†é¢‘ä¸Žç²¾è¦</span>
+        <span data-lang="en">4. ðŸŽ¥ Lecture Videos &amp; Notes</span>
+      </button>
+      <button id="tabBtn4" onclick="switchTab(4)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
+        <span data-lang="zh">5. ðŸŽ® ç»ˆæžäº’åŠ¨å°æ¸¸æˆï¼šæ˜Ÿé™…èˆ¹åžçŸ©é˜µé¢†èˆªå‘˜</span>
+        <span data-lang="en">5. ðŸŽ® Mini-Game: Star-Dock Matrix Pilot</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 0: 3BLUE1BROWN DEEP GEOMETRIC INTUITION & DERIVATIONS                               -->
+  <!-- ======================================================================================== -->
+  <section id="tab0" class="space-y-6">
+
+    <!-- 1. Matrix Columns as Transformed Basis Vectors -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
+        <div>
+          <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+            <span data-lang="zh">ç¬¬ä¸€æ€§åŽŸç† 1 Â· 3Blue1Brown é»„é‡‘é“å¾‹</span>
+            <span data-lang="en">First Principle 1 Â· 3Blue1Brown Golden Rule</span>
+          </span>
+          <h2 class="text-xl font-bold mt-1">
+            <span data-lang="zh">çŸ©é˜µåˆ°åº•æ˜¯ä»€ä¹ˆï¼Ÿâ€”â€”â€œçŸ©é˜µçš„æ¯ä¸€åˆ—ï¼Œå°±æ˜¯åŸºå‘é‡å˜æ¢åŽçš„æ–°è½ç‚¹ï¼â€</span>
+            <span data-lang="en">What Is a Matrix Really? â€” "Each Column Is Where a Basis Vector Lands!"</span>
+          </h2>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs leading-relaxed">
+        <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
+          <div class="font-bold text-amber-400 text-sm">
+            <span data-lang="zh">â‘  ä»€ä¹ˆæ˜¯â€œçº¿æ€§å˜æ¢â€ï¼Ÿä¸¤æ¡å‡ ä½•é“å¾‹</span>
+            <span data-lang="en">â‘  What Makes a Transformation "Linear"?</span>
+          </div>
+          <p class="text-[var(--muted-foreground)]" data-lang="zh">
+            æŠŠçº¿æ€§å˜æ¢æƒ³è±¡æˆå¯¹æ•´ä¸ªä¸‰ç»´ç©ºé—´çš„æ‰æå˜å½¢ï¼Œä½†å®ƒå¿…é¡»éµå®ˆä¸¤æ¡é“å¾‹ï¼š<br/>
+            1. <b>ç›´çº¿å˜å½¢åŽä¾ç„¶æ˜¯ç›´çº¿</b>ï¼ˆä¸”åŽŸæœ¬å¹³è¡Œçš„ç½‘æ ¼çº¿ä¾ç„¶ä¿æŒå¹³è¡Œã€ç­‰è·åˆ†å¸ƒï¼‰ï¼›<br/>
+            2. <b>åæ ‡åŽŸç‚¹ (0,0,0) å¿…é¡»è¢«é’‰æ­»åœ¨åŽŸåœ°ä¸åŠ¨</b>ã€‚<br/>
+            å› ä¸ºç½‘æ ¼ä¾ç„¶å¹³è¡Œä¸”ç­‰è·ï¼ŒåŽŸæœ¬ç­‰äºŽ <code>xÂ·Ã® + yÂ·Äµ + zÂ·kÌ‚</code> çš„å‘é‡ <b>v</b>ï¼Œåœ¨ç©ºé—´å˜å½¢åŽï¼Œå¿…ç„¶ç­‰äºŽ<b>å˜å½¢åŽçš„æ–°åŸºå‘é‡</b>æŒ‰å®Œå…¨ç›¸åŒçš„å€æ•° <code>(x, y, z)</code> æ‹¼æŽ¥è€Œæˆï¼š
+          </p>
+          <p class="text-[var(--muted-foreground)]" data-lang="en">
+            A transformation <b>L</b> is linear if and only if:<br/>
+            1. <b>Grid lines remain parallel and evenly spaced</b> (lines stay lines);<br/>
+            2. <b>The origin (0,0,0) remains fixed in place</b>.<br/>
+            Because grid lines stay parallel and evenly spaced, a vector <code>v = xÂ·Ã® + yÂ·Äµ + zÂ·kÌ‚</code> transforms into the exact same linear recipe applied to the <b>transformed basis vectors</b>:
+          </p>
+          <div class="math-box p-2 rounded bg-black/40 text-amber-300 text-center">
+            L(v) = x Â· L(Ã®) + y Â· L(Äµ) + z Â· L(kÌ‚)
+          </div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
+          <div class="font-bold text-cyan-400 text-sm">
+            <span data-lang="zh">â‘¡ ä¸ºä»€ä¹ˆçŸ©é˜µä¹˜å‘é‡è¦é‚£æ ·ç®—ï¼Ÿ</span>
+            <span data-lang="en">â‘¡ Why Is Matrix-Vector Multiplication Defined That Way?</span>
+          </div>
+          <p class="text-[var(--muted-foreground)]" data-lang="zh">
+            è®¾ä¸‰ä¸ªåŸºå‘é‡å˜æ¢åŽçš„æ–°è½ç‚¹åˆ†åˆ«æ˜¯åˆ—å‘é‡ <b>u = L(Ã®)</b>ã€<b>v = L(Äµ)</b>ã€<b>w = L(kÌ‚)</b>ã€‚æŠŠè¿™ä¸‰æ ¹æ–°åŸºå‘é‡è‚©å¹¶è‚©æŽ’æˆä¸€ä¸ª 3Ã—3 è¡¨æ ¼ï¼ˆçŸ©é˜µ <b>M = [u | v | w]</b>ï¼‰ï¼š
+          </p>
+          <p class="text-[var(--muted-foreground)]" data-lang="en">
+            Let <b>u = L(Ã®)</b>, <b>v = L(Äµ)</b>, <b>w = L(kÌ‚)</b> be the new coordinates where the basis vectors land. Packing them side-by-side as columns of <b>M = [u | v | w]</b> gives:
+          </p>
+          <div class="math-box p-2 rounded bg-black/40 text-cyan-300 text-center">
+            [u | v | w] Â· [x, y, z]áµ€ = xÂ·u + yÂ·v + zÂ·w
+          </div>
+          <p class="text-[var(--muted-foreground)]" data-lang="zh">
+            <b>çž¬é—´é¡¿æ‚Ÿ</b>ï¼šä½ æ ¹æœ¬ä¸éœ€è¦æ­»èƒŒæ—‹è½¬ã€ç¼©æ”¾ã€åˆ‡å˜çŸ©é˜µå…¬å¼ï¼æƒ³çŸ¥é“ä»»ä½•å˜æ¢çš„çŸ©é˜µï¼Œåªéœ€è¦é—®è‡ªå·±ï¼šâ€œ<b>Ã®, Äµ, kÌ‚ è¿™ä¸‰æ ¹é’ˆå˜æ¢åŽè½åœ¨äº†å“ªé‡Œï¼Ÿ</b>â€æŠŠå®ƒä»¬çš„è½ç‚¹ç«–ç€å†™è¿›ç¬¬ 1ã€2ã€3 åˆ—ï¼ŒçŸ©é˜µå°±å†™å®Œäº†ï¼
+          </p>
+          <p class="text-[var(--muted-foreground)]" data-lang="en">
+            <b>Aha Moment</b>: Never memorize transformation matrices again! Just ask: <i>"Where do Ã®, Äµ, kÌ‚ land?"</i> and write their landing coordinates as Columns 1, 2, and 3!
+          </p>
+        </div>
+
+        <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
+          <div class="font-bold text-purple-400 text-sm">
+            <span data-lang="zh">â‘¢ çŸ©é˜µä¹˜æ³• AB ä¸Žè¡Œåˆ—å¼ det(M) çš„çœŸç›¸</span>
+            <span data-lang="en">â‘¢ Matrix Product AB &amp; Determinant det(M)</span>
+          </div>
+          <p class="text-[var(--muted-foreground)]" data-lang="zh">
+            â€¢ <b>çŸ©é˜µç›¸ä¹˜ AÂ·B</b>ï¼šä»£è¡¨â€œå…ˆå¯¹ç©ºé—´æ–½åŠ å˜æ¢ Bï¼Œå†æ–½åŠ å˜æ¢ Aâ€ï¼ˆåƒå‡½æ•°åµŒå¥— <code>A(B(x))</code> ä¸€æ ·<b>ä»Žå³å¾€å·¦è¯»</b>ï¼‰ã€‚å…ˆæ—‹è½¬å†æ²¿ X æ‹‰ä¼¸ï¼Œä¸Žå…ˆæ²¿ X æ‹‰ä¼¸å†æ—‹è½¬ï¼ŒåŸºå‘é‡æœ€ç»ˆè½ç‚¹æˆªç„¶ä¸åŒï¼Œæ‰€ä»¥ <b>AB â‰  BA</b>ï¼<br/>
+            â€¢ <b>è¡Œåˆ—å¼ det(M)</b>ï¼šä»£è¡¨å•ä½ç«‹æ–¹ä½“ï¼ˆä½“ç§¯=1ï¼‰ç»è¿‡å˜å½¢åŽ<b>ä½“ç§¯è¢«æ”¾å¤§çš„å€çŽ‡</b>ï¼è‹¥ <code>det(M) &lt; 0</code> è¯´æ˜Žç©ºé—´å‘ç”Ÿäº†é•œåƒç¿»è½¬ï¼ˆå³æ‰‹ç³»å˜å·¦æ‰‹ç³»ï¼‰ï¼›è‹¥ <code>det(M) = 0</code> è¯´æ˜Žç©ºé—´è¢«åŽ‹æ‰é™ç»´ï¼Œä¸å¯é€†ï¼
+          </p>
+          <p class="text-[var(--muted-foreground)]" data-lang="en">
+            â€¢ <b>Matrix Product AÂ·B</b>: Apply transformation B first, then A (read right-to-left like <code>A(B(x))</code>). Order matters: <b>AB â‰  BA</b>!<br/>
+            â€¢ <b>Determinant det(M)</b>: How much a unit cube's volume scales after transformation. <code>det(M) &lt; 0</code> means space flipped orientation; <code>det(M) = 0</code> means space squished into lower dimensions!
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Why 3x3 Cannot Translate & How Higher-Dimensional Shear Creates Homogeneous Coordinates -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-5">
+      <div class="border-b border-[var(--border)] pb-3">
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+          <span data-lang="zh">ç¬¬ä¸€æ€§åŽŸç† 2 Â· é½æ¬¡åæ ‡çš„å‡ ä½•èµ·æº (Homogeneous Coordinates)</span>
+          <span data-lang="en">First Principle 2 Â· Geometric Origin of Homogeneous Coordinates</span>
+        </span>
+        <h2 class="text-xl font-bold mt-1">
+          <span data-lang="zh">ä¸ºä»€ä¹ˆ 3Ã—3 çŸ©é˜µåšä¸åˆ°å¹³ç§»ï¼Ÿâ€”â€” æŠŠä¸–ç•ŒæŠ¬å‡åˆ° w = 1 è¶…å¹³é¢åšâ€œé«˜ç»´åˆ‡å˜ (Shear)â€ï¼</span>
+          <span data-lang="en">Why Can't a 3Ã—3 Matrix Translate? â€” Lift the World to w = 1 and Apply Higher-Dimensional Shear!</span>
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <!-- Left Interactive Visualizer: 2D World Lifted to w=1 in 3D Space -->
+        <div class="lg:col-span-6 bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-indigo-300">
+              <span data-lang="zh">ðŸ”¬ 3Blue1Brown é™ç»´ç›´è§‰å®žéªŒå®¤ï¼š3D çº¿æ€§åˆ‡å˜å¦‚ä½•åœ¨ w=1 åˆ‡ç‰‡ä¸Šäº§ç”Ÿ 2D å¹³ç§»</span>
+              <span data-lang="en">ðŸ”¬ 3B1B Intuition Lab: How 3D Linear Shear Creates 2D Translation on the w=1 Slice</span>
+            </span>
+          </div>
+
+          <div class="relative w-full rounded-lg overflow-hidden border border-[var(--border)] bg-[#070b14]" style="height: 330px;">
+            <canvas id="shearSliceCanvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+            <div class="absolute top-2.5 left-2.5 bg-black/75 backdrop-blur px-2.5 py-1.5 rounded border border-slate-800 text-[11px] space-y-0.5 pointer-events-none">
+              <div class="text-indigo-300 font-bold">
+                <span data-lang="zh">é«˜ç»´çº¿æ€§çŸ©é˜µ (3D åŽŸç‚¹å›ºå®šåœ¨ (0,0,0)!):</span>
+                <span data-lang="en">Higher-Dim Linear Matrix (Origin fixed at (0,0,0)!):</span>
+              </div>
+              <div id="shearHudText" class="math-box text-slate-200">wÌ‚ = (0.0, 0.0, 1) | P(w=1) â†’ (1.0, 0.5, 1)</div>
+            </div>
+          </div>
+
+          <div class="space-y-2.5 text-xs">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <div class="flex justify-between font-semibold mb-0.5 text-amber-300">
+                  <span data-lang="zh">âœ¨ é«˜ç»´åˆ‡å˜ X (å³å¹³ç§» tâ‚“):</span>
+                  <span data-lang="en">âœ¨ Shear X (Translation tâ‚“):</span>
+                  <span id="shearTxLabel" class="math-box">1.2</span>
+                </div>
+                <input id="shearTxSlider" type="range" min="-2.0" max="2.0" step="0.1" value="1.2" oninput="updateTab0Canvases()" class="w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between font-semibold mb-0.5 text-cyan-300">
+                  <span data-lang="zh">âœ¨ é«˜ç»´åˆ‡å˜ Y (å³å¹³ç§» táµ§):</span>
+                  <span data-lang="en">âœ¨ Shear Y (Translation táµ§):</span>
+                  <span id="shearTyLabel" class="math-box">0.8</span>
+                </div>
+                <input id="shearTySlider" type="range" min="-2.0" max="2.0" step="0.1" value="0.8" oninput="updateTab0Canvases()" class="w-full" />
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-0.5 text-[var(--muted-foreground)]">
+                <span data-lang="zh">æµ‹è¯•åˆ‡ç‰‡é«˜åº¦ w (å¯¹æ¯” w=1 ç‚¹å¹³é¢ vs w=0 å‘é‡åœ°é¢):</span>
+                <span data-lang="en">Test Slice Height w (Compare w=1 Point Plane vs w=0 Vector Floor):</span>
+                <span id="sliceWLabel" class="math-box text-emerald-400 font-bold">w = 1.0 (Point)</span>
+              </div>
+              <input id="sliceWSlider" type="range" min="0" max="1.5" step="0.05" value="1.0" oninput="updateTab0Canvases()" class="w-full" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Step-by-Step Derivation -->
+        <div class="lg:col-span-6 space-y-3 text-xs leading-relaxed">
+          <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-1.5">
+            <div class="font-bold text-rose-400 text-sm">
+              <span data-lang="zh">ç¬¬ 1 æ­¥ï¼šä¸ºä»€ä¹ˆ 3Ã—3 çŸ©é˜µç»å¯¹åšä¸åˆ° 3D å¹³ç§»ï¼Ÿ</span>
+              <span data-lang="en">Step 1: Why Can NO 3Ã—3 Matrix Translate 3D Space?</span>
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-lang="zh">
+              å› ä¸ºä»»ä½• 3Ã—3 çŸ©é˜µä¹˜é›¶å‘é‡æ°¸è¿œç­‰äºŽé›¶å‘é‡ï¼š<code>M Â· [0, 0, 0]áµ€ = [0, 0, 0]áµ€</code>ï¼çº¿æ€§å˜æ¢çš„åŽŸç‚¹è¢«æ­»æ­»é’‰åœ¨ <code>(0,0,0)</code>ï¼Œè€Œå¹³ç§»è¦æ±‚æŠŠåŽŸç‚¹æ¬åˆ° <code>(tâ‚“, táµ§, t_z)</code>ã€‚å¦‚æžœä¸èƒ½æŠŠå¹³ç§»ä¹Ÿå¡žè¿›çŸ©é˜µä¹˜æ³•ï¼Œéª¨éª¼å±‚çº§å˜æ¢å°±ä¼šé€€åŒ–æˆä¸€å›¢ä¹±éº»çš„åŠ æ³•åµŒå¥—ã€‚
+            </p>
+            <p class="text-[var(--muted-foreground)]" data-lang="en">
+              Because for ANY 3Ã—3 matrix M, <code>M Â· [0, 0, 0]áµ€ = [0, 0, 0]áµ€</code>! Linear transformations lock the origin in place, whereas translation moves <code>(0,0,0)</code> to <code>(tâ‚“, táµ§, t_z)</code>.
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-1.5">
+            <div class="font-bold text-amber-400 text-sm">
+              <span data-lang="zh">ç¬¬ 2 æ­¥ï¼ˆç¥žæ¥ä¹‹ç¬”ï¼‰ï¼šæŠŠä¸–ç•ŒæŠ¬å‡åˆ° w = 1 è¶…å¹³é¢ï¼Œç”¨é«˜ç»´åˆ‡å˜ (Shear) å®žçŽ°å¹³ç§»ï¼</span>
+              <span data-lang="en">Step 2 (The Genius Trick): Lift the World to w = 1 and Shear Like a Deck of Cards!</span>
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-lang="zh">
+              è¯·çœ‹å·¦ä¾§ 3D ç”»å¸ƒï¼ˆå…ˆä»¥ 2D ä¸–ç•Œæ”¾å…¥ 3D ç©ºé—´ä¸ºä¾‹ï¼‰ï¼š<br/>
+              â€¢ å¦‚æžœæˆ‘ä»¬çš„ 2D ä¸–ç•Œèººåœ¨åœ°é¢ <code>w = 0</code> ä¸Šï¼ŒåŽŸç‚¹è¢«é’‰æ­»åœ¨ <code>(0,0,0)</code>ï¼ŒåŠ¨å¼¹ä¸å¾—ã€‚<br/>
+              â€¢ çŽ°åœ¨ï¼ŒæŠŠæ•´ä¸ªäºŒç»´ä¸–ç•Œå‘ä¸ŠæŠ¬å‡åˆ°é«˜åº¦ä¸º <b><code>w = 1</code> çš„å¹³é¢</b>ä¸Šï¼åŽŸæ¥çš„ç‚¹ <code>(x, y)</code> å˜æˆäº† <code>(x, y, 1)</code>ã€‚<br/>
+              â€¢ æŽ¥ç€ï¼Œä¿æŒæ°´å¹³åŸºå‘é‡ <code>Ã®=(1,0,0)</code> å’Œ <code>Äµ=(0,1,0)</code> ä¸åŠ¨ï¼ŒåªæŠŠç¬¬ 3 æ ¹ç«–ç›´åŸºå‘é‡ <code>wÌ‚=(0,0,1)</code> åƒæŽ¨ä¸€æ‘žæ‰‘å…‹ç‰Œä¸€æ ·æ–œæŽ¨åˆ° <b><code>(tâ‚“, táµ§, 1)</code></b>ï¼<br/>
+              â€¢ æ­¤æ—¶åœ¨ 3D ç©ºé—´é‡Œï¼Œ<code>(0,0,0)</code> ä¾ç„¶æ²¡åŠ¨ï¼ˆè¿™æ˜¯çº¯æ­£çš„çº¿æ€§åˆ‡å˜ï¼ï¼‰ï¼Œä½†åœ¨é«˜åº¦ <code>w = 1</code> çš„é‚£å¼ æ‰‘å…‹ç‰Œåˆ‡ç‰‡ä¸Šï¼š
+            </p>
+            <p class="text-[var(--muted-foreground)]" data-lang="en">
+              Look at the 3D canvas on the left (lifting a 2D world into 3D):<br/>
+              â€¢ Instead of living at <code>w = 0</code> (where the origin is pinned), lift the entire 2D plane up to height <b><code>w = 1</code></b> so points become <code>(x, y, 1)</code>.<br/>
+              â€¢ Now apply a 3D <b>Linear Shear</b> (like pushing a deck of cards): keep <code>Ã®=(1,0,0)</code> and <code>Äµ=(0,1,0)</code> fixed, and tilt the vertical basis vector <code>wÌ‚=(0,0,1)</code> to <b><code>(tâ‚“, táµ§, 1)</code></b>!<br/>
+              â€¢ The 3D origin <code>(0,0,0)</code> never moves, yet on the <code>w = 1</code> card slice:
+            </p>
+            <div class="math-box p-2 rounded bg-black/40 text-amber-300 text-center">
+              xÂ·(1,0,0) + yÂ·(0,1,0) + 1Â·(tâ‚“, táµ§, 1) = (x + tâ‚“, y + táµ§, 1)
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-1.5">
+            <div class="font-bold text-emerald-400 text-sm">
+              <span data-lang="zh">ç¬¬ 3 æ­¥ï¼šä¸ºä»€ä¹ˆç‚¹æ˜¯ w = 1ï¼Œå‘é‡æ˜¯ w = 0ï¼Œè€Œä¸¤ç‚¹ä¸èƒ½ç›¸åŠ ï¼Ÿ</span>
+              <span data-lang="en">Step 3: Why Points Have w = 1, Vectors Have w = 0, and P + Q Is Illegal!</span>
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-lang="zh">
+              æ‹–åŠ¨å·¦ä¾§çš„ <b><code>æµ‹è¯•åˆ‡ç‰‡é«˜åº¦ w</code></b> æ»‘å—ä»Ž <code>1.0</code> é™åˆ° <code>0.0</code>ï¼š<br/>
+              â€¢ <b>ç‚¹ P = (x, y, z, 1)</b> ä½åœ¨ <code>w = 1</code> çš„åˆ‡ç‰‡ä¸Šï¼Œæ‰‘å…‹ç‰Œå€¾æ–œæ—¶å®ƒè·Ÿç€å¹³ç§» <code>+ 1Â·t</code>ï¼›<br/>
+              â€¢ <b>å‘é‡ v = (vâ‚“, váµ§, v_z, 0) = Q - P</b> ä½åœ¨ <code>w = 1 - 1 = 0</code> çš„æœ€åº•å±‚åœ°é¢ä¸Šï¼Œæ‰‘å…‹ç‰Œæœ€åº•å±‚ä½ç§»ä¸º <code>0Â·t = 0</code>ï¼Œæ‰€ä»¥<b>å‘é‡å¤©ç”Ÿå¯¹å¹³ç§»å…ç–«</b>ï¼<br/>
+              â€¢ <b>ä¸ºä»€ä¹ˆä»¿å°„ç»„åˆè¦æ±‚æƒé‡å’Œ Î± + Î² = 1ï¼Ÿ</b> å› ä¸º <code>Î±(Pâ‚“,Páµ§,P_z,1) + Î²(Qâ‚“,Qáµ§,Q_z,1)</code> çš„ç¬¬ 4 ä¸ªåˆ†é‡æ˜¯ <code>w = Î± + Î²</code>ï¼åªæœ‰å½“ <code>Î± + Î² = 1</code> æ—¶ï¼Œç»“æžœæ‰ç»§ç»­ç•™åœ¨ <code>w = 1</code> çš„åˆæ³•ç‚¹å¹³é¢ä¸Šï¼
+            </p>
+            <p class="text-[var(--muted-foreground)]" data-lang="en">
+              Drag the <b>Slice Height w</b> slider from <code>1.0</code> down to <code>0.0</code>:<br/>
+              â€¢ <b>Points (w = 1)</b> live on the <code>w = 1</code> slice and shift by <code>+ 1Â·t</code>.<br/>
+              â€¢ <b>Vectors (w = 0)</b> come from <code>Q - P</code> (<code>w = 1 - 1 = 0</code>) on the ground floor, where shear displacement is <code>0Â·t = 0</code>!<br/>
+              â€¢ <b>Affine combinations</b> <code>Î±P + Î²Q</code> have fourth coordinate <code>w = Î± + Î²</code>, which stays on the <code>w = 1</code> plane if and only if <code>Î± + Î² = 1</code>!
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Why Normals Transform by Inverse-Transpose (M^-1)^T -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-5">
+      <div class="border-b border-[var(--border)] pb-3">
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30">
+          <span data-lang="zh">ç¬¬ä¸€æ€§åŽŸç† 3 Â· MIT 6.837 Lecture 4 æ ¸å¿ƒå¿…è€ƒæŽ¨å¯¼</span>
+          <span data-lang="en">First Principle 3 Â· MIT 6.837 Lecture 4 Essential Proof</span>
+        </span>
+        <h2 class="text-xl font-bold mt-1">
+          <span data-lang="zh">ä¸ºä»€ä¹ˆç½‘æ ¼å˜å½¢æ—¶ï¼Œè¡¨é¢æ³•å‘é‡ N ä¸èƒ½ä¹˜ Mï¼Œè€Œå¿…é¡»ä¹˜é€†è½¬ç½®çŸ©é˜µ (Mâ»Â¹)áµ€ï¼Ÿ</span>
+          <span data-lang="en">Why Must Surface Normals Transform by the Inverse-Transpose Matrix (Mâ»Â¹)áµ€ Instead of M?</span>
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div class="lg:col-span-6 space-y-3 text-xs leading-relaxed">
+          <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
+            <div class="font-bold text-white text-sm">
+              <span data-lang="zh">â‘  åˆ‡å‘é‡ (Tangent) ä¸Žæ³•å‘é‡ (Normal) çš„æ ¹æœ¬å‡ ä½•åŒºåˆ«</span>
+              <span data-lang="en">â‘  Tangent Vectors vs. Normal Vectors</span>
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-lang="zh">
+              â€¢ <b>è¡¨é¢åˆ‡å‘é‡ t = Pâ‚‚ - Pâ‚</b> æ˜¯è¿žæŽ¥è¡¨é¢ä¸¤ä¸ªé¡¶ç‚¹çš„ä½ç§»å‘é‡ã€‚å½“é¡¶ç‚¹ä¹˜çŸ©é˜µ M å˜å½¢æ—¶ï¼Œåˆ‡å‘é‡ç¡®å®žè·Ÿç€ä¹˜ Mï¼š<b><code>t' = MÂ·t</code></b>ã€‚<br/>
+              â€¢ ä½†<b>æ³•å‘é‡ n</b> ä¸æ˜¯è¡¨é¢ä¸Šçš„çº¿æ®µï¼Œå®ƒçš„å”¯ä¸€èŒè´£æ˜¯<b>â€œä¸Žè¡¨é¢åˆ‡å‘é‡ä¿æŒ 90Â° åž‚ç›´ï¼ˆç‚¹ç§¯ä¸º 0ï¼‰â€</b>ï¼<br/>
+              â€¢ è¯·çœ‹å³ä¾§ç”»å¸ƒï¼šå½“ä½ æŠŠåœ†åœ¨ X æ–¹å‘æ‹‰å®½ 2 å€ï¼ˆ<code>sâ‚“ = 2, sáµ§ = 1</code>ï¼‰æ—¶ï¼Œæ–œçŽ‡ä¸º -1 çš„åˆ‡çº¿å˜å¾—æ›´å¹³ç¼“äº†ï¼›å¦‚æžœæŠŠæ³•çº¿ n ä¹Ÿå‚»å‚»åœ°ä¹˜ä»¥ Mï¼ˆX åˆ†é‡ä¹Ÿæ‹‰é•¿ 2 å€ï¼Œè§<b>çº¢è‰²ç®­å¤´ MÂ·n</b>ï¼‰ï¼Œæ³•çº¿åè€Œæ›´å¾€æ°´å¹³æ–¹å‘å€’ï¼Œè·Ÿè¡¨é¢å®Œå…¨ä¸åž‚ç›´äº†ï¼è¦ç»§ç»­åž‚ç›´äºŽå˜å¹³ç¼“çš„è¡¨é¢ï¼Œæ³•çº¿çš„ X åˆ†é‡åè€Œå¿…é¡»<b>ç¼©å°ä¸º 1/2</b>ï¼
+            </p>
+            <p class="text-[var(--muted-foreground)]" data-lang="en">
+              â€¢ <b>Tangent vectors t = Pâ‚‚ - Pâ‚</b> connect two surface points, so they transform directly by M: <b><code>t' = MÂ·t</code></b>.<br/>
+              â€¢ <b>Normal vectors n</b> are defined by an orthogonality constraint: <b>"stay perpendicular to tangents (dot product = 0)"</b>!<br/>
+              â€¢ Look at the right canvas: stretching X by 2Ã— flattens the surface slope; multiplying the normal by M (red arrow <code>MÂ·n</code>) tilts it horizontally too, breaking perpendicularity!
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
+            <div class="font-bold text-emerald-400 text-sm">
+              <span data-lang="zh">â‘¡ ä¸‰è¡Œä»£æ•°æŽ¨å¯¼ï¼šä»Žç‚¹ç§¯å®ˆæ’ náµ€Â·t = 0 æŽ¨å¯¼å‡º (Mâ»Â¹)áµ€</span>
+              <span data-lang="en">â‘¡ 3-Line Proof: Preserving Orthogonality náµ€Â·t = 0</span>
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-lang="zh">
+              æŠŠç‚¹ç§¯å†™æˆçŸ©é˜µä¹˜æ³• <code>n Â· t = náµ€ t = 0</code>ã€‚åœ¨ä¸­é—´æ’å…¥å•ä½çŸ©é˜µ <code>I = Mâ»Â¹ M</code>ï¼š
+            </p>
+            <p class="text-[var(--muted-foreground)]" data-lang="en">
+              Write the dot product as <code>n Â· t = náµ€ t = 0</code> and insert the identity matrix <code>I = Mâ»Â¹ M</code>:
+            </p>
+            <div class="math-box p-3 rounded bg-black/50 text-emerald-300 space-y-1">
+              <div>0 = náµ€ Â· t = náµ€ Â· (Mâ»Â¹ Â· M) Â· t</div>
+              <div>0 = (náµ€ Â· Mâ»Â¹) Â· (M Â· t) = ((Mâ»Â¹)áµ€ Â· n)áµ€ Â· t'</div>
+              <div class="text-amber-300 font-bold pt-1">â‡’ n' = (Mâ»Â¹)áµ€ Â· n  (GLSL: mat3(transpose(inverse(uModel))))</div>
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-lang="zh">
+              <b>å·¥ç¨‹æŽ¨è®º</b>ï¼šå¦‚æžœ M åªæ˜¯<b>çº¯æ—‹è½¬çŸ©é˜µ R</b>ï¼Œå› ä¸ºæ­£äº¤çŸ©é˜µæ»¡è¶³ <code>Râ»Â¹ = Ráµ€</code>ï¼Œæ­¤æ—¶ <code>(Râ»Â¹)áµ€ = (Ráµ€)áµ€ = R</code>ï¼Œå¯ä»¥ç›´æŽ¥ä¹˜ Rï¼›ä½†åªè¦å«<b>éžå‡åŒ€ç¼©æ”¾æˆ–åˆ‡å˜</b>ï¼Œå°±å¿…é¡»ä¹˜ <code>(Mâ»Â¹)áµ€</code>ï¼
+            </p>
+            <p class="text-[var(--muted-foreground)]" data-lang="en">
+              <b>Takeaway</b>: For pure rotations <code>Râ»Â¹ = Ráµ€</code> so <code>(Râ»Â¹)áµ€ = R</code>. Whenever non-uniform scaling or shear is present, you MUST use <code>(Mâ»Â¹)áµ€</code>!
+            </p>
+          </div>
+        </div>
+
+        <!-- Right Interactive Visualizer: M*n vs (M^-1)^T*n -->
+        <div class="lg:col-span-6 bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-purple-300">
+              <span data-lang="zh">ðŸ”¬ å®žæ—¶å¯¹æ¯”å®žéªŒå®¤ï¼šé”™è¯¯æ³•çº¿ MÂ·n (çº¢) vs æ­£ç¡®é€†è½¬ç½®æ³•çº¿ (Mâ»Â¹)áµ€Â·n (ç»¿)</span>
+              <span data-lang="en">ðŸ”¬ Live Comparison: Wrong Normal MÂ·n (Red) vs. Inverse-Transpose (Mâ»Â¹)áµ€Â·n (Green)</span>
+            </span>
+          </div>
+
+          <div class="relative w-full rounded-lg overflow-hidden border border-[var(--border)] bg-[#070b14]" style="height: 310px;">
+            <canvas id="normalMatrixCanvas" class="w-full h-full"></canvas>
+            <div class="absolute top-2.5 left-2.5 bg-black/75 backdrop-blur px-2.5 py-1.5 rounded border border-slate-800 text-[11px] space-y-0.5 pointer-events-none">
+              <div id="normalAngleWrong" class="math-box text-rose-400 font-bold">âŒ Angle(MÂ·n, MÂ·t) = 53.1Â° (Not 90Â°!)</div>
+              <div id="normalAngleRight" class="math-box text-emerald-400 font-bold">âœ… Angle((Mâ»Â¹)áµ€Â·n, MÂ·t) = 90.0Â° (Exact!)</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3 text-xs">
+            <div>
+              <div class="flex justify-between mb-0.5">
+                <span data-lang="zh">X è½´ç¼©æ”¾ sâ‚“</span>
+                <span data-lang="en">Scale sâ‚“</span>
+                <span id="nmSxLabel" class="math-box text-amber-300">2.1</span>
+              </div>
+              <input id="nmSxSlider" type="range" min="0.5" max="2.5" step="0.1" value="2.1" oninput="updateTab0Canvases()" class="w-full" />
+            </div>
+            <div>
+              <div class="flex justify-between mb-0.5">
+                <span data-lang="zh">Y è½´ç¼©æ”¾ sáµ§</span>
+                <span data-lang="en">Scale sáµ§</span>
+                <span id="nmSyLabel" class="math-box text-cyan-300">0.7</span>
+              </div>
+              <input id="nmSySlider" type="range" min="0.5" max="2.5" step="0.1" value="0.7" oninput="updateTab0Canvases()" class="w-full" />
+            </div>
+            <div>
+              <div class="flex justify-between mb-0.5">
+                <span data-lang="zh">æ°´å¹³åˆ‡å˜ kâ‚“áµ§</span>
+                <span data-lang="en">Shear kâ‚“áµ§</span>
+                <span id="nmShearLabel" class="math-box text-purple-300">0.4</span>
+              </div>
+              <input id="nmShearSlider" type="range" min="-1.2" max="1.2" step="0.1" value="0.4" oninput="updateTab0Canvases()" class="w-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 1: 4x4 HOMOGENEOUS MATRIX, LOCAL FRAME & W-DIVIDE SANDBOX                            -->
+  <!-- ======================================================================================== -->
+  <section id="tab1" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- Left 3D Viewport -->
+    <div class="lg:col-span-7 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-lg font-bold">
+            <span data-lang="zh">3D ä»¿å°„æ ‡æž¶ (O; u, v, w) ä¸Ž 4Ã—4 é½æ¬¡çŸ©é˜µé€è§†æ²™ç›’</span>
+            <span data-lang="en">3D Coordinate Frame (O; u, v, w) &amp; 4Ã—4 Homogeneous Matrix Sandbox</span>
+          </h2>
+          <p class="text-xs text-[var(--muted-foreground)]">
+            <span data-lang="zh">è§‚å¯Ÿ 4Ã—4 çŸ©é˜µçš„ 4 åˆ—å¦‚ä½•ç›´æŽ¥å¯¹åº”å±€éƒ¨æ ‡æž¶çš„ä¸‰æ ¹è½´ (u, v, w) ä¸Žæ–°åŽŸç‚¹ Oï¼æŒ‰ä½é¼ æ ‡æ‹–æ‹½æ—‹è½¬ç›¸æœºã€‚</span>
+            <span data-lang="en">Watch how the 4 columns of the 4Ã—4 matrix directly represent the local axes (u, v, w) and origin O! Drag to orbit.</span>
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="orderToggleBtn" onclick="toggleComposeOrder()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">
+            Order: M = T Â· R Â· S
+          </button>
+          <button onclick="resetMatrixLab()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--secondary)] hover:bg-[var(--muted)] border border-[var(--border)]">
+            <span data-lang="zh">é‡ç½®ä¸ºå•ä½é˜µ Iâ‚„</span>
+            <span data-lang="en">Reset to Identity Iâ‚„</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="relative flex-1 min-h-[430px] bg-[#070b14] rounded-xl overflow-hidden border border-[var(--border)]">
+        <canvas id="matrixSandboxCanvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+
+        <div class="absolute top-3 left-3 bg-black/75 backdrop-blur px-3 py-2 rounded-lg border border-slate-800 text-xs space-y-1 pointer-events-none">
+          <div id="detBadge" class="math-box font-bold text-emerald-400">det(Mâ‚ƒâ‚“â‚ƒ) = +1.00 (Volume Ã—1.00, Right-Handed)</div>
+          <div id="probeResultHud" class="math-box text-amber-300">Point P(1,1,1, w=1) â†’ World (2.20, 1.80, 1.00)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Live 4x4 Matrix Display & Sliders -->
+    <div class="lg:col-span-5 space-y-4">
+      <!-- Live 4x4 Matrix Inspector coloured by columns -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold">
+            <span data-lang="zh">å®žæ—¶ 4Ã—4 é½æ¬¡çŸ©é˜µ M = [ u | v | w | O ]</span>
+            <span data-lang="en">Live 4Ã—4 Homogeneous Matrix M = [ u | v | w | O ]</span>
+          </h3>
+          <span class="text-[11px] text-[var(--muted-foreground)]">
+            <span data-lang="zh">æŒ‰åˆ—ç€è‰²å¯¹åº” 3D æ ‡æž¶è½´</span>
+            <span data-lang="en">Columns color-coded to 3D frame</span>
+          </span>
+        </div>
+
+        <div class="grid grid-cols-4 gap-1.5 text-center text-[11px] font-bold">
+          <div class="text-red-400">Col 1: u = L(Ã®)</div>
+          <div class="text-emerald-400">Col 2: v = L(Äµ)</div>
+          <div class="text-sky-400">Col 3: w = L(kÌ‚)</div>
+          <div class="text-purple-400">Col 4: O (Trans)</div>
+        </div>
+
+        <div id="matrixGridDisplay" class="grid grid-cols-4 gap-1.5 math-box text-xs text-center bg-[var(--secondary)] p-3 rounded-xl border border-[var(--border)]">
+          <!-- Populated dynamically by JS -->
+        </div>
+      </div>
+
+      <!-- Transformation Sliders -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-3 text-xs">
+        <div class="font-bold text-purple-300">
+          <span data-lang="zh">â‘  ç¬¬ 4 åˆ—ï¼šå¹³ç§»å‘é‡ t = (tâ‚“, táµ§, t_z) â€” ç§»åŠ¨å±€éƒ¨æ ‡æž¶åŽŸç‚¹ O</span>
+          <span data-lang="en">â‘  Column 4: Translation t = (tâ‚“, táµ§, t_z) â€” Moves Frame Origin O</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="text-[var(--muted-foreground)] block">tâ‚“: <span id="valTx" class="math-box text-white">1.2</span></label>
+            <input id="sliderTx" type="range" min="-2.5" max="2.5" step="0.1" value="1.2" oninput="updateMatrixSandbox()" class="w-full" />
+          </div>
+          <div>
+            <label class="text-[var(--muted-foreground)] block">táµ§: <span id="valTy" class="math-box text-white">0.8</span></label>
+            <input id="sliderTy" type="range" min="-2.5" max="2.5" step="0.1" value="0.8" oninput="updateMatrixSandbox()" class="w-full" />
+          </div>
+          <div>
+            <label class="text-[var(--muted-foreground)] block">t_z: <span id="valTz" class="math-box text-white">0.0</span></label>
+            <input id="sliderTz" type="range" min="-2.5" max="2.5" step="0.1" value="0.0" oninput="updateMatrixSandbox()" class="w-full" />
+          </div>
+        </div>
+
+        <div class="font-bold text-amber-300 pt-2 border-t border-[var(--border)]">
+          <span data-lang="zh">â‘¡ å‰ 3 åˆ—æ–¹å‘ï¼šæ—‹è½¬è§’åº¦ (Yaw / Pitch / Roll)</span>
+          <span data-lang="en">â‘¡ Columns 1â€“3 Orientation: Rotation (Yaw / Pitch / Roll)</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="text-[var(--muted-foreground)] block">Yaw Y: <span id="valYaw" class="math-box text-white">25Â°</span></label>
+            <input id="sliderYaw" type="range" min="-180" max="180" step="1" value="25" oninput="updateMatrixSandbox()" class="w-full" />
+          </div>
+          <div>
+            <label class="text-[var(--muted-foreground)] block">Pitch X: <span id="valPitch" class="math-box text-white">15Â°</span></label>
+            <input id="sliderPitch" type="range" min="-90" max="90" step="1" value="15" oninput="updateMatrixSandbox()" class="w-full" />
+          </div>
+          <div>
+            <label class="text-[var(--muted-foreground)] block">Roll Z: <span id="valRoll" class="math-box text-white">0Â°</span></label>
+            <input id="sliderRoll" type="range" min="-180" max="180" step="1" value="0" oninput="updateMatrixSandbox()" class="w-full" />
+          </div>
+        </div>
+
+        <div class="font-bold text-cyan-300 pt-2 border-t border-[var(--border)]">
+          <span data-lang="zh">â‘¢ å‰ 3 åˆ—ä¼¸ç¼©ä¸Žåˆ‡å˜ï¼šç¼©æ”¾ (sâ‚“, sáµ§, s_z) ä¸Žé”™åˆ‡ (Shear)</span>
+          <span data-lang="en">â‘¢ Columns 1â€“3 Stretch &amp; Shear: Scale (sâ‚“, sáµ§, s_z) &amp; Shear</span>
+        </div>
+        <div class="grid grid-cols-4 gap-2">
+          <div>
+            <label class="text-[var(--muted-foreground)] block">sâ‚“: <span id="valSx" class="math-box text-white">1.0</span></label>
+            <input id="sliderSx" type="range" min="-2.0" max="2.0" step="0.1" value="1.0" oninput="updateMatrixSandbox()" class="w-full" />
+          </div>
+          <div>
+            <label class="text-[var(--muted-foreground)] block">sáµ§: <span id="valSy" class="math-box text-white">1.0</span></label>
+            <input id="sliderSy" type="range" min="-2.0" max="2.0" step="0.1" value="1.0" oninput="updateMatrixSandbox()" class="w-full" />
+          </div>
+          <div>
+            <label class="text-[var(--muted-foreground)] block">s_z: <span id="valSz" class="math-box text-white">1.0</span></label>
+            <input id="sliderSz" type="range" min="-2.0" max="2.0" step="0.1" value="1.0" oninput="updateMatrixSandbox()" class="w-full" />
+          </div>
+          <div>
+            <label class="text-[var(--muted-foreground)] block">Shear: <span id="valSh" class="math-box text-white">0.0</span></label>
+            <input id="sliderSh" type="range" min="-1.2" max="1.2" step="0.1" value="0.0" oninput="updateMatrixSandbox()" class="w-full" />
+          </div>
+        </div>
+
+        <div class="font-bold text-emerald-300 pt-2 border-t border-[var(--border)]">
+          <span data-lang="zh">â‘£ é½æ¬¡åæ ‡ç¬¬ 4 åˆ†é‡ w æŽ§åˆ¶ (ä½“éªŒ w=1 ç‚¹ã€w=0 å‘é‡ä¸Ž (X/w, Y/w, Z/w) é€è§†é™¤æ³•)</span>
+          <span data-lang="en">â‘£ Homogeneous w Component (Point w=1, Vector w=0 &amp; Perspective Divide)</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="setHomogeneousW(1.0)" class="px-2.5 py-1 rounded bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-semibold">
+            w = 1 (Point)
+          </button>
+          <button onclick="setHomogeneousW(0.0)" class="px-2.5 py-1 rounded bg-amber-600/30 border border-amber-500/40 text-amber-300 font-semibold">
+            w = 0 (Vector)
+          </button>
+          <input id="sliderW" type="range" min="0.0" max="2.5" step="0.1" value="1.0" oninput="updateMatrixSandbox()" class="flex-1" />
+          <span id="valW" class="math-box font-bold text-white w-12 text-right">w=1.0</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 2: HIERARCHICAL COORDINATE FRAMES (ROBOT ARM SCENE GRAPH)                            -->
+  <!-- ======================================================================================== -->
+  <section id="tab2" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div class="lg:col-span-7 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col space-y-3">
+      <div>
+        <h2 class="text-lg font-bold">
+          <span data-lang="zh">å±‚çº§å±€éƒ¨æ ‡æž¶æ ‘ (Scene Graph)ï¼š3D ç©ºé—´ç«™æœºæ¢°è‡‚æ­£å‘è¿åŠ¨å­¦</span>
+          <span data-lang="en">Hierarchical Local Coordinate Frames: 3D Space Station Robot Arm</span>
+        </h2>
+        <p class="text-xs text-[var(--muted-foreground)]">
+          <span data-lang="zh">UC Davis Lecture 3 ä¸Ž MIT 6.837 Lecture 4 æ ¸å¿ƒåº”ç”¨ï¼šå­å…³èŠ‚åªéœ€è¦åœ¨çˆ¶å…³èŠ‚çš„å±€éƒ¨æ ‡æž¶ä¸‹æ—‹è½¬ï¼Œä¸–ç•ŒçŸ©é˜µè‡ªåŠ¨ç”± 4Ã—4 çŸ©é˜µé“¾ç›¸ä¹˜ M_world = M_base Â· M_shoulder Â· M_elbow Â· M_claw å¾—åˆ°ï¼</span>
+          <span data-lang="en">Each child joint rotates purely in its parent's local frame; its world transformation is automatically the 4Ã—4 matrix chain product M_world = M_base Â· M_shoulder Â· M_elbow Â· M_claw!</span>
+        </p>
+      </div>
+
+      <div class="relative flex-1 min-h-[420px] bg-[#070b14] rounded-xl overflow-hidden border border-[var(--border)]">
+        <canvas id="hierarchyCanvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+        <div class="absolute top-3 left-3 bg-black/75 backdrop-blur px-3 py-2 rounded-lg border border-slate-800 text-xs space-y-1 pointer-events-none">
+          <div class="text-indigo-300 font-bold">M_tip = T_base Â· R_y(Î¸â‚) Â· T_L1 Â· R_z(Î¸â‚‚) Â· T_L2 Â· R_z(Î¸â‚ƒ)</div>
+          <div id="effectorPosHud" class="math-box text-emerald-400">End-Effector World Pos: (1.42, 2.15, 0.00)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lg:col-span-5 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 text-xs">
+      <h3 class="text-sm font-bold border-b border-[var(--border)] pb-2">
+        <span data-lang="zh">æ“æŽ§å„çº§å±€éƒ¨æ ‡æž¶ (Local Coordinate Frames)</span>
+        <span data-lang="en">Control Hierarchical Local Frames</span>
+      </h3>
+
+      <div class="p-3.5 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
+        <div class="font-bold text-amber-400">
+          <span data-lang="zh">1. åº•åº§æ ‡æž¶ Frame 1 (Base Translation &amp; Yaw Î¸â‚)</span>
+          <span data-lang="en">1. Base Frame 1 (Base Translation &amp; Yaw Î¸â‚)</span>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[var(--muted-foreground)] block">Base X: <span id="armBaseXVal" class="math-box text-white">0.0</span></label>
+            <input id="armBaseX" type="range" min="-1.8" max="1.8" step="0.1" value="0.0" oninput="drawHierarchyLab()" class="w-full" />
+          </div>
+          <div>
+            <label class="text-[var(--muted-foreground)] block">Base Yaw Î¸â‚: <span id="armYawVal" class="math-box text-white">25Â°</span></label>
+            <input id="armYaw" type="range" min="-180" max="180" step="1" value="25" oninput="drawHierarchyLab()" class="w-full" />
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
+        <div class="font-bold text-cyan-400">
+          <span data-lang="zh">2. å¤§è‡‚æ ‡æž¶ Frame 2 (Shoulder Pitch Î¸â‚‚, ç»§æ‰¿åº•åº§æ ‡æž¶)</span>
+          <span data-lang="en">2. Upper Arm Frame 2 (Shoulder Pitch Î¸â‚‚, child of Base)</span>
+        </div>
+        <div>
+          <label class="text-[var(--muted-foreground)] block">Shoulder Pitch Î¸â‚‚: <span id="armShoulderVal" class="math-box text-white">35Â°</span></label>
+          <input id="armShoulder" type="range" min="-75" max="85" step="1" value="35" oninput="drawHierarchyLab()" class="w-full" />
+        </div>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
+        <div class="font-bold text-purple-400">
+          <span data-lang="zh">3. å°è‡‚æ ‡æž¶ Frame 3 (Elbow Pitch Î¸â‚ƒ, ç»§æ‰¿å¤§è‡‚æ ‡æž¶)</span>
+          <span data-lang="en">3. Forearm Frame 3 (Elbow Pitch Î¸â‚ƒ, child of Upper Arm)</span>
+        </div>
+        <div>
+          <label class="text-[var(--muted-foreground)] block">Elbow Bend Î¸â‚ƒ: <span id="armElbowVal" class="math-box text-white">-50Â°</span></label>
+          <input id="armElbow" type="range" min="-120" max="90" step="1" value="-50" oninput="drawHierarchyLab()" class="w-full" />
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/30 space-y-1.5 leading-relaxed text-[var(--muted-foreground)]">
+        <div class="font-bold text-indigo-300">
+          <span data-lang="zh">ðŸ’¡ ä¸ºä»€ä¹ˆè¿™å®Œç¾Žä½“çŽ°äº† 4Ã—4 é½æ¬¡çŸ©é˜µçš„å¨åŠ›ï¼Ÿ</span>
+          <span data-lang="en">ðŸ’¡ Why Does This Showcase the Power of 4Ã—4 Homogeneous Matrices?</span>
+        </div>
+        <p data-lang="zh">
+          å¦‚æžœæ²¡æœ‰ 4Ã—4 é½æ¬¡çŸ©é˜µï¼Œæ¯ç»è¿‡ä¸€çº§å…³èŠ‚ï¼Œä½ éƒ½å¿…é¡»æŠŠ 3Ã—3 æ—‹è½¬çŸ©é˜µå’Œ 3D å¹³ç§»å‘é‡åˆ†å¼€ç®—ï¼›æœ‰äº† 4Ã—4 é½æ¬¡çŸ©é˜µï¼Œæ¯ä¸€çº§å…³èŠ‚çš„â€œå±€éƒ¨å¹³ç§» + å±€éƒ¨æ—‹è½¬â€éƒ½æ˜¯ä¸€ä¸ªå•ç‹¬çš„ 4Ã—4 çŸ©é˜µ <code>Máµ¢</code>ï¼Œæœºæ¢°çˆªä¸Šä»»æ„ä¸€ç‚¹ <code>p_local</code> åœ¨ä¸–ç•Œä¸­çš„ä½ç½®ç›´æŽ¥å°±æ˜¯è¿žä¹˜ï¼š<code>p_world = Mâ‚ Â· Mâ‚‚ Â· Mâ‚ƒ Â· p_local</code>ï¼
+        </p>
+        <p data-lang="en">
+          Because translation and rotation are unified into single 4Ã—4 matrices <code>Máµ¢</code>, transforming a point from claw-local space to world space is a single clean matrix chain product: <code>p_world = Mâ‚ Â· Mâ‚‚ Â· Mâ‚ƒ Â· p_local</code>!
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 3: EMBEDDED LECTURE VIDEOS & NOTES                                                   -->
+  <!-- ======================================================================================== -->
+  <section id="tab3" class="hidden space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            MIT 6.837 Â· Fall 2021 Â· Lecture 04
+          </span>
+          <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">
+            <span data-lang="zh">æ‰“å¼€å®Œæ•´ YouTube æ’­æ”¾åˆ—è¡¨ â†—</span>
+            <span data-lang="en">Open Full YouTube Playlist â†—</span>
+          </a>
+        </div>
+        <h3 class="text-lg font-bold">MIT 6.837 Lecture 4: Coordinates and Transformations (Prof. Justin Solomon)</h3>
+        <div class="aspect-video w-full rounded-xl overflow-hidden bg-black border border-[var(--border)]">
+          <iframe class="w-full h-full" src="https://www.youtube.com/embed/videoseries?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi&index=3" title="MIT 6.837 Lecture 4" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        <ul class="text-xs text-[var(--muted-foreground)] space-y-1.5 list-disc pl-4">
+          <li data-lang="zh"><b>Linear vs. Affine Transformations</b>ï¼šä¸ºä»€ä¹ˆçº¿æ€§å˜æ¢ä¿æŒåŽŸç‚¹ä¸åŠ¨ï¼Œè€Œä»¿å°„å˜æ¢ = çº¿æ€§å˜æ¢ + å¹³ç§»ã€‚</li>
+          <li data-lang="zh"><b>Homogeneous Coordinates (x, y, z, w)</b>ï¼šå¦‚ä½•é€šè¿‡å¢žåŠ ç¬¬ 4 ç»´ w æŠŠ 3D ä»¿å°„å˜æ¢å˜æˆ 4D çº¿æ€§å˜æ¢ã€‚</li>
+          <li data-lang="zh"><b>Transforming Normals</b>ï¼šè¯¦ç»†æŽ¨å¯¼ä¸ºä»€ä¹ˆæ³•å‘é‡ä½äºŽå¯¹å¶ç©ºé—´ï¼ˆCotangent/Dual Spaceï¼‰ï¼Œå¿…é¡»ä¹˜ <code>(Mâ»Â¹)áµ€</code>ã€‚</li>
+          <li data-lang="en"><b>Linear vs. Affine Transformations</b>: Why linear maps fix the origin, and affine maps = linear + translation.</li>
+          <li data-lang="en"><b>Homogeneous Coordinates (x, y, z, w)</b>: Turning 3D affine transformations into 4D linear transformations.</li>
+          <li data-lang="en"><b>Transforming Normals</b>: Why surface normals live in dual space and transform via <code>(Mâ»Â¹)áµ€</code>.</li>
+        </ul>
+      </div>
+
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            UC Davis ECS 175 Â· Fall 2009 Â· Lecture 03
+          </span>
+          <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+3+Kenneth+Joy" target="_blank" rel="noreferrer" class="text-xs text-amber-400 hover:underline">
+            <span data-lang="zh">åœ¨ YouTube æœç´¢/è§‚çœ‹æœ¬è®² â†—</span>
+            <span data-lang="en">Watch on YouTube â†—</span>
+          </a>
+        </div>
+        <h3 class="text-lg font-bold">UC Davis Lecture 3: Moving Objects in Space (Prof. Kenneth Joy)</h3>
+        <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-3 text-xs leading-relaxed">
+          <div class="font-semibold text-amber-300">
+            <span data-lang="zh">Kenneth Joy æ•™æŽˆçš„â€œä»¿å°„æ ‡æž¶ (Coordinate Frames)â€æ ¸å¿ƒå“²å­¦ï¼š</span>
+            <span data-lang="en">Prof. Kenneth Joy's Coordinate Frame Philosophy:</span>
+          </div>
+          <p class="text-[var(--muted-foreground)]" data-lang="zh">
+            1. <b>æ ‡æž¶ (O; u, v, w) æ˜¯å‡ ä½•ä¸Žä»£æ•°çš„æ¡¥æ¢</b>ï¼šä¸è¦å­¤ç«‹åœ°çœ‹å¾…çŸ©é˜µé‡Œçš„ 16 ä¸ªæ•°å­—ï¼å‰ 3 åˆ—æ°¸è¿œæ˜¯å±€éƒ¨åæ ‡è½´ <code>u, v, w</code> åœ¨ä¸–ç•Œä¸­çš„æœå‘ä¸Žå°ºåº¦ï¼Œç¬¬ 4 åˆ—æ°¸è¿œæ˜¯å±€éƒ¨åŽŸç‚¹ <code>O</code> åœ¨ä¸–ç•Œä¸­çš„è½ç‚¹ã€‚<br/>
+            2. <b>ä¸»åŠ¨ç§»åŠ¨ç‰©ä½“ vs. è¢«åŠ¨åˆ‡æ¢æ ‡æž¶</b>ï¼šæŠŠä¸€ä¸ªå±€éƒ¨åæ ‡ä¸º <code>(x, y, z, 1)</code> çš„é¡¶ç‚¹æ”¾è¿›æ ‡æž¶ <code>(O; u, v, w)</code>ï¼Œå¾—åˆ°çš„ä¸–ç•Œä½ç½® <code>O + xÂ·u + yÂ·v + zÂ·w</code>ï¼Œæ—¢å¯ä»¥çœ‹ä½œæŠŠæ ‡å‡†æ¨¡åž‹æ¬åˆ°äº†è¯¥æ ‡æž¶å¤„ï¼Œä¹Ÿå¯ä»¥çœ‹ä½œæŠŠå±€éƒ¨åæ ‡ç¿»è¯‘æˆäº†ä¸–ç•Œåæ ‡ï¼
+          </p>
+          <p class="text-[var(--muted-foreground)]" data-lang="en">
+            1. <b>Frames (O; u, v, w) Bridge Geometry and Algebra</b>: Never view a 4Ã—4 matrix as 16 arbitrary numbers! Columns 1â€“3 are the new basis vectors <code>u, v, w</code>; Column 4 is the new origin <code>O</code>.<br/>
+            2. <b>Moving Objects vs. Changing Frames</b>: Evaluating <code>O + xÂ·u + yÂ·v + zÂ·w</code> both moves a canonical object into the frame and converts local coordinates to world coordinates!
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 4: PLAYABLE MINI-GAME: STAR-DOCK MATRIX PILOT (3 MISSIONS)                           -->
+  <!-- ======================================================================================== -->
+  <section id="tab4" class="hidden space-y-6">
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              ðŸŽ® Play to Learn Â· Interactive Mini-Game
+            </span>
+            <span id="gameScoreBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              Cleared: 0 / 3 Missions
+            </span>
+          </div>
+          <h2 class="text-xl font-bold mt-1">
+            <span data-lang="zh">æ˜Ÿé™…èˆ¹åžçŸ©é˜µé¢†èˆªå‘˜ (Star-Dock Matrix Pilot Â· 3 å…³çŸ©é˜µå®žæˆ˜é—¯å…³)</span>
+            <span data-lang="en">Star-Dock Matrix Pilot (3-Mission Matrix Transformation Challenge)</span>
+          </h2>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <button id="mBtn1" onclick="selectMission(1)" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white transition">
+            <span data-lang="zh">å…³å¡ 1: åŸºå‘é‡é›•å¡‘å¸ˆ [u | v]</span>
+            <span data-lang="en">Mission 1: Basis Sculptor [u | v]</span>
+          </button>
+          <button id="mBtn2" onclick="selectMission(2)" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)] border border-[var(--border)] transition">
+            <span data-lang="zh">å…³å¡ 2: çŸ©é˜µé¡ºåºè½¨é“å¯¹æŽ¥ (TÂ·R vs RÂ·T)</span>
+            <span data-lang="en">Mission 2: Orbital Docking (TÂ·R vs RÂ·T)</span>
+          </button>
+          <button id="mBtn3" onclick="selectMission(3)" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)] border border-[var(--border)] transition">
+            <span data-lang="zh">å…³å¡ 3: é€†è½¬ç½®æ³•çº¿æ¿€å…‰åå°„</span>
+            <span data-lang="en">Mission 3: Normal Matrix Laser Deflector</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div class="lg:col-span-7">
+          <div class="relative min-h-[410px] bg-[#070b14] rounded-xl overflow-hidden border border-[var(--border)]">
+            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+            <div class="absolute top-3 left-3 right-3 flex justify-between items-center pointer-events-none">
+              <div id="gameHudLeft" class="bg-black/75 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-800 text-xs math-box">
+                Mission 1
+              </div>
+              <div id="gameStatusPill" class="bg-amber-500/20 border border-amber-500/40 text-amber-300 px-3 py-1 rounded-full text-xs font-bold">
+                IN PROGRESS
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mission Controls -->
+        <div class="lg:col-span-5 space-y-4">
+          <!-- Mission 1 Panel -->
+          <div id="missionPanel1" class="bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-5 space-y-3 text-xs">
+            <div class="font-bold text-sm text-amber-400">
+              <span data-lang="zh">ðŸŽ¯ ä»»åŠ¡ 1ï¼šè°ƒèŠ‚çŸ©é˜µçš„ä¸¤åˆ—ï¼ˆæ–°åŸºå‘é‡ u å’Œ vï¼‰åŒ¹é…ç›®æ ‡é£žèˆ¹è™šå½±ï¼</span>
+              <span data-lang="en">ðŸŽ¯ Mission 1: Sculpt Basis Columns u &amp; v to Match the Target Hull!</span>
+            </div>
+            <p class="text-[var(--muted-foreground)] leading-relaxed">
+              <span data-lang="zh">åˆ©ç”¨ 3Blue1Brown é»„é‡‘æ³•åˆ™ï¼šçº¢è‰²ç®­å¤´æ˜¯ç¬¬ 1 åˆ— <code>u = (uâ‚“, uáµ§)</code>ï¼Œç»¿è‰²ç®­å¤´æ˜¯ç¬¬ 2 åˆ— <code>v = (vâ‚“, váµ§)</code>ã€‚è°ƒèŠ‚ä¸‹æ–¹å››ä¸ªåˆ†é‡ï¼Œè®©å®žçº¿é£žèˆ¹ä¸Žé‡‘è‰²è™šçº¿ç›®æ ‡å®Œå…¨é‡åˆï¼ˆé¡¶ç‚¹è¯¯å·® â‰¤ 0.18 å³å¯è¿‡å…³ï¼‰ï¼</span>
+              <span data-lang="en">Use 3Blue1Brown's Golden Rule: Red arrow is Column 1 <code>u = (uâ‚“, uáµ§)</code>, Green arrow is Column 2 <code>v = (vâ‚“, váµ§)</code>. Match the solid ship to the golden target wireframe (error â‰¤ 0.18)!</span>
+            </p>
+
+            <div class="grid grid-cols-2 gap-3 pt-1">
+              <div class="p-3 rounded-lg bg-black/30 border border-red-500/30 space-y-2">
+                <div class="font-bold text-red-400">Col 1: u = (uâ‚“, uáµ§)</div>
+                <div>
+                  <label class="flex justify-between"><span>uâ‚“</span><span id="m1UxVal" class="math-box">1.0</span></label>
+                  <input id="m1Ux" type="range" min="-2.0" max="2.0" step="0.1" value="1.0" oninput="updateGame()" class="w-full" />
+                </div>
+                <div>
+                  <label class="flex justify-between"><span>uáµ§</span><span id="m1UyVal" class="math-box">0.0</span></label>
+                  <input id="m1Uy" type="range" min="-2.0" max="2.0" step="0.1" value="0.0" oninput="updateGame()" class="w-full" />
+                </div>
+              </div>
+
+              <div class="p-3 rounded-lg bg-black/30 border border-emerald-500/30 space-y-2">
+                <div class="font-bold text-emerald-400">Col 2: v = (vâ‚“, váµ§)</div>
+                <div>
+                  <label class="flex justify-between"><span>vâ‚“</span><span id="m1VxVal" class="math-box">0.0</span></label>
+                  <input id="m1Vx" type="range" min="-2.0" max="2.0" step="0.1" value="0.0" oninput="updateGame()" class="w-full" />
+                </div>
+                <div>
+                  <label class="flex justify-between"><span>váµ§</span><span id="m1VyVal" class="math-box">1.0</span></label>
+                  <input id="m1Vy" type="range" min="-2.0" max="2.0" step="0.1" value="1.0" oninput="updateGame()" class="w-full" />
+                </div>
+              </div>
+            </div>
+
+            <button onclick="randomizeMission1()" class="w-full py-2 rounded-lg font-semibold bg-[var(--card)] hover:bg-[var(--muted)] border border-[var(--border)]">
+              <span data-lang="zh">ðŸŽ² éšæœºç”Ÿæˆæ–°ç›®æ ‡çŸ©é˜µè™šå½±</span>
+              <span data-lang="en">ðŸŽ² Randomize Target Matrix</span>
+            </button>
+          </div>
+
+          <!-- Mission 2 Panel -->
+          <div id="missionPanel2" class="hidden bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-5 space-y-3 text-xs">
+            <div class="font-bold text-sm text-cyan-400">
+              <span data-lang="zh">ðŸ›¸ ä»»åŠ¡ 2ï¼šé€‰æ‹©æ­£ç¡®çš„çŸ©é˜µé¡ºåº (TÂ·R vs RÂ·T) å°†é£žèˆ¹æ³Šå…¥å¤ªç©ºèˆ±å£ï¼</span>
+              <span data-lang="en">ðŸ›¸ Mission 2: Choose Matrix Order (TÂ·R vs RÂ·T) to Dock at the Station!</span>
+            </div>
+            <p class="text-[var(--muted-foreground)] leading-relaxed">
+              <span data-lang="zh">ç›®æ ‡èˆ±å£ä½äºŽåæ ‡ <code>(tâ‚“, táµ§)</code> ä¸”è‡ªèº«åè½¬äº†è§’åº¦ <code>Î¸</code>ã€‚è¯·ä½“ä¼š <code>M = T Â· R</code>ï¼ˆå…ˆåœ¨åŽŸåœ°è‡ªè½¬ Î¸ï¼Œå†å¹³ç§»åˆ° (tâ‚“, táµ§)ï¼‰ä¸Ž <code>M = R Â· T</code>ï¼ˆå…ˆå¹³ç§»ï¼Œå†è¿žåŒä½ç½®ä¸€èµ·ç»•ä¸–ç•ŒåŽŸç‚¹å…¬è½¬ Î¸ï¼‰çš„å¤©å£¤ä¹‹åˆ«ï¼</span>
+              <span data-lang="en">See the dramatic difference between <code>M = T Â· R</code> (rotate in place, then translate) vs. <code>M = R Â· T</code> (translate first, then orbit around the world origin)!</span>
+            </p>
+
+            <div class="space-y-2.5">
+              <button id="m2OrderBtn" onclick="toggleM2Order()" class="w-full py-2 rounded-lg font-bold bg-indigo-600 hover:bg-indigo-500 text-white">
+                Current Order: M = R Â· T (Orbiting Origin!)
+              </button>
+              <div>
+                <label class="flex justify-between"><span>Translation tâ‚“</span><span id="m2TxVal" class="math-box">1.5</span></label>
+                <input id="m2Tx" type="range" min="-2.2" max="2.2" step="0.1" value="1.5" oninput="updateGame()" class="w-full" />
+              </div>
+              <div>
+                <label class="flex justify-between"><span>Translation táµ§</span><span id="m2TyVal" class="math-box">0.5</span></label>
+                <input id="m2Ty" type="range" min="-2.2" max="2.2" step="0.1" value="0.5" oninput="updateGame()" class="w-full" />
+              </div>
+              <div>
+                <label class="flex justify-between"><span>Rotation Angle Î¸</span><span id="m2AngleVal" class="math-box">45Â°</span></label>
+                <input id="m2Angle" type="range" min="-180" max="180" step="5" value="45" oninput="updateGame()" class="w-full" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Mission 3 Panel -->
+          <div id="missionPanel3" class="hidden bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-5 space-y-3 text-xs">
+            <div class="font-bold text-sm text-purple-400">
+              <span data-lang="zh">âš¡ ä»»åŠ¡ 3ï¼šå¯åŠ¨é€†è½¬ç½®æ³•çº¿çŸ©é˜µ (Mâ»Â¹)áµ€ï¼Œå°†æ¿€å…‰ç²¾å‡†åå°„è¿›èƒ½é‡æ ¸å¿ƒï¼</span>
+              <span data-lang="en">âš¡ Mission 3: Activate Inverse-Transpose Normal (Mâ»Â¹)áµ€ to Hit the Core!</span>
+            </div>
+            <p class="text-[var(--muted-foreground)] leading-relaxed">
+              <span data-lang="zh">åå°„é•œç»åŽ†äº†å¼ºçƒˆçš„éžå‡åŒ€ç¼©æ”¾ã€‚å¦‚æžœå…³é—­é€†è½¬ç½®ä¿®æ­£ï¼ˆä½¿ç”¨é”™è¯¯çš„ <code>MÂ·n</code>ï¼‰ï¼Œåå°„å®šå¾‹ä¼šå½»åº•å¤±çµï¼è¯·å…ˆå¼€å¯ <b><code>(Mâ»Â¹)áµ€ æ³•çº¿ä¿®æ­£å™¨</code></b>ï¼Œå†è°ƒèŠ‚åå°„é•œçš„ X è½´ç¼©æ”¾ç³»æ•° <code>sâ‚“</code> ä½¿ç»¿è‰²åå°„æ¿€å…‰å‘½ä¸­å³ä¸Šè§’çš„é‡‘è‰²èƒ½é‡æ ¸å¿ƒï¼</span>
+              <span data-lang="en">The mirror is non-uniformly scaled. First enable the <b><code>(Mâ»Â¹)áµ€ Normal Matrix Fix</code></b>, then tune the mirror's X-scale <code>sâ‚“</code> until the reflected laser hits the golden core!</span>
+            </p>
+
+            <div class="space-y-3 pt-1">
+              <button id="m3FixBtn" onclick="toggleM3NormalFix()" class="w-full py-2.5 rounded-lg font-bold bg-rose-600 hover:bg-rose-500 text-white">
+                âŒ Using Wrong Normal: n' = M Â· n (Click to Enable (Mâ»Â¹)áµ€!)
+              </button>
+              <div>
+                <label class="flex justify-between">
+                  <span data-lang="zh">åå°„é•œæ°´å¹³æ‹‰ä¼¸ç³»æ•° sâ‚“:</span>
+                  <span data-lang="en">Mirror Horizontal Scale sâ‚“:</span>
+                  <span id="m3ScaleVal" class="math-box font-bold text-amber-300">1.00</span>
+                </label>
+                <input id="m3Scale" type="range" min="0.5" max="2.5" step="0.05" value="1.0" oninput="updateGame()" class="w-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // ============================================================================
+    // GLOBAL STATE & LANGUAGE SWITCHER
+    // ============================================================================
+    let currentLang = 'zh';
+    let currentTab = 0;
+
+    // 3D Camera Orbit State
+    let camYaw = -0.62;
+    let camPitch = 0.42;
+    let isDragging = false;
+    let lastMouse = { x: 0, y: 0 };
+
+    // Tab 1 State: Compose Order
+    let composeTRS = true; // true: M = T * R * S, false: M = R * T * S
+
+    // Tab 4 Mini-Game State
+    let currentMission = 1;
+    let missionsCleared = { 1: false, 2: false, 3: false };
+    let m1Target = { ux: 1.4, uy: 0.6, vx: -0.6, vy: 1.2 };
+    let m2Target = { tx: 1.6, ty: 1.0, angle: 60 };
+    let m2UseTR = false; // starts wrong (R * T) so user learns why T * R is needed
+    let m3UseInverseTranspose = false;
+    let m3TargetSx = 1.65;
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
+      document.getElementById('langBtnLabel').textContent = currentLang === 'zh' ? 'EN / English' : 'ä¸­æ–‡ / Chinese';
+      updateTab0Canvases();
+      updateMatrixSandbox();
+      drawHierarchyLab();
+      updateGame();
+    }
+
+    function switchTab(idx) {
+      currentTab = idx;
+      for (let i = 0; i < 5; i++) {
+        const btn = document.getElementById('tabBtn' + i);
+        const sec = document.getElementById('tab' + i);
+        if (i === idx) {
+          btn.className = 'tab-active px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all';
+          sec.classList.remove('hidden');
+        } else {
+          btn.className = 'bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90';
+          sec.classList.add('hidden');
+        }
+      }
+      setTimeout(() => {
+        if (idx === 0) updateTab0Canvases();
+        if (idx === 1) updateMatrixSandbox();
+        if (idx === 2) drawHierarchyLab();
+        if (idx === 4) updateGame();
+      }, 20);
+    }
+
+    // ============================================================================
+    // 3D PROJECTION & DRAWING HELPERS
+    // ============================================================================
+    function project3D(p, width, height, scale = 72) {
+      const cosY = Math.cos(camYaw), sinY = Math.sin(camYaw);
+      const x1 = p.x * cosY + p.z * sinY;
+      const z1 = -p.x * sinY + p.z * cosY;
+
+      const cosP = Math.cos(camPitch), sinP = Math.sin(camPitch);
+      const y2 = p.y * cosP - z1 * sinP;
+      const z2 = p.y * sinP + z1 * cosP;
+
+      const camDist = 9.5;
+      const persp = camDist / Math.max(1.5, camDist - z2);
+      return {
+        x: width / 2 + x1 * scale * persp,
+        y: height / 2 + 25 - y2 * scale * persp,
+        depth: z2
+      };
+    }
+
+    function drawArrow2D(ctx, from, to, color, lineWidth = 2.5, label = '') {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 2) return;
+      const angle = Math.atan2(dy, dx);
+      const headLen = Math.min(11, Math.max(6, len * 0.22));
+
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(to.x, to.y);
+      ctx.lineTo(to.x - headLen * Math.cos(angle - Math.PI / 6), to.y - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(to.x - headLen * Math.cos(angle + Math.PI / 6), to.y - headLen * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+
+      if (label) {
+        ctx.font = 'bold 11px ui-monospace, monospace';
+        ctx.fillText(label, to.x + 10 * Math.cos(angle) - 8, to.y + 10 * Math.sin(angle) + 4);
+      }
+      ctx.restore();
+    }
+
+    function setupOrbitCanvas(canvasId, redrawFn) {
+      const c = document.getElementById(canvasId);
+      if (!c) return;
+      c.addEventListener('pointerdown', e => {
+        isDragging = true;
+        lastMouse = { x: e.clientX, y: e.clientY };
+        c.setPointerCapture(e.pointerId);
+      });
+      c.addEventListener('pointermove', e => {
+        if (!isDragging) return;
+        const dx = e.clientX - lastMouse.x;
+        const dy = e.clientY - lastMouse.y;
+        lastMouse = { x: e.clientX, y: e.clientY };
+        camYaw += dx * 0.008;
+        camPitch = Math.max(-1.2, Math.min(1.2, camPitch + dy * 0.008));
+        redrawFn();
+      });
+      c.addEventListener('pointerup', () => { isDragging = false; });
+    }
+
+    // ============================================================================
+    // TAB 0 CANVASES: 1) HIGHER-DIMENSIONAL SHEAR (w=1) & 2) NORMAL MATRIX (M^-1)^T
+    // ============================================================================
+    function updateTab0Canvases() {
+      drawShearSliceCanvas();
+      drawNormalMatrixCanvas();
+    }
+
+    function drawShearSliceCanvas() {
+      const canvas = document.getElementById('shearSliceCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 540;
+      canvas.height = rect.height || 330;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const tx = parseFloat(document.getElementById('shearTxSlider').value);
+      const ty = parseFloat(document.getElementById('shearTySlider').value);
+      const sliceW = parseFloat(document.getElementById('sliceWSlider').value);
+
+      document.getElementById('shearTxLabel').textContent = tx.toFixed(1);
+      document.getElementById('shearTyLabel').textContent = ty.toFixed(1);
+      document.getElementById('sliceWLabel').textContent =
+        Math.abs(sliceW - 1.0) < 0.03 ? 'w = 1.0 (Point)' :
+        Math.abs(sliceW) < 0.03 ? 'w = 0.0 (Vector)' : `w = ${sliceW.toFixed(2)}`;
+
+      // Here Y-up in 3D canvas represents the Homogeneous W axis!
+      // X and Z in 3D canvas represent the 2D world (x, y)!
+      const mapPt = (x2d, y2d, wVal) => {
+        const shearedX = x2d + wVal * tx;
+        const shearedY = y2d + wVal * ty;
+        return project3D({ x: shearedX, y: wVal * 1.6 - 0.6, z: shearedY }, w, h, 66);
+      };
+
+      // Draw w = 0 Ground Floor (Vector Space)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.2)';
+      ctx.lineWidth = 1;
+      for (let i = -2; i <= 2; i++) {
+        const p1 = mapPt(i, -2, 0), p2 = mapPt(i, 2, 0);
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        const p3 = mapPt(-2, i, 0), p4 = mapPt(2, i, 0);
+        ctx.beginPath(); ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.stroke();
+      }
+      ctx.restore();
+
+      // Draw Active Slice at height = sliceW
+      ctx.save();
+      const cA = mapPt(-1.8, -1.8, sliceW);
+      const cB = mapPt(1.8, -1.8, sliceW);
+      const cC = mapPt(1.8, 1.8, sliceW);
+      const cD = mapPt(-1.8, 1.8, sliceW);
+      ctx.fillStyle = Math.abs(sliceW - 1.0) < 0.05 ? 'rgba(99, 102, 241, 0.18)' : 'rgba(16, 185, 129, 0.14)';
+      ctx.strokeStyle = Math.abs(sliceW - 1.0) < 0.05 ? '#818cf8' : '#10b981';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(cA.x, cA.y); ctx.lineTo(cB.x, cB.y); ctx.lineTo(cC.x, cC.y); ctx.lineTo(cD.x, cD.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Grid lines on active slice
+      ctx.strokeStyle = 'rgba(129, 140, 248, 0.25)';
+      ctx.lineWidth = 1;
+      for (let i = -1; i <= 1; i++) {
+        const g1 = mapPt(i, -1.8, sliceW), g2 = mapPt(i, 1.8, sliceW);
+        ctx.beginPath(); ctx.moveTo(g1.x, g1.y); ctx.lineTo(g2.x, g2.y); ctx.stroke();
+        const g3 = mapPt(-1.8, i, sliceW), g4 = mapPt(1.8, i, sliceW);
+        ctx.beginPath(); ctx.moveTo(g3.x, g3.y); ctx.lineTo(g4.x, g4.y); ctx.stroke();
+      }
+      ctx.restore();
+
+      // Draw Basis Vectors from 3D Origin (0,0,0)
+      const o0 = mapPt(0, 0, 0);
+      drawArrow2D(ctx, o0, mapPt(1.2, 0, 0), '#ef4444', 2.5, 'Ã®=(1,0,0)');
+      drawArrow2D(ctx, o0, mapPt(0, 1.2, 0), '#22c55e', 2.5, 'Äµ=(0,1,0)');
+
+      // Sheared w-basis vector from (0,0,0) to (tx, ty, 1)
+      const wTip = mapPt(0, 0, 1);
+      drawArrow2D(ctx, o0, wTip, '#a855f7', 3.2, `wÌ‚'=(${tx.toFixed(1)},${ty.toFixed(1)},1)`);
+
+      // Draw a 2D Triangle on the active slice (x,y,sliceW)
+      const triPts = [
+        mapPt(0.2, 0.2, sliceW),
+        mapPt(1.1, 0.2, sliceW),
+        mapPt(0.5, 1.0, sliceW)
+      ];
+      ctx.save();
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.55)';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(triPts[0].x, triPts[0].y);
+      ctx.lineTo(triPts[1].x, triPts[1].y);
+      ctx.lineTo(triPts[2].x, triPts[2].y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Draw a Vector on the w=0 floor to show it NEVER translates!
+      drawArrow2D(ctx, o0, mapPt(1.0, 0.8, 0), '#38bdf8', 3, 'v(w=0, immune!)');
+
+      const outX = (1.0 + sliceW * tx).toFixed(2);
+      const outY = (0.5 + sliceW * ty).toFixed(2);
+      document.getElementById('shearHudText').textContent =
+        `wÌ‚' = (${tx.toFixed(1)}, ${ty.toFixed(1)}, 1) | (1.0, 0.5, w=${sliceW.toFixed(1)}) â†’ (${outX}, ${outY}, ${sliceW.toFixed(1)})`;
+    }
+
+    function drawNormalMatrixCanvas() {
+      const canvas = document.getElementById('normalMatrixCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 540;
+      canvas.height = rect.height || 310;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const sx = parseFloat(document.getElementById('nmSxSlider').value);
+      const sy = parseFloat(document.getElementById('nmSySlider').value);
+      const sh = parseFloat(document.getElementById('nmShearSlider').value);
+
+      document.getElementById('nmSxLabel').textContent = sx.toFixed(1);
+      document.getElementById('nmSyLabel').textContent = sy.toFixed(1);
+      document.getElementById('nmShearLabel').textContent = sh.toFixed(1);
+
+      const cx = w / 2, cy = h / 2 + 15, scale = 68;
+      // 2x2 Matrix M = [sx, sh; 0, sy]
+      const applyM = (x, y) => ({ x: sx * x + sh * y, y: sy * y });
+      // Inverse Transpose (M^-1)^T = 1/(sx*sy) * [sy, 0; -sh, sx]
+      const det = sx * sy;
+      const applyInvT = (nx, ny) => ({
+        x: (sy * nx) / det,
+        y: (-sh * nx + sx * ny) / det
+      });
+
+      const toScreen = (pt) => ({ x: cx + pt.x * scale, y: cy - pt.y * scale });
+
+      // Draw deformed grid
+      ctx.save();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+      ctx.lineWidth = 1;
+      for (let i = -3; i <= 3; i++) {
+        const p1 = toScreen(applyM(i, -2.5)), p2 = toScreen(applyM(i, 2.5));
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        const p3 = toScreen(applyM(-2.5, i)), p4 = toScreen(applyM(2.5, i));
+        ctx.beginPath(); ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.stroke();
+      }
+      ctx.restore();
+
+      // Draw original unit circle (dashed) & transformed ellipse (solid)
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+      ctx.beginPath();
+      for (let a = 0; a <= Math.PI * 2 + 0.05; a += 0.08) {
+        const p = toScreen({ x: Math.cos(a), y: Math.sin(a) });
+        if (a === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      for (let a = 0; a <= Math.PI * 2 + 0.05; a += 0.06) {
+        const p = toScreen(applyM(Math.cos(a), Math.sin(a)));
+        if (a === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      }
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Pick a point on the unit circle at 45 degrees
+      const theta = Math.PI / 4;
+      const pOrig = { x: Math.cos(theta), y: Math.sin(theta) };
+      const tOrig = { x: -Math.sin(theta), y: Math.cos(theta) }; // unit tangent
+      const nOrig = { x: Math.cos(theta), y: Math.sin(theta) };  // unit normal
+
+      const pTrans = applyM(pOrig.x, pOrig.y);
+      const tTrans = applyM(tOrig.x, tOrig.y);
+      const nWrong = applyM(nOrig.x, nOrig.y);
+      const nRight = applyInvT(nOrig.x, nOrig.y);
+
+      const norm2 = v => {
+        const l = Math.hypot(v.x, v.y) || 1;
+        return { x: v.x / l, y: v.y / l };
+      };
+      const tUnit = norm2(tTrans);
+      const wUnit = norm2(nWrong);
+      const rUnit = norm2(nRight);
+
+      // Draw Transformed Tangent Line at pTrans
+      const sPt = toScreen(pTrans);
+      const t1 = toScreen({ x: pTrans.x - tUnit.x * 1.1, y: pTrans.y - tUnit.y * 1.1 });
+      const t2 = toScreen({ x: pTrans.x + tUnit.x * 1.1, y: pTrans.y + tUnit.y * 1.1 });
+      ctx.save();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(t1.x, t1.y); ctx.lineTo(t2.x, t2.y); ctx.stroke();
+      ctx.restore();
+
+      // Draw Wrong Normal M*n (Red) & Correct Normal (M^-1)^T * n (Green)
+      const wTip = toScreen({ x: pTrans.x + wUnit.x * 1.15, y: pTrans.y + wUnit.y * 1.15 });
+      const rTip = toScreen({ x: pTrans.x + rUnit.x * 1.15, y: pTrans.y + rUnit.y * 1.15 });
+
+      drawArrow2D(ctx, sPt, wTip, '#f43f5e', 3, 'Wrong: MÂ·n');
+      drawArrow2D(ctx, sPt, rTip, '#10b981', 3.5, 'Correct: (Mâ»Â¹)áµ€Â·n');
+
+      const wrongDeg = Math.acos(Math.max(-1, Math.min(1, wUnit.x * tUnit.x + wUnit.y * tUnit.y))) * 180 / Math.PI;
+      const rightDeg = Math.acos(Math.max(-1, Math.min(1, rUnit.x * tUnit.x + rUnit.y * tUnit.y))) * 180 / Math.PI;
+
+      document.getElementById('normalAngleWrong').textContent =
+        `âŒ Angle(MÂ·n, Tangent) = ${wrongDeg.toFixed(1)}Â° (Error: ${Math.abs(90 - wrongDeg).toFixed(1)}Â°)`;
+      document.getElementById('normalAngleRight').textContent =
+        `âœ… Angle((Mâ»Â¹)áµ€Â·n, Tangent) = ${rightDeg.toFixed(1)}Â° (Perpendicular!)`;
+    }
+
+    // ============================================================================
+    // TAB 1: 4x4 HOMOGENEOUS MATRIX & FRAME SANDBOX
+    // ============================================================================
+    function mat4Mul(A, B) {
+      const C = new Array(16).fill(0);
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+          C[r * 4 + c] =
+            A[r * 4 + 0] * B[0 * 4 + c] +
+            A[r * 4 + 1] * B[1 * 4 + c] +
+            A[r * 4 + 2] * B[2 * 4 + c] +
+            A[r * 4 + 3] * B[3 * 4 + c];
+        }
+      }
+      return C;
+    }
+
+    function mat4Vec4(M, v) {
+      return {
+        x: M[0] * v.x + M[1] * v.y + M[2] * v.z + M[3] * v.w,
+        y: M[4] * v.x + M[5] * v.y + M[6] * v.z + M[7] * v.w,
+        z: M[8] * v.x + M[9] * v.y + M[10] * v.z + M[11] * v.w,
+        w: M[12] * v.x + M[13] * v.y + M[14] * v.z + M[15] * v.w
+      };
+    }
+
+    function toggleComposeOrder() {
+      composeTRS = !composeTRS;
+      document.getElementById('orderToggleBtn').textContent =
+        composeTRS ? 'Order: M = T Â· R Â· S (Local)' : 'Order: M = R Â· T Â· S (Orbit)';
+      updateMatrixSandbox();
+    }
+
+    function setHomogeneousW(val) {
+      document.getElementById('sliderW').value = val;
+      updateMatrixSandbox();
+    }
+
+    function resetMatrixLab() {
+      document.getElementById('sliderTx').value = 0;
+      document.getElementById('sliderTy').value = 0;
+      document.getElementById('sliderTz').value = 0;
+      document.getElementById('sliderYaw').value = 0;
+      document.getElementById('sliderPitch').value = 0;
+      document.getElementById('sliderRoll').value = 0;
+      document.getElementById('sliderSx').value = 1;
+      document.getElementById('sliderSy').value = 1;
+      document.getElementById('sliderSz').value = 1;
+      document.getElementById('sliderSh').value = 0;
+      document.getElementById('sliderW').value = 1;
+      updateMatrixSandbox();
+    }
+
+    function getSandboxMatrix() {
+      const tx = parseFloat(document.getElementById('sliderTx').value);
+      const ty = parseFloat(document.getElementById('sliderTy').value);
+      const tz = parseFloat(document.getElementById('sliderTz').value);
+      const yaw = parseFloat(document.getElementById('sliderYaw').value) * Math.PI / 180;
+      const pitch = parseFloat(document.getElementById('sliderPitch').value) * Math.PI / 180;
+      const roll = parseFloat(document.getElementById('sliderRoll').value) * Math.PI / 180;
+      const sx = parseFloat(document.getElementById('sliderSx').value);
+      const sy = parseFloat(document.getElementById('sliderSy').value);
+      const sz = parseFloat(document.getElementById('sliderSz').value);
+      const sh = parseFloat(document.getElementById('sliderSh').value);
+
+      const T = [
+        1, 0, 0, tx,
+        0, 1, 0, ty,
+        0, 0, 1, tz,
+        0, 0, 0, 1
+      ];
+      const cy = Math.cos(yaw), syaw = Math.sin(yaw);
+      const cp = Math.cos(pitch), sp = Math.sin(pitch);
+      const cr = Math.cos(roll), sr = Math.sin(roll);
+
+      const Ry = [cy, 0, syaw, 0, 0, 1, 0, 0, -syaw, 0, cy, 0, 0, 0, 0, 1];
+      const Rx = [1, 0, 0, 0, 0, cp, -sp, 0, 0, sp, cp, 0, 0, 0, 0, 1];
+      const Rz = [cr, -sr, 0, 0, sr, cr, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+      const R = mat4Mul(Ry, mat4Mul(Rx, Rz));
+
+      const S = [
+        sx, sh, 0, 0,
+        0, sy, 0, 0,
+        0, 0, sz, 0,
+        0, 0, 0, 1
+      ];
+
+      return composeTRS ? mat4Mul(T, mat4Mul(R, S)) : mat4Mul(R, mat4Mul(T, S));
+    }
+
+    function updateMatrixSandbox() {
+      document.getElementById('valTx').textContent = parseFloat(document.getElementById('sliderTx').value).toFixed(1);
+      document.getElementById('valTy').textContent = parseFloat(document.getElementById('sliderTy').value).toFixed(1);
+      document.getElementById('valTz').textContent = parseFloat(document.getElementById('sliderTz').value).toFixed(1);
+      document.getElementById('valYaw').textContent = document.getElementById('sliderYaw').value + 'Â°';
+      document.getElementById('valPitch').textContent = document.getElementById('sliderPitch').value + 'Â°';
+      document.getElementById('valRoll').textContent = document.getElementById('sliderRoll').value + 'Â°';
+      document.getElementById('valSx').textContent = parseFloat(document.getElementById('sliderSx').value).toFixed(1);
+      document.getElementById('valSy').textContent = parseFloat(document.getElementById('sliderSy').value).toFixed(1);
+      document.getElementById('valSz').textContent = parseFloat(document.getElementById('sliderSz').value).toFixed(1);
+      document.getElementById('valSh').textContent = parseFloat(document.getElementById('sliderSh').value).toFixed(1);
+      const wVal = parseFloat(document.getElementById('sliderW').value);
+      document.getElementById('valW').textContent = 'w=' + wVal.toFixed(1);
+
+      const M = getSandboxMatrix();
+
+      // Populate 4x4 Matrix Grid Display
+      const colClasses = [
+        'bg-red-950/40 text-red-300 border-red-800/50',
+        'bg-emerald-950/40 text-emerald-300 border-emerald-800/50',
+        'bg-sky-950/40 text-sky-300 border-sky-800/50',
+        'bg-purple-950/40 text-purple-300 border-purple-800/50'
+      ];
+      const gridEl = document.getElementById('matrixGridDisplay');
+      if (gridEl) {
+        let html = '';
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 4; c++) {
+            const val = M[r * 4 + c];
+            html += `<div class="py-1.5 px-1 rounded border ${colClasses[c]} font-semibold">${val.toFixed(2)}</div>`;
+          }
+        }
+        gridEl.innerHTML = html;
+      }
+
+      // Compute 3x3 determinant
+      const det3 =
+        M[0] * (M[5] * M[10] - M[6] * M[9]) -
+        M[1] * (M[4] * M[10] - M[6] * M[8]) +
+        M[2] * (M[4] * M[9] - M[5] * M[8]);
+
+      const detBadge = document.getElementById('detBadge');
+      if (detBadge) {
+        const handed = det3 < -1e-4 ? 'Flipped (Left-Handed!)' : Math.abs(det3) < 1e-4 ? 'Singular (Collapsed!)' : 'Right-Handed';
+        detBadge.textContent = `det(Mâ‚ƒâ‚“â‚ƒ) = ${det3 >= 0 ? '+' : ''}${det3.toFixed(2)} (${handed})`;
+        detBadge.className = det3 < 0 ? 'math-box font-bold text-rose-400' : 'math-box font-bold text-emerald-400';
+      }
+
+      // Draw 3D Canvas
+      const canvas = document.getElementById('matrixSandboxCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 680;
+      canvas.height = rect.height || 430;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // World XZ Floor Grid
+      ctx.save();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.14)';
+      ctx.lineWidth = 1;
+      for (let i = -3; i <= 3; i++) {
+        const p1 = project3D({ x: i, y: 0, z: -3 }, w, h);
+        const p2 = project3D({ x: i, y: 0, z: 3 }, w, h);
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        const p3 = project3D({ x: -3, y: 0, z: i }, w, h);
+        const p4 = project3D({ x: 3, y: 0, z: i }, w, h);
+        ctx.beginPath(); ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.stroke();
+      }
+      ctx.restore();
+
+      // World Basis (Dimmed)
+      const wOrigin = project3D({ x: 0, y: 0, z: 0 }, w, h);
+      drawArrow2D(ctx, wOrigin, project3D({ x: 2.2, y: 0, z: 0 }, w, h), 'rgba(239,68,68,0.35)', 1.5, 'World X');
+      drawArrow2D(ctx, wOrigin, project3D({ x: 0, y: 2.2, z: 0 }, w, h), 'rgba(34,197,94,0.35)', 1.5, 'World Y');
+      drawArrow2D(ctx, wOrigin, project3D({ x: 0, y: 0, z: 2.2 }, w, h), 'rgba(59,130,246,0.35)', 1.5, 'World Z');
+
+      // Extract Transformed Frame (O; u, v, w) from Matrix Columns!
+      const frameO = { x: M[3], y: M[7], z: M[11] };
+      const frameU = { x: frameO.x + M[0], y: frameO.y + M[4], z: frameO.z + M[8] };
+      const frameV = { x: frameO.x + M[1], y: frameO.y + M[5], z: frameO.z + M[9] };
+      const frameW = { x: frameO.x + M[2], y: frameO.y + M[6], z: frameO.z + M[10] };
+
+      const pO = project3D(frameO, w, h);
+      // Draw Translation Arrow from World Origin to Local Origin O (Column 4)
+      drawArrow2D(ctx, wOrigin, pO, '#a855f7', 2.5, 'O (Col 4)');
+
+      // Draw Transformed Basis Vectors u, v, w from Local Origin O (Columns 1, 2, 3)
+      drawArrow2D(ctx, pO, project3D(frameU, w, h), '#ef4444', 3.5, 'u (Col 1)');
+      drawArrow2D(ctx, pO, project3D(frameV, w, h), '#10b981', 3.5, 'v (Col 2)');
+      drawArrow2D(ctx, pO, project3D(frameW, w, h), '#38bdf8', 3.5, 'w (Col 3)');
+
+      // Transform a Unit Cube / Spaceship Mesh
+      const divW = Math.abs(wVal) > 1e-3 ? wVal : 1.0;
+      const cubeVerts = [
+        { x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }, { x: 1, y: 1, z: 0 }, { x: 0, y: 1, z: 0 },
+        { x: 0, y: 0, z: 1 }, { x: 1, y: 0, z: 1 }, { x: 1, y: 1, z: 1 }, { x: 0, y: 1, z: 1 }
+      ].map(v => {
+        const res = mat4Vec4(M, { x: v.x, y: v.y, z: v.z, w: wVal });
+        return project3D({ x: res.x / divW, y: res.y / divW, z: res.z / divW }, w, h);
+      });
+
+      const edges = [
+        [0,1],[1,2],[2,3],[3,0],
+        [4,5],[5,6],[6,7],[7,4],
+        [0,4],[1,5],[2,6],[3,7]
+      ];
+      ctx.save();
+      ctx.strokeStyle = Math.abs(wVal) < 1e-3 ? '#f59e0b' : '#818cf8';
+      ctx.lineWidth = 1.8;
+      edges.forEach(([i, j]) => {
+        ctx.beginPath();
+        ctx.moveTo(cubeVerts[i].x, cubeVerts[i].y);
+        ctx.lineTo(cubeVerts[j].x, cubeVerts[j].y);
+        ctx.stroke();
+      });
+      ctx.restore();
+
+      const testOut = mat4Vec4(M, { x: 1, y: 1, z: 1, w: wVal });
+      document.getElementById('probeResultHud').textContent =
+        Math.abs(wVal) < 1e-3
+          ? `Vector (1,1,1, w=0) â†’ (${testOut.x.toFixed(2)}, ${testOut.y.toFixed(2)}, ${testOut.z.toFixed(2)}, 0) [Immune to Trans!]`
+          : `Point (1,1,1, w=${wVal.toFixed(1)}) Ã· w â†’ (${(testOut.x / divW).toFixed(2)}, ${(testOut.y / divW).toFixed(2)}, ${(testOut.z / divW).toFixed(2)})`;
+    }
+
+    // ============================================================================
+    // TAB 2: HIERARCHICAL SCENE GRAPH ROBOT ARM
+    // ============================================================================
+    function drawHierarchyLab() {
+      const canvas = document.getElementById('hierarchyCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 680;
+      canvas.height = rect.height || 420;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const baseX = parseFloat(document.getElementById('armBaseX').value);
+      const yawDeg = parseFloat(document.getElementById('armYaw').value);
+      const shoulderDeg = parseFloat(document.getElementById('armShoulder').value);
+      const elbowDeg = parseFloat(document.getElementById('armElbow').value);
+
+      document.getElementById('armBaseXVal').textContent = baseX.toFixed(1);
+      document.getElementById('armYawVal').textContent = yawDeg + 'Â°';
+      document.getElementById('armShoulderVal').textContent = shoulderDeg + 'Â°';
+      document.getElementById('armElbowVal').textContent = elbowDeg + 'Â°';
+
+      // Draw World Floor Grid
+      ctx.save();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.14)';
+      for (let i = -3; i <= 3; i++) {
+        const p1 = project3D({ x: i, y: -1.0, z: -3 }, w, h);
+        const p2 = project3D({ x: i, y: -1.0, z: 3 }, w, h);
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        const p3 = project3D({ x: -3, y: -1.0, z: i }, w, h);
+        const p4 = project3D({ x: 3, y: -1.0, z: i }, w, h);
+        ctx.beginPath(); ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.stroke();
+      }
+      ctx.restore();
+
+      const makeT = (tx, ty, tz) => [1,0,0,tx, 0,1,0,ty, 0,0,1,tz, 0,0,0,1];
+      const makeRy = (rad) => {
+        const c = Math.cos(rad), s = Math.sin(rad);
+        return [c,0,s,0, 0,1,0,0, -s,0,c,0, 0,0,0,1];
+      };
+      const makeRz = (rad) => {
+        const c = Math.cos(rad), s = Math.sin(rad);
+        return [c,-s,0,0, s,c,0,0, 0,0,1,0, 0,0,0,1];
+      };
+
+      const M_base = mat4Mul(makeT(baseX, -1.0, 0), makeRy(yawDeg * Math.PI / 180));
+      const M_shoulder = mat4Mul(M_base, mat4Mul(makeT(0, 0.8, 0), makeRz(shoulderDeg * Math.PI / 180)));
+      const M_elbow = mat4Mul(M_shoulder, mat4Mul(makeT(0, 1.4, 0), makeRz(elbowDeg * Math.PI / 180)));
+      const M_tip = mat4Mul(M_elbow, makeT(0, 1.2, 0));
+
+      const drawFrameAxes = (M, label) => {
+        const o = { x: M[3], y: M[7], z: M[11] };
+        const ux = { x: o.x + M[0] * 0.55, y: o.y + M[4] * 0.55, z: o.z + M[8] * 0.55 };
+        const vy = { x: o.x + M[1] * 0.55, y: o.y + M[5] * 0.55, z: o.z + M[9] * 0.55 };
+        const wz = { x: o.x + M[2] * 0.55, y: o.y + M[6] * 0.55, z: o.z + M[10] * 0.55 };
+        const po = project3D(o, w, h);
+        drawArrow2D(ctx, po, project3D(ux, w, h), '#ef4444', 2, '');
+        drawArrow2D(ctx, po, project3D(vy, w, h), '#10b981', 2, '');
+        drawArrow2D(ctx, po, project3D(wz, w, h), '#38bdf8', 2, label);
+        return po;
+      };
+
+      const pBase = drawFrameAxes(M_base, 'F1:Base');
+      const pShoulder = drawFrameAxes(M_shoulder, 'F2:Shoulder');
+      const pElbow = drawFrameAxes(M_elbow, 'F3:Elbow');
+      const pTip = drawFrameAxes(M_tip, 'Tip');
+
+      // Draw Robot Arm Links
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineWidth = 10;
+      ctx.strokeStyle = '#f59e0b';
+      ctx.beginPath(); ctx.moveTo(pBase.x, pBase.y); ctx.lineTo(pShoulder.x, pShoulder.y); ctx.stroke();
+
+      ctx.strokeStyle = '#06b6d4';
+      ctx.beginPath(); ctx.moveTo(pShoulder.x, pShoulder.y); ctx.lineTo(pElbow.x, pElbow.y); ctx.stroke();
+
+      ctx.strokeStyle = '#a855f7';
+      ctx.beginPath(); ctx.moveTo(pElbow.x, pElbow.y); ctx.lineTo(pTip.x, pTip.y); ctx.stroke();
+      ctx.restore();
+
+      document.getElementById('effectorPosHud').textContent =
+        `End-Effector World Pos: (${M_tip[3].toFixed(2)}, ${(M_tip[7] + 1.0).toFixed(2)}, ${M_tip[11].toFixed(2)})`;
+    }
+
+    // ============================================================================
+    // TAB 4: 3-MISSION PLAYABLE MINI-GAME
+    // ============================================================================
+    function selectMission(m) {
+      currentMission = m;
+      for (let i = 1; i <= 3; i++) {
+        document.getElementById('missionPanel' + i).classList.toggle('hidden', i !== m);
+        const btn = document.getElementById('mBtn' + i);
+        btn.className = i === m
+          ? 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white transition'
+          : 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)] border border-[var(--border)] transition';
+      }
+      updateGame();
+    }
+
+    function randomizeMission1() {
+      const presets = [
+        { ux: 1.5, uy: 0.5, vx: -0.5, vy: 1.3 },
+        { ux: 0.8, uy: 1.2, vx: -1.2, vy: 0.8 },
+        { ux: -1.2, uy: 0.4, vx: 0.2, vy: 1.4 },
+        { ux: 1.6, uy: -0.4, vx: 0.6, vy: 1.1 }
+      ];
+      m1Target = presets[Math.floor(Math.random() * presets.length)];
+      updateGame();
+    }
+
+    function toggleM2Order() {
+      m2UseTR = !m2UseTR;
+      const btn = document.getElementById('m2OrderBtn');
+      btn.textContent = m2UseTR
+        ? 'âœ… Current Order: M = T Â· R (Rotate Locally, Then Translate!)'
+        : 'âš ï¸ Current Order: M = R Â· T (Translate First, Then Orbit Origin!)';
+      btn.className = m2UseTR
+        ? 'w-full py-2 rounded-lg font-bold bg-emerald-600 hover:bg-emerald-500 text-white'
+        : 'w-full py-2 rounded-lg font-bold bg-indigo-600 hover:bg-indigo-500 text-white';
+      updateGame();
+    }
+
+    function toggleM3NormalFix() {
+      m3UseInverseTranspose = !m3UseInverseTranspose;
+      const btn = document.getElementById('m3FixBtn');
+      btn.textContent = m3UseInverseTranspose
+        ? 'âœ… Enabled: Correct Normal n\' = (Mâ»Â¹)áµ€ Â· n'
+        : 'âŒ Using Wrong Normal: n\' = M Â· n (Click to Enable (Mâ»Â¹)áµ€!)';
+      btn.className = m3UseInverseTranspose
+        ? 'w-full py-2.5 rounded-lg font-bold bg-emerald-600 hover:bg-emerald-500 text-white'
+        : 'w-full py-2.5 rounded-lg font-bold bg-rose-600 hover:bg-rose-500 text-white';
+      updateGame();
+    }
+
+    function updateGame() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 680;
+      canvas.height = rect.height || 410;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const cx = w / 2, cy = h / 2 + 10, scale = 72;
+      const toScr = (x, y) => ({ x: cx + x * scale, y: cy - y * scale });
+
+      // Background Grid
+      ctx.save();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.14)';
+      for (let i = -4; i <= 4; i++) {
+        ctx.beginPath(); ctx.moveTo(cx + i * scale, 0); ctx.lineTo(cx + i * scale, h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, cy - i * scale); ctx.lineTo(w, cy - i * scale); ctx.stroke();
+      }
+      ctx.restore();
+
+      if (currentMission === 1) {
+        const ux = parseFloat(document.getElementById('m1Ux').value);
+        const uy = parseFloat(document.getElementById('m1Uy').value);
+        const vx = parseFloat(document.getElementById('m1Vx').value);
+        const vy = parseFloat(document.getElementById('m1Vy').value);
+        document.getElementById('m1UxVal').textContent = ux.toFixed(1);
+        document.getElementById('m1UyVal').textContent = uy.toFixed(1);
+        document.getElementById('m1VxVal').textContent = vx.toFixed(1);
+        document.getElementById('m1VyVal').textContent = vy.toFixed(1);
+
+        const shipLocal = [
+          { x: 0, y: 0 }, { x: 1.2, y: 0.2 }, { x: 1.5, y: 0.9 }, { x: 0.9, y: 1.5 }, { x: 0.2, y: 1.2 }
+        ];
+        const apply2 = (p, a, b, c, d) => toScr(a * p.x + c * p.y, b * p.x + d * p.y);
+
+        // Target Wireframe
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        shipLocal.forEach((p, idx) => {
+          const s = apply2(p, m1Target.ux, m1Target.uy, m1Target.vx, m1Target.vy);
+          if (idx === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
+        });
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+
+        // User Ship
+        const err = Math.hypot(ux - m1Target.ux, uy - m1Target.uy) + Math.hypot(vx - m1Target.vx, vy - m1Target.vy);
+        const cleared = err <= 0.22;
+        if (cleared) missionsCleared[1] = true;
+
+        ctx.save();
+        ctx.fillStyle = cleared ? 'rgba(16, 185, 129, 0.35)' : 'rgba(99, 102, 241, 0.28)';
+        ctx.strokeStyle = cleared ? '#10b981' : '#818cf8';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        shipLocal.forEach((p, idx) => {
+          const s = apply2(p, ux, uy, vx, vy);
+          if (idx === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
+        });
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        drawArrow2D(ctx, toScr(0, 0), toScr(ux, uy), '#ef4444', 3.2, `u=(${ux.toFixed(1)},${uy.toFixed(1)})`);
+        drawArrow2D(ctx, toScr(0, 0), toScr(vx, vy), '#10b981', 3.2, `v=(${vx.toFixed(1)},${vy.toFixed(1)})`);
+
+        document.getElementById('gameHudLeft').textContent = `Basis Error: ${err.toFixed(2)} (Target â‰¤ 0.22)`;
+        updateGameBadges(cleared);
+      } else if (currentMission === 2) {
+        const tx = parseFloat(document.getElementById('m2Tx').value);
+        const ty = parseFloat(document.getElementById('m2Ty').value);
+        const ang = parseFloat(document.getElementById('m2Angle').value);
+        document.getElementById('m2TxVal').textContent = tx.toFixed(1);
+        document.getElementById('m2TyVal').textContent = ty.toFixed(1);
+        document.getElementById('m2AngleVal').textContent = ang + 'Â°';
+
+        const transformShip = (pts, tX, tY, deg, isTR) => {
+          const rad = deg * Math.PI / 180;
+          const c = Math.cos(rad), s = Math.sin(rad);
+          return pts.map(p => {
+            if (isTR) {
+              return toScr(c * p.x - s * p.y + tX, s * p.x + c * p.y + tY);
+            } else {
+              const px = p.x + tX, py = p.y + tY;
+              return toScr(c * px - s * py, s * px + c * py);
+            }
+          });
+        };
+
+        const hull = [{ x: -0.4, y: -0.3 }, { x: 0.6, y: 0 }, { x: -0.4, y: 0.3 }];
+        const targetPts = transformShip(hull, m2Target.tx, m2Target.ty, m2Target.angle, true);
+        const userPts = transformShip(hull, tx, ty, ang, m2UseTR);
+
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        targetPts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+
+        const distErr = Math.hypot(userPts[1].x - targetPts[1].x, userPts[1].y - targetPts[1].y) / scale;
+        const cleared = m2UseTR && distErr < 0.18 && Math.abs(ang - m2Target.angle) <= 10;
+        if (cleared) missionsCleared[2] = true;
+
+        ctx.save();
+        ctx.fillStyle = cleared ? 'rgba(16, 185, 129, 0.45)' : 'rgba(56, 189, 248, 0.35)';
+        ctx.strokeStyle = cleared ? '#10b981' : '#38bdf8';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        userPts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        document.getElementById('gameHudLeft').textContent =
+          `Target Dock: T(1.6, 1.0) Â· R(60Â°) | Distance Error: ${distErr.toFixed(2)}`;
+        updateGameBadges(cleared);
+      } else if (currentMission === 3) {
+        const sx = parseFloat(document.getElementById('m3Scale').value);
+        document.getElementById('m3ScaleVal').textContent = sx.toFixed(2);
+
+        // Mirror originally at 45 deg tangent (1, 1), normal (-1, 1)/sqrt(2)
+        // After scaling X by sx: Tangent T' = (sx, 1)
+        const tLen = Math.hypot(sx, 1);
+        const tx = sx / tLen, ty = 1 / tLen;
+
+        // Wrong normal M*n = (-sx, 1), Right normal (M^-1)^T * n = (-1/sx, 1)
+        const rawNx = m3UseInverseTranspose ? -1 / sx : -sx;
+        const rawNy = 1;
+        const nLen = Math.hypot(rawNx, rawNy);
+        const nx = rawNx / nLen, ny = rawNy / nLen;
+
+        // Draw Mirror Segment at Origin
+        const m1 = toScr(-tx * 1.8, -ty * 1.8);
+        const m2 = toScr(tx * 1.8, ty * 1.8);
+        ctx.save();
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(m1.x, m1.y); ctx.lineTo(m2.x, m2.y); ctx.stroke();
+        ctx.restore();
+
+        // Draw Normal
+        drawArrow2D(
+          ctx,
+          toScr(0, 0),
+          toScr(nx * 1.3, ny * 1.3),
+          m3UseInverseTranspose ? '#10b981' : '#f43f5e',
+          3,
+          m3UseInverseTranspose ? 'n\'=(Mâ»Â¹)áµ€n' : 'Wrong MÂ·n'
+        );
+
+        // Incoming Laser from (-2.2, 0.8) hitting (0,0)
+        const src = { x: -2.2, y: 0.8 };
+        const iLen = Math.hypot(-src.x, -src.y);
+        const ix = -src.x / iLen, iy = -src.y / iLen;
+        drawArrow2D(ctx, toScr(src.x, src.y), toScr(0, 0), '#f59e0b', 3, 'Incident Laser I');
+
+        // Reflected Laser R = I - 2(IÂ·n)n
+        const idotn = ix * nx + iy * ny;
+        const rx = ix - 2 * idotn * nx;
+        const ry = iy - 2 * idotn * ny;
+        const hitPt = { x: rx * 2.4, y: ry * 2.4 };
+        drawArrow2D(ctx, toScr(0, 0), toScr(hitPt.x, hitPt.y), '#a855f7', 3.2, 'Reflected R');
+
+        // Target Core Position computed at m3TargetSx with correct normal
+        const tNxRaw = -1 / m3TargetSx, tNyRaw = 1;
+        const tNl = Math.hypot(tNxRaw, tNyRaw);
+        const tNx = tNxRaw / tNl, tNy = tNyRaw / tNl;
+        const tDot = ix * tNx + iy * tNy;
+        const corePos = { x: (ix - 2 * tDot * tNx) * 2.1, y: (iy - 2 * tDot * tNy) * 2.1 };
+        const coreScr = toScr(corePos.x, corePos.y);
+
+        const cleared = m3UseInverseTranspose && Math.abs(sx - m3TargetSx) <= 0.12;
+        if (cleared) missionsCleared[3] = true;
+
+        ctx.save();
+        ctx.fillStyle = cleared ? 'rgba(16, 185, 129, 0.45)' : 'rgba(245, 158, 11, 0.25)';
+        ctx.strokeStyle = cleared ? '#10b981' : '#f59e0b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(coreScr.x, coreScr.y, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        document.getElementById('gameHudLeft').textContent =
+          `Target Core Scale: sâ‚“ â‰ˆ ${m3TargetSx} | Normal Matrix: ${m3UseInverseTranspose ? 'ON' : 'OFF'}`;
+        updateGameBadges(cleared);
+      }
+    }
+
+    function updateGameBadges(isCurrentCleared) {
+      const count = Object.values(missionsCleared).filter(Boolean).length;
+      document.getElementById('gameScoreBadge').textContent = `Cleared: ${count} / 3 Missions`;
+      const pill = document.getElementById('gameStatusPill');
+      if (isCurrentCleared) {
+        pill.textContent = 'âœ“ MISSION CLEARED!';
+        pill.className = 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 px-3 py-1 rounded-full text-xs font-bold';
+      } else {
+        pill.textContent = 'IN PROGRESS';
+        pill.className = 'bg-amber-500/20 border border-amber-500/40 text-amber-300 px-3 py-1 rounded-full text-xs font-bold';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setupOrbitCanvas('shearSliceCanvas', drawShearSliceCanvas);
+      setupOrbitCanvas('matrixSandboxCanvas', updateMatrixSandbox);
+      setupOrbitCanvas('hierarchyCanvas', drawHierarchyLab);
+      updateTab0Canvases();
+    });
+  </script>
+</body>
+</html>

@@ -104,11 +104,17 @@ export const LESSONS: LessonItem[] = [
     id: 'L02',
     number: 2,
     stageId: 1,
-    title: '仿射空间、标架 (Frames) 与齐次坐标',
-    subtitle: 'Affine Spaces, Coordinate Frames & 4x4 Homogeneous Matrices',
-    concepts: ['点 (Point) vs 向量 (Vector)', '仿射组合', '标架 (O, u, v, w)', '4×4 齐次坐标矩阵 (x,y,z,w)'],
-    playgroundTitle: '4×4 矩阵与 w 分量透视器',
-    playgroundDescription: '滑动 4×4 矩阵元素与齐次坐标 w，实时观察平移、缩放、错切与局部坐标系标架变换。',
+    title: '线性变换、仿射标架 (Frames) 与 4×4 齐次坐标矩阵',
+    subtitle: 'Linear Transformations, Coordinate Frames & 4x4 Homogeneous Matrices',
+    concepts: [
+      '矩阵的列 = 变换后的基向量 (3Blue1Brown)',
+      '高维线性切变 (w=1 Shear) 诞生齐次平移',
+      '仿射标架 (O; u, v, w) 与父子骨骼层级树',
+      '法向量逆转置矩阵 (M⁻¹)ᵀ 推导'
+    ],
+    playgroundTitle: '4×4 齐次矩阵透视器 + w=1 高维切变沙盒 + 机械臂标架树 + 3关小游戏',
+    playgroundDescription: '交互体验 3D 高维切变如何在 w=1 切片上产生平移、法向量 (M⁻¹)ᵀ 对比、4×4 矩阵列与局部标架实时映射、机械臂正向运动学与 3 关矩阵闯关游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',

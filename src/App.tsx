@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { LESSONS, STAGES, LessonItem } from './data/curriculum';
 import { Lesson01Vectors } from './lessons/Lesson01Vectors';
+import { Lesson02Frames } from './lessons/Lesson02Frames';
 
 const STORAGE_KEY = 'learning_3d_completed_lessons_v1';
 const LANG_KEY = 'learning_3d_lang_v1';
@@ -159,8 +160,15 @@ export const App: React.FC = () => {
             onToggleComplete={() => toggleLessonComplete('L01')}
             onBackToPortal={() => navigateToLesson(null)}
           />
+        ) : selectedLessonId === 'L02' ? (
+          <Lesson02Frames
+            lang={lang}
+            isCompleted={completedIds.includes('L02')}
+            onToggleComplete={() => toggleLessonComplete('L02')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
         ) : activeLessonObj ? (
-          /* Lesson Syllabus Preview Page for L02-L32 */
+          /* Lesson Syllabus Preview Page for L03-L32 */
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-5">
               <div>
@@ -284,29 +292,36 @@ export const App: React.FC = () => {
                   {isZh ? (
                     <>
                       本网站将 <b>UC Davis ECS 175 (Fall 2009 全部 21 讲)</b> 的几何直觉与{' '}
-                      <b>MIT 6.837 (Fall 2021 全部 22 讲)</b> 的现代图形学体系 100% 融合。每一课都配备可实时操控的 3D 交互沙盒、最后一个板块的<b>互动通关小游戏</b>与双课程视频索引。
+                      <b>MIT 6.837 (Fall 2021 全部 22 讲)</b> 的现代图形学体系 100% 融合，并融入{' '}
+                      <b>3Blue1Brown《线性代数的本质》</b>深度几何推导。每一课都配备可实时操控的 3D 交互沙盒、最后一个板块的<b>互动通关小游戏</b>与双课程视频索引。
                     </>
                   ) : (
                     <>
                       This portal synthesizes 100% of <b>UC Davis ECS 175 (Fall 2009, all 21 lectures)</b> with{' '}
-                      <b>MIT 6.837 (Fall 2021, all 22 lectures)</b>. Every lesson features an interactive 3D sandbox, a playable mini-game in the final section, and embedded lecture references.
+                      <b>MIT 6.837 (Fall 2021, all 22 lectures)</b> and <b>3Blue1Brown</b> geometric derivations. Every lesson features an interactive 3D sandbox, a playable mini-game, and embedded lecture references.
                     </>
                   )}
                 </p>
                 <div className="pt-2 flex flex-wrap gap-3">
                   <a
                     href="#lesson=L01"
-                    className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg transition"
+                    className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 transition"
                   >
-                    {isZh
-                      ? '🚀 立即进入 Lesson 01 (交互沙盒 + 3关小游戏)'
-                      : '🚀 Launch Lesson 01 (Interactive Lab + 3-Mission Game)'}
+                    {isZh ? '🚀 Lesson 01: 向量与点积/叉积' : '🚀 Lesson 01: Vectors & Dot/Cross'}
                   </a>
                   <a
-                    href="./lessons/lesson-01.html"
-                    className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+                    href="#lesson=L02"
+                    className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg transition"
                   >
-                    {isZh ? '📄 打开 Lesson 01 独立网页版 (.html) ↗' : '📄 Standalone Lesson 01 (.html) ↗'}
+                    {isZh
+                      ? '🔥 最新上线 Lesson 02: 仿射标架与 4×4 齐次矩阵'
+                      : '🔥 New Lesson 02: Frames & 4×4 Homogeneous Matrices'}
+                  </a>
+                  <a
+                    href="./lessons/lesson-02.html"
+                    className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/40 transition"
+                  >
+                    {isZh ? '📄 打开 Lesson 02 独立网页 (.html) ↗' : '📄 Standalone Lesson 02 (.html) ↗'}
                   </a>
                 </div>
               </div>
@@ -440,6 +455,7 @@ export const App: React.FC = () => {
                     <tbody className="divide-y divide-slate-800/70">
                       {filteredLessons.map(lesson => {
                         const done = completedIds.includes(lesson.id);
+                        const htmlPath = `./lessons/lesson-${String(lesson.number).padStart(2, '0')}.html`;
                         return (
                           <tr
                             key={lesson.id}
@@ -508,7 +524,7 @@ export const App: React.FC = () => {
                                       {isZh ? '🎮 进入实验室' : '🎮 Launch Lab'}
                                     </a>
                                     <a
-                                      href="./lessons/lesson-01.html"
+                                      href={htmlPath}
                                       className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
                                       title="Standalone HTML Page"
                                     >
@@ -548,6 +564,7 @@ export const App: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredLessons.map((lesson: LessonItem) => {
                   const done = completedIds.includes(lesson.id);
+                  const htmlPath = `./lessons/lesson-${String(lesson.number).padStart(2, '0')}.html`;
                   return (
                     <div
                       key={lesson.id}
@@ -642,7 +659,7 @@ export const App: React.FC = () => {
                         <div className="flex items-center gap-2">
                           {lesson.isImplemented && (
                             <a
-                              href="./lessons/lesson-01.html"
+                              href={htmlPath}
                               className="px-2.5 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
                             >
                               .HTML ↗
