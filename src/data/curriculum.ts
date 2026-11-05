@@ -316,7 +316,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Catmull-Clark Quad Subdivision, Loop Triangle Subdivision & Half-Edge',
     concepts: ['Face / Edge / Vertex 顶点更新权重', 'Catmull-Clark 四边形细分', 'Loop 三角形细分', '半边数据结构 (Half-Edge)'],
     playgroundTitle: 'Catmull-Clark & Loop 3D 实时细分器',
-    playgroundDescription: '对 3D 低模进行 0~4 级实时细分，调节折痕锐度 (Crease) 并高亮奇异点邻域权重。',
+    playgroundDescription: '从 1D 掩模张量外积推导 2D Catmull-Clark 1/64 规则掩模与任意价 n 奇异点权重，在 3D 实时细分工坊体验 Catmull-Clark 四边形细分、Loop 三角形细分与皮克斯半锐折痕 (Crease)，单步调试半边数据结构 (Half-Edge) 一环遍历，并畅玩 3 关皮克斯细分架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
