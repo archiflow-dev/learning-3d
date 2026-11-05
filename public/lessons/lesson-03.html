@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 03: 3D 旋转数学 — 正交矩阵 SO(3)、万向节死锁与罗德里格斯公式 | 3Blue1Brown Intuition</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --background: #0b1020;
+      --foreground: #f8fafc;
+      --card: #111827;
+      --card-foreground: #f8fafc;
+      --muted: #1e293b;
+      --muted-foreground: #94a3b8;
+      --border: #1e293b;
+      --primary: #6366f1;
+      --primary-foreground: #ffffff;
+      --secondary: #0f172a;
+      --secondary-foreground: #e2e8f0;
+      --accent: #f59e0b;
+    }
+    body {
+      background-color: var(--background);
+      color: var(--foreground);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    canvas {
+      touch-action: none;
+    }
+    input[type="range"] {
+      accent-color: #6366f1;
+    }
+    .tab-active {
+      background-color: var(--primary);
+      color: var(--primary-foreground);
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+    }
+    .math-box {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    html[lang="zh-CN"] [data-lang="en"] { display: none !important; }
+    html[lang="en"] [data-lang="zh"] { display: none !important; }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+
+  <!-- Header Banner with Top-Right Language Switcher -->
+  <header class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-lg">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="space-y-1.5">
+        <div class="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wider text-indigo-400">
+          <a href="../index.html" class="px-2.5 py-1 rounded-lg bg-[var(--secondary)] border border-[var(--border)] hover:border-indigo-500 text-indigo-300 transition">
+            <span data-lang="zh">🏠 课程总目录 (Index)</span>
+            <span data-lang="en">🏠 Course Index</span>
+          </a>
+          <a href="./lesson-02.html" class="px-2.5 py-1 rounded-lg bg-[var(--secondary)] border border-[var(--border)] hover:border-indigo-500 text-[var(--muted-foreground)] hover:text-white transition">
+            <span data-lang="zh">← L02 标架与齐次矩阵</span>
+            <span data-lang="en">← L02 Frames &amp; Matrices</span>
+          </a>
+          <span>•</span>
+          <span>Stage 1 · Lesson 03 / 32</span>
+          <span>•</span>
+          <span>UC Davis Lec 04 + MIT 6.837 Lec 04 + 3Blue1Brown</span>
+        </div>
+        <h1 class="text-2xl md:text-3xl font-bold tracking-tight">
+          <span data-lang="zh">Lesson 03: 3D 旋转数学 — 正交矩阵 SO(3)、万向节死锁与罗德里格斯公式</span>
+          <span data-lang="en">Lesson 03: 3D Rotations — Orthogonal Group SO(3), Gimbal Lock &amp; Rodrigues' Formula</span>
+        </h1>
+        <p class="text-sm text-[var(--muted-foreground)] max-w-3xl leading-relaxed">
+          <span data-lang="zh">用 3Blue1Brown 的几何与对偶性视角彻底搞懂：为什么旋转矩阵的逆恰好等于转置 (R⁻¹ = Rᵀ)？为什么当 Pitch = 90° 时欧拉角会发生“万向节死锁”丢失一个维度？如何仅凭第 1 课的点积投影与叉积立轴，三步推导出绕任意轴旋转的罗德里格斯公式？</span>
+          <span data-lang="en">Understand 3D rotations from first principles: Why does a rotation matrix's inverse equal its transpose (R⁻¹ = Rᵀ)? Why does Pitch = 90° collapse a degree of freedom in Gimbal Lock? How do dot-product projection and cross-product perpendicularity derive Rodrigues' Arbitrary-Axis Rotation Formula in 3 steps?</span>
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="langToggleBtn" onclick="toggleLanguage()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[var(--secondary)] hover:bg-[var(--muted)] border border-indigo-500/40 text-indigo-300 transition shadow-sm">
+          <span>🌐</span>
+          <span id="langBtnLabel">EN / English</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex flex-wrap gap-2 mt-6 pt-4 border-t border-[var(--border)]">
+      <button id="tabBtn0" onclick="switchTab(0)" class="tab-active px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all">
+        <span data-lang="zh">1. 🧠 深度几何原理与推导 (3Blue1Brown 视角)</span>
+        <span data-lang="en">1. 🧠 Deep Intuition &amp; Proofs (3B1B Style)</span>
+      </button>
+      <button id="tabBtn1" onclick="switchTab(1)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
+        <span data-lang="zh">2. 🔬 三环万向节死锁模拟器 (Gimbal Lock)</span>
+        <span data-lang="en">2. 🔬 3-Ring Gimbal Lock Simulator</span>
+      </button>
+      <button id="tabBtn2" onclick="switchTab(2)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
+        <span data-lang="zh">3. 🧭 罗德里格斯任意轴旋转实验室</span>
+        <span data-lang="en">3. 🧭 Rodrigues Arbitrary-Axis Lab</span>
+      </button>
+      <button id="tabBtn3" onclick="switchTab(3)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
+        <span data-lang="zh">4. 🎥 名校公开课视频与精要</span>
+        <span data-lang="en">4. 🎥 Lecture Videos &amp; Notes</span>
+      </button>
+      <button id="tabBtn4" onclick="switchTab(4)" class="bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90">
+        <span data-lang="zh">5. 🎮 终极互动小游戏：深空陀螺仪救援</span>
+        <span data-lang="en">5. 🎮 Mini-Game: Deep-Space Gyro Rescue</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 0: 3BLUE1BROWN DEEP GEOMETRIC INTUITION & DERIVATIONS                               -->
+  <!-- ======================================================================================== -->
+  <section id="tab0" class="space-y-6">
+
+    <!-- 1. SO(3) Orthogonal Matrices & Why R^-1 = R^T -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-5">
+      <div class="border-b border-[var(--border)] pb-3">
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+          <span data-lang="zh">第一性原理 1 · 特殊正交群 SO(3) 与对偶性</span>
+          <span data-lang="en">First Principle 1 · Special Orthogonal Group SO(3) &amp; Duality</span>
+        </span>
+        <h2 class="text-xl font-bold mt-1">
+          <span data-lang="zh">什么样的矩阵才是纯旋转？为什么旋转矩阵的逆矩阵 R⁻¹ 恰好等于它的转置 Rᵀ？</span>
+          <span data-lang="en">What Makes a Matrix a Pure Rotation? Why Does Its Inverse R⁻¹ Equal Its Transpose Rᵀ?</span>
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div class="lg:col-span-6 space-y-3 text-xs leading-relaxed">
+          <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-1.5">
+            <div class="font-bold text-amber-400 text-sm">
+              <span data-lang="zh">① 刚体旋转的几何定义：标准正交列向量 + 右手定则 (det = +1)</span>
+              <span data-lang="en">① Rigid Rotation: Orthonormal Columns + Right-Handedness (det = +1)</span>
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-lang="zh">
+              根据第 2 课的黄金法则，3×3 矩阵 <code>R = [u | v | w]</code> 的三列就是三根基向量旋转后的落点。刚体旋转不改变任何长度和夹角，因此新基向量必须满足：<br/>
+              • <b>单位长度</b>：<code>||u|| = ||v|| = ||w|| = 1</code>（不拉伸、不压缩）；<br/>
+              • <b>两两正交垂直</b>：<code>u·v = v·w = w·u = 0</code>（网格依然是 90° 直角）；<br/>
+              • <b>手性守恒（非镜像反射）</b>：<code>det(R) = (u × v) · w = +1</code>（若为 -1 则是照镜子翻转）。
+            </p>
+            <p class="text-[var(--muted-foreground)]" data-lang="en">
+              By Lesson 02's Golden Rule, the columns of <code>R = [u | v | w]</code> are where the basis vectors land. Rigid rotation preserves lengths and angles, requiring:<br/>
+              • <b>Unit length</b>: <code>||u|| = ||v|| = ||w|| = 1</code>;<br/>
+              • <b>Mutual orthogonality</b>: <code>u·v = v·w = w·u = 0</code>;<br/>
+              • <b>Orientation preservation</b>: <code>det(R) = +1</code> (forming the group <b>SO(3)</b>).
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-1.5">
+            <div class="font-bold text-cyan-400 text-sm">
+              <span data-lang="zh">② 3Blue1Brown 对偶性证明：为什么把列向量“躺平”变成行向量 (Rᵀ)，就能把旋转倒退回去？</span>
+              <span data-lang="en">② 3B1B Duality Proof: Why Turning Columns into Rows (Rᵀ) Reverses the Rotation!</span>
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-lang="zh">
+              • <b>正向旋转 R·p（按列合成）</b>：把原始坐标 <code>(x, y, z)</code> 沿着新基向量列组合：<code>p' = x·u + y·v + z·w</code>。<br/>
+              • <b>逆向还原 R⁻¹·p'（怎么从 p' 找回原始的 x, y, z？）</b>：因为 <code>u, v, w</code> 两两垂直且长度为 1，要想知道 <code>p'</code> 在 <code>u</code> 方向上走了多少步（即 <code>x</code>），根据第 1 课的点积投影，直接算 <b><code>x = u · p' = uᵀ p'</code></b> 即可！同理 <code>y = vᵀ p'</code>，<code>z = wᵀ p'</code>！<br/>
+              • 把这三个点积投影动作排成三行，恰恰就是把三列 <code>[u | v | w]</code> 横过来变成三行 <code>[uᵀ; vᵀ; wᵀ] = Rᵀ</code>！
+            </p>
+            <p class="text-[var(--muted-foreground)]" data-lang="en">
+              • <b>Forward Rotation R·p (Synthesis by Columns)</b>: Builds <code>p' = x·u + y·v + z·w</code>.<br/>
+              • <b>Inverse R⁻¹·p' (Decomposition by Dot Product)</b>: Since <code>u, v, w</code> are orthonormal, recovering coordinate <code>x</code> from <code>p'</code> is simply projecting <code>p'</code> onto <code>u</code> via dot product: <b><code>x = u · p' = uᵀ p'</code></b>! Stacking rows <code>uᵀ, vᵀ, wᵀ</code> is literally the transpose <b><code>Rᵀ</code></b>!
+            </p>
+            <div class="math-box p-2 rounded bg-black/50 text-cyan-300 text-center">
+              Rᵀ · R = [uᵀ; vᵀ; wᵀ] · [u | v | w] = [ u·u  u·v  u·w ; ... ] = I₃  ⇒  R⁻¹ = Rᵀ
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer 1: SO(3) Transpose-as-Inverse Verifier -->
+        <div class="lg:col-span-6 bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-amber-300">
+              <span data-lang="zh">🔬 交互验证：为什么只有标准正交矩阵才能用 Rᵀ 完美还原向量？</span>
+              <span data-lang="en">🔬 Live Verifier: Why Rᵀ Perfectly Inverts R Only When Columns Are Orthonormal</span>
+            </span>
+          </div>
+
+          <div class="relative w-full rounded-lg overflow-hidden border border-[var(--border)] bg-[#070b14]" style="height: 295px;">
+            <canvas id="so3DualityCanvas" class="w-full h-full"></canvas>
+            <div class="absolute top-2.5 left-2.5 bg-black/75 backdrop-blur px-2.5 py-1.5 rounded border border-slate-800 text-[11px] space-y-0.5 pointer-events-none">
+              <div id="so3HudStatus" class="math-box text-emerald-400 font-bold">✅ Orthonormal (RᵀR = I): Rᵀ(R·p) == p (Error: 0.00)</div>
+              <div id="so3HudDot" class="math-box text-slate-300">u·v = 0.00 | ||u|| = 1.00, ||v|| = 1.00</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3 text-xs">
+            <div>
+              <div class="flex justify-between mb-0.5">
+                <span data-lang="zh">旋转角 θ</span>
+                <span data-lang="en">Rotation θ</span>
+                <span id="so3AngleLabel" class="math-box text-amber-300">40°</span>
+              </div>
+              <input id="so3AngleSlider" type="range" min="-180" max="180" step="1" value="40" oninput="updateTab0Canvases()" class="w-full" />
+            </div>
+            <div>
+              <div class="flex justify-between mb-0.5">
+                <span data-lang="zh">破坏正交 (歪斜角)</span>
+                <span data-lang="en">Skew Angle (Break ⊥)</span>
+                <span id="so3SkewLabel" class="math-box text-rose-300">0°</span>
+              </div>
+              <input id="so3SkewSlider" type="range" min="-45" max="45" step="1" value="0" oninput="updateTab0Canvases()" class="w-full" />
+            </div>
+            <div>
+              <div class="flex justify-between mb-0.5">
+                <span data-lang="zh">破坏单位长 ||u||</span>
+                <span data-lang="en">Scale ||u|| (Break 1)</span>
+                <span id="so3ScaleLabel" class="math-box text-cyan-300">1.0</span>
+              </div>
+              <input id="so3ScaleSlider" type="range" min="0.6" max="1.6" step="0.05" value="1.0" oninput="updateTab0Canvases()" class="w-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Euler Angles & Gimbal Lock Algebraic + Geometric Proof -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-4">
+      <div class="border-b border-[var(--border)] pb-3">
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+          <span data-lang="zh">第一性原理 2 · 欧拉角与万向节死锁 (Gimbal Lock) 的代数与几何证明</span>
+          <span data-lang="en">First Principle 2 · Algebraic &amp; Geometric Proof of Gimbal Lock</span>
+        </span>
+        <h2 class="text-xl font-bold mt-1">
+          <span data-lang="zh">为什么当中间轴 Pitch = ±90° 时，三维旋转会突然“丢失一个自由度”？</span>
+          <span data-lang="en">Why Does 3D Rotation Suddenly Lose a Degree of Freedom When Middle Axis Pitch = ±90°?</span>
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 text-xs leading-relaxed">
+        <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
+          <div class="font-bold text-rose-400 text-sm">
+            <span data-lang="zh">① 物理与几何图像：父子三环嵌套导致外环轴与内环轴共线重合！</span>
+            <span data-lang="en">① Geometric Cause: Hierarchical Rings Align Outer Axis with Inner Axis!</span>
+          </div>
+          <p class="text-[var(--muted-foreground)]" data-lang="zh">
+            欧拉角把旋转写成三次固定轴旋转的连乘：<code>R = R_y(α) · R_x(β) · R_z(γ)</code>。这对应一套<b>父子嵌套三环架</b>：<br/>
+            • <b>外环 Yaw (α)</b> 固定在世界底座，始终绕<b>世界 Y 轴（竖直轴）</b>旋转，并带动里面的中环和内环；<br/>
+            • <b>中环 Pitch (β)</b> 带动内环绕局部 X 轴抬头/低头；<br/>
+            • <b>内环 Roll (γ)</b> 绕飞机自身的机头 Z 轴翻滚。<br/>
+            <b>死锁瞬间</b>：当你把中环 Pitch 推到 <b><code>β = +90°</code>（机头垂直朝天）</b>时，内环的机头 Z 轴被硬生生竖立起来，<b>与外环的世界 Y 轴彻底平行重合了</b>！此时不论你转外环 α 还是转内环 γ，都在绕同一根竖直轴打转，飞机再也无法向左右两侧偏转机头！
+          </p>
+          <p class="text-[var(--muted-foreground)]" data-lang="en">
+            Euler angles chain three rotations: <code>R = R_y(α) · R_x(β) · R_z(γ)</code>, forming a 3-ring hierarchy:<br/>
+            • <b>Outer Ring Yaw (α)</b> rotates around the fixed World Y-axis, carrying the inner rings;<br/>
+            • <b>Middle Ring Pitch (β)</b> pitches the inner ring up/down;<br/>
+            • <b>Inner Ring Roll (γ)</b> rolls the aircraft nose Z-axis.<br/>
+            <b>The Trap</b>: When <b><code>β = +90°</code> (nose straight up)</b>, the middle ring pitches the inner Z-axis until it points straight up—<b>parallel to the outer World Y-axis</b>! Both α and γ now spin around the exact same vertical line!
+          </p>
+        </div>
+
+        <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2">
+          <div class="font-bold text-amber-400 text-sm">
+            <span data-lang="zh">② 矩阵代数严格证明：把 β = 90° 代入，α 和 γ 直接合并成单一变量 (α - γ)！</span>
+            <span data-lang="en">② Algebraic Proof: Substituting β = 90° Merges α and γ into a Single Variable (α - γ)!</span>
+          </div>
+          <p class="text-[var(--muted-foreground)]" data-lang="zh">
+            当 <code>β = 90°</code> 时，<code>cos(90°) = 0, sin(90°) = 1</code>。将三个矩阵直接相乘并利用三角和差公式化简：
+          </p>
+          <p class="text-[var(--muted-foreground)]" data-lang="en">
+            At <code>β = 90°</code> (<code>cos 90° = 0, sin 90° = 1</code>), multiplying <code>R_y(α) · R_x(90°) · R_z(γ)</code> and applying trig identities yields:
+          </p>
+          <div class="math-box p-3 rounded bg-black/50 text-amber-300 space-y-1">
+            <div>R(α, 90°, γ) = R_y(α) · [1, 0, 0; 0, 0, -1; 0, 1, 0] · R_z(γ)</div>
+            <div class="text-emerald-300 font-bold">
+              = [ cos(α - γ),  sin(α - γ),   0 ;
+            </div>
+            <div class="text-emerald-300 font-bold">
+                  0,           0,           -1 ;
+            </div>
+            <div class="text-emerald-300 font-bold">
+                 -sin(α - γ),  cos(α - γ),   0 ]
+            </div>
+          </div>
+          <p class="text-[var(--muted-foreground)]" data-lang="zh">
+            <b>铁证如山</b>：矩阵里原本独立的两个角度 <code>α</code> 和 <code>γ</code> 消失了，只剩下唯一的组合 <b><code>(α - γ)</code></b>！自由度从 3 坍缩到了 1！
+          </p>
+          <p class="text-[var(--muted-foreground)]" data-lang="en">
+            <b>Proof Complete</b>: Independent parameters <code>α</code> and <code>γ</code> vanish—only the single difference <b><code>(α - γ)</code></b> remains!
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Rodrigues' Rotation Formula Step-by-Step Derivation & 3D Decomposition Visualizer -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-5">
+      <div class="border-b border-[var(--border)] pb-3">
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+          <span data-lang="zh">第一性原理 3 · 罗德里格斯任意轴旋转公式 (Rodrigues' Formula) 完整推导</span>
+          <span data-lang="en">First Principle 3 · Step-by-Step Derivation of Rodrigues' Rotation Formula</span>
+        </span>
+        <h2 class="text-xl font-bold mt-1">
+          <span data-lang="zh">如何只用第 1 课的“点积投影”和“叉积垂直”，三步推导出绕任意轴 k̂ 旋转 θ 的公式？</span>
+          <span data-lang="en">How Dot-Product Projection &amp; Cross-Product Perpendicularity Derive Arbitrary-Axis Rotation in 3 Steps</span>
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <!-- Left 3D Visualizer: Rodrigues Vector Decomposition -->
+        <div class="lg:col-span-6 bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-indigo-300">
+              <span data-lang="zh">🔬 3D 罗德里格斯几何分解探针 (按住鼠标拖拽旋转视角)</span>
+              <span data-lang="en">🔬 3D Rodrigues Geometric Decomposition Probe (Drag to Orbit)</span>
+            </span>
+          </div>
+
+          <div class="relative w-full rounded-lg overflow-hidden border border-[var(--border)] bg-[#070b14]" style="height: 330px;">
+            <canvas id="rodriguesDecompCanvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+            <div class="absolute top-2.5 left-2.5 bg-black/75 backdrop-blur px-2.5 py-1.5 rounded border border-slate-800 text-[11px] space-y-0.5 pointer-events-none">
+              <div class="text-indigo-300 font-bold">v_rot = v_∥ + cos(θ)·v_⊥ + sin(θ)·(k̂ × v)</div>
+              <div id="rodDecompHud" class="math-box text-amber-300">θ = 65° | v_rot = (1.12, 1.85, 0.94)</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <div class="flex justify-between mb-0.5 font-semibold text-amber-300">
+                <span data-lang="zh">✨ 绕轴旋转角 θ:</span>
+                <span data-lang="en">✨ Rotation Angle θ:</span>
+                <span id="rodThetaLabel" class="math-box">65°</span>
+              </div>
+              <input id="rodThetaSlider" type="range" min="0" max="360" step="1" value="65" oninput="updateTab0Canvases()" class="w-full" />
+            </div>
+            <div>
+              <div class="flex justify-between mb-0.5 text-[var(--muted-foreground)]">
+                <span data-lang="zh">旋转轴倾角 (Axis Tilt):</span>
+                <span data-lang="en">Axis Tilt Angle:</span>
+                <span id="rodAxisTiltLabel" class="math-box text-cyan-300">25°</span>
+              </div>
+              <input id="rodAxisTiltSlider" type="range" min="-60" max="60" step="1" value="25" oninput="updateTab0Canvases()" class="w-full" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 3-Step Derivation -->
+        <div class="lg:col-span-6 space-y-3 text-xs leading-relaxed">
+          <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-1.5">
+            <div class="font-bold text-sky-400 text-sm">
+              <span data-lang="zh">第 1 步（点积分解）：把向量 v 拆成“轴上不动部分 v_∥”与“圆盘半径 v_⊥”</span>
+              <span data-lang="en">Step 1 (Dot Product): Split v into Fixed Axial Part v_∥ and Disk Radius v_⊥</span>
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-lang="zh">
+              设单位旋转轴为 <code>k̂</code>（<code>||k̂|| = 1</code>，画布中青色轴）。利用第 1 课的点积投影：<br/>
+              • <b>平行于旋转轴的分量（蓝色箭头）</b>：<code>v_∥ = (k̂ · v) k̂</code>。因为它在转轴上，<b>绕轴旋转时它纹丝不动</b>！<br/>
+              • <b>垂直于旋转轴的圆盘半径（绿色箭头）</b>：<code>v_⊥ = v - v_∥ = v - (k̂ · v) k̂</code>。当 <code>v</code> 绕轴旋转时，只有 <code>v_⊥</code> 在垂直圆盘平面内画圆！
+            </p>
+            <p class="text-[var(--muted-foreground)]" data-lang="en">
+              Given unit axis <code>k̂</code> (<code>||k̂|| = 1</code>), use Lesson 01's dot-product projection:<br/>
+              • <b>Parallel component (Blue)</b>: <code>v_∥ = (k̂ · v) k̂</code> stays completely invariant during rotation!<br/>
+              • <b>Perpendicular disk radius (Green)</b>: <code>v_⊥ = v - (k̂ · v) k̂</code> traces a circle in the plane perpendicular to <code>k̂</code>!
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-1.5">
+            <div class="font-bold text-purple-400 text-sm">
+              <span data-lang="zh">第 2 步（叉积立轴）：用 k̂ × v 造出圆盘内逆时针垂直 90° 的等长伙伴轴！</span>
+              <span data-lang="en">Step 2 (Cross Product): Use k̂ × v to Build the 90° Orthogonal Partner in the Disk!</span>
+            </div>
+            <p class="text-[var(--muted-foreground)]" data-lang="zh">
+              要在垂直圆盘平面内把半径 <code>v_⊥</code> 旋转 <code>θ</code> 角，我们需要圆盘内与 <code>v_⊥</code> 逆时针成 90° 且等长的第二根正交轴（画布中<b>紫色箭头</b>）：<br/>
+              • 直接计算叉积 <b><code>w = k̂ × v_⊥</code></b>！它同时垂直于 <code>k̂</code> 和 <code>v_⊥</code>（恰在圆盘切线方向），且模长 <code>||k̂ × v_⊥|| = 1 · ||v_⊥|| · sin(90°) = ||v_⊥||</code>！<br/>
+              • 又因为 <code>k̂ × v_∥ = 0</code>，所以 <code>k̂ × v_⊥ = k̂ × v</code>！于是圆盘内旋转 <code>θ</code> 角就是：
+            </p>
+            <p class="text-[var(--muted-foreground)]" data-lang="en">
+              To rotate <code>v_⊥</code> by angle <code>θ</code> inside the circular disk, we need an equal-length vector rotated +90° in that plane (<b>Purple arrow</b>):<br/>
+              • Take the cross product <b><code>k̂ × v_⊥ = k̂ × v</code></b>! Its length equals <code>||v_⊥||</code> and it points +90° counterclockwise in the disk:
+            </p>
+            <div class="math-box p-2 rounded bg-black/50 text-purple-300 text-center">
+              v_⊥,rot = cos(θ) · v_⊥ + sin(θ) · (k̂ × v)
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-1.5">
+            <div class="font-bold text-amber-400 text-sm">
+              <span data-lang="zh">第 3 步（终极合体）：加上不动的 v_∥，化简得出罗德里格斯公式与矩阵形式！</span>
+              <span data-lang="en">Step 3 (Combine): Add Invariant v_∥ to Obtain Rodrigues' Formula!</span>
+            </div>
+            <div class="math-box p-2.5 rounded bg-black/50 text-amber-300 space-y-1">
+              <div>v_rot = v_∥ + cos(θ)·(v - v_∥) + sin(θ)·(k̂ × v)</div>
+              <div class="text-emerald-300 font-bold">v_rot = cos(θ)·v + (1 - cos(θ))(k̂ · v)k̂ + sin(θ)(k̂ × v)</div>
+              <div class="text-indigo-300">Matrix: R(k̂, θ) = I + sin(θ)·[k̂]ₓ + (1 - cos(θ))·[k̂]ₓ²</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 1: 3-RING GIMBAL LOCK SIMULATOR                                                      -->
+  <!-- ======================================================================================== -->
+  <section id="tab1" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div class="lg:col-span-7 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-lg font-bold">
+            <span data-lang="zh">3D 三环万向节死锁模拟器 (Yaw → Pitch → Roll)</span>
+            <span data-lang="en">3D Three-Ring Gimbal Lock Simulator (Yaw → Pitch → Roll)</span>
+          </h2>
+          <p class="text-xs text-[var(--muted-foreground)]">
+            <span data-lang="zh">蓝色外环: Yaw (世界 Y 轴) ｜ 绿色中环: Pitch (局部 X 轴) ｜ 红色内环: Roll (机头 Z 轴)</span>
+            <span data-lang="en">Blue Outer Ring: Yaw (World Y) ｜ Green Middle Ring: Pitch (Local X) ｜ Red Inner Ring: Roll (Nose Z)</span>
+          </p>
+        </div>
+
+        <div class="flex gap-2">
+          <button onclick="triggerGimbalLock()" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-600 hover:bg-rose-500 text-white shadow transition">
+            <span data-lang="zh">⚠️ 一键触发 Pitch = 90° 万向节死锁！</span>
+            <span data-lang="en">⚠️ Trigger Pitch = 90° Gimbal Lock!</span>
+          </button>
+          <button onclick="resetGimbal()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--secondary)] hover:bg-[var(--muted)] border border-[var(--border)]">
+            <span data-lang="zh">重置 (Reset)</span>
+            <span data-lang="en">Reset</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="relative flex-1 min-h-[430px] bg-[#070b14] rounded-xl overflow-hidden border border-[var(--border)]">
+        <canvas id="gimbalCanvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+        <div class="absolute top-3 left-3 bg-black/80 backdrop-blur px-3.5 py-2 rounded-lg border border-slate-800 text-xs space-y-1 pointer-events-none">
+          <div id="gimbalAlertHud" class="font-bold text-emerald-400">✅ 3 Degrees of Freedom Active (Axes Independent)</div>
+          <div id="gimbalAngleHud" class="math-box text-slate-300">Yaw α = 20° | Pitch β = 25° | Roll γ = 15°</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lg:col-span-5 space-y-4">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-4 text-xs">
+        <h3 class="text-sm font-bold border-b border-[var(--border)] pb-2">
+          <span data-lang="zh">操控三环欧拉角 (R = R_y(α) · R_x(β) · R_z(γ))</span>
+          <span data-lang="en">Control 3-Ring Euler Angles (R = R_y(α) · R_x(β) · R_z(γ))</span>
+        </h3>
+
+        <div class="p-3.5 rounded-xl bg-sky-950/25 border border-sky-500/30 space-y-1.5">
+          <div class="flex justify-between font-bold text-sky-400">
+            <span data-lang="zh">1. 外环 Yaw α (绕世界竖直 Y 轴旋转)</span>
+            <span data-lang="en">1. Outer Ring Yaw α (World Y-Axis)</span>
+            <span id="valGMYaw" class="math-box">20°</span>
+          </div>
+          <input id="sliderGMYaw" type="range" min="-180" max="180" step="1" value="20" oninput="drawGimbalLab()" class="w-full" />
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-emerald-950/25 border border-emerald-500/30 space-y-1.5">
+          <div class="flex justify-between font-bold text-emerald-400">
+            <span data-lang="zh">2. 中环 Pitch β (推到 ±90° 触发死锁!)</span>
+            <span data-lang="en">2. Middle Ring Pitch β (±90° Locks Gimbal!)</span>
+            <span id="valGMPitch" class="math-box">25°</span>
+          </div>
+          <input id="sliderGMPitch" type="range" min="-90" max="90" step="1" value="25" oninput="drawGimbalLab()" class="w-full" />
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-rose-950/25 border border-rose-500/30 space-y-1.5">
+          <div class="flex justify-between font-bold text-rose-400">
+            <span data-lang="zh">3. 内环 Roll γ (绕飞机自身机头 Z 轴翻滚)</span>
+            <span data-lang="en">3. Inner Ring Roll γ (Aircraft Nose Z-Axis)</span>
+            <span id="valGMRoll" class="math-box">15°</span>
+          </div>
+          <input id="sliderGMRoll" type="range" min="-180" max="180" step="1" value="15" oninput="drawGimbalLab()" class="w-full" />
+        </div>
+
+        <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-2 leading-relaxed text-[var(--muted-foreground)]">
+          <div class="font-bold text-amber-300">
+            <span data-lang="zh">🧪 亲手实验：如何验证 α 和 γ 发生了死锁？</span>
+            <span data-lang="en">🧪 Hands-On Experiment: Verify Gimbal Lock Yourself!</span>
+          </div>
+          <p data-lang="zh">
+            1. 点击上方红色按钮 <b><code>⚠️ 一键触发 Pitch = 90° 万向节死锁</code></b>；<br/>
+            2. 观察 3D 画布：最外圈的<b>蓝色环转轴</b>与最内圈的<b>红色环转轴</b>完全重合在了同一条竖直线上！<br/>
+            3. 现在分别拖动 <b>1. 外环 Yaw α</b> 和 <b>3. 内环 Roll γ</b> —— 你会震惊地发现，这两个滑块让中间的飞机做出了<b>一模一样的水平旋转</b>！
+          </p>
+          <p data-lang="en">
+            1. Click the red <b>Trigger Pitch = 90° Gimbal Lock</b> button;<br/>
+            2. Notice how the <b>Blue Outer Axis</b> and <b>Red Inner Axis</b> align onto the exact same vertical line!<br/>
+            3. Now drag <b>Outer Yaw α</b> and then <b>Inner Roll γ</b>—both sliders spin the jet around the exact same axis!
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 2: RODRIGUES ARBITRARY-AXIS ROTATION LAB                                             -->
+  <!-- ======================================================================================== -->
+  <section id="tab2" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div class="lg:col-span-7 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col space-y-3">
+      <div>
+        <h2 class="text-lg font-bold">
+          <span data-lang="zh">罗德里格斯任意轴旋转实验室 R(k̂, θ) = I + sin(θ)[k̂]ₓ + (1-cos(θ))[k̂]ₓ²</span>
+          <span data-lang="en">Rodrigues Arbitrary-Axis Lab R(k̂, θ) = I + sin(θ)[k̂]ₓ + (1-cos(θ))[k̂]ₓ²</span>
+        </h2>
+        <p class="text-xs text-[var(--muted-foreground)]">
+          <span data-lang="zh">调节任意单位旋转轴 k̂ 的球面方位角与旋转角 θ，观察右侧反对称叉积矩阵 [k̂]ₓ 与最终 3×3 正交旋转矩阵的实时生成！</span>
+          <span data-lang="en">Adjust unit axis k̂ and rotation angle θ to inspect the skew-symmetric cross-product matrix [k̂]ₓ and resulting 3×3 orthogonal matrix!</span>
+        </p>
+      </div>
+
+      <div class="relative flex-1 min-h-[420px] bg-[#070b14] rounded-xl overflow-hidden border border-[var(--border)]">
+        <canvas id="axisAngleCanvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+        <div class="absolute top-3 left-3 bg-black/75 backdrop-blur px-3 py-2 rounded-lg border border-slate-800 text-xs space-y-1 pointer-events-none">
+          <div id="axisVecHud" class="math-box text-cyan-300 font-bold">Unit Axis k̂ = (0.50, 0.71, 0.50) | ||k̂|| = 1.00</div>
+          <div id="axisAngleHud" class="math-box text-amber-300">Rotation θ = 75° | Trace(R) = 1 + 2cos(θ) = 1.52</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lg:col-span-5 space-y-4">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-3 text-xs">
+        <h3 class="text-sm font-bold border-b border-[var(--border)] pb-2">
+          <span data-lang="zh">任意轴角参数控制 (Axis-Angle Parameters)</span>
+          <span data-lang="en">Axis-Angle Controls (k̂, θ)</span>
+        </h3>
+
+        <div>
+          <div class="flex justify-between mb-1">
+            <span data-lang="zh">旋转轴水平方位角 (Azimuth φ)</span>
+            <span data-lang="en">Axis Azimuth φ</span>
+            <span id="aaAzVal" class="math-box text-cyan-300">45°</span>
+          </div>
+          <input id="aaAzSlider" type="range" min="-180" max="180" step="1" value="45" oninput="drawAxisAngleLab()" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between mb-1">
+            <span data-lang="zh">旋转轴仰角 (Elevation ψ)</span>
+            <span data-lang="en">Axis Elevation ψ</span>
+            <span id="aaElVal" class="math-box text-cyan-300">45°</span>
+          </div>
+          <input id="aaElSlider" type="range" min="-89" max="89" step="1" value="45" oninput="drawAxisAngleLab()" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between mb-1 font-bold text-amber-300">
+            <span data-lang="zh">绕 k̂ 轴旋转角度 θ</span>
+            <span data-lang="en">Rotation Angle θ around k̂</span>
+            <span id="aaThetaVal" class="math-box">75°</span>
+          </div>
+          <input id="aaThetaSlider" type="range" min="0" max="360" step="1" value="75" oninput="drawAxisAngleLab()" class="w-full" />
+        </div>
+
+        <div class="pt-3 border-t border-[var(--border)] space-y-2">
+          <div class="font-bold text-purple-300">
+            <span data-lang="zh">反对称叉积矩阵 [k̂]ₓ (满足 [k̂]ₓ · v = k̂ × v):</span>
+            <span data-lang="en">Skew-Symmetric Matrix [k̂]ₓ ([k̂]ₓ · v = k̂ × v):</span>
+          </div>
+          <div id="skewMatGrid" class="grid grid-cols-3 gap-1.5 math-box text-center bg-[var(--secondary)] p-2.5 rounded-xl border border-[var(--border)]"></div>
+        </div>
+
+        <div class="pt-2 space-y-2">
+          <div class="font-bold text-emerald-300">
+            <span data-lang="zh">合成的 3×3 罗德里格斯旋转矩阵 R(k̂, θ) ∈ SO(3):</span>
+            <span data-lang="en">Resulting 3×3 Rodrigues Rotation Matrix R(k̂, θ) ∈ SO(3):</span>
+          </div>
+          <div id="rodriguesMatGrid" class="grid grid-cols-3 gap-1.5 math-box text-center bg-[var(--secondary)] p-2.5 rounded-xl border border-[var(--border)]"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 3: EMBEDDED LECTURE VIDEOS & NOTES                                                   -->
+  <!-- ======================================================================================== -->
+  <section id="tab3" class="hidden space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            UC Davis ECS 175 · Fall 2009 · Lecture 04
+          </span>
+          <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+4+Kenneth+Joy" target="_blank" rel="noreferrer" class="text-xs text-amber-400 hover:underline">
+            <span data-lang="zh">在 YouTube 搜索/观看本讲 ↗</span>
+            <span data-lang="en">Watch on YouTube ↗</span>
+          </a>
+        </div>
+        <h3 class="text-lg font-bold">UC Davis Lecture 4: Rotations about an Arbitrary Axis (Prof. Kenneth Joy)</h3>
+        <div class="p-4 rounded-xl bg-[var(--secondary)] border border-[var(--border)] space-y-3 text-xs leading-relaxed">
+          <div class="font-semibold text-amber-300">
+            <span data-lang="zh">Kenneth Joy 教授本讲核心精髓：</span>
+            <span data-lang="en">Key Takeaways from Prof. Kenneth Joy's Lecture 4:</span>
+          </div>
+          <p class="text-[var(--muted-foreground)]" data-lang="zh">
+            1. <b>为什么无坐标几何分解（Coordinate-Free Decomposition）比把旋转轴先转到 Z 轴再转回来优雅得多？</b> 传统方法需要构造两套辅助旋转矩阵把任意轴对齐到坐标轴，而利用 <code>v_∥ = (v·k̂)k̂</code> 和 <code>k̂ × v</code> 直接在三维空间构造局部圆盘正交基，一步就能写出罗德里格斯公式！<br/>
+            2. <b>如何从任意旋转矩阵 R 反求旋转轴 k̂ 和角度 θ？</b> 矩阵的迹（对角线元素之和）永远满足 <code>Trace(R) = r₀₀ + r₁₁ + r₂₂ = 1 + 2·cos(θ)</code>，而 <code>R - Rᵀ = 2·sin(θ)·[k̂]ₓ</code> 直接给出旋转轴！
+          </p>
+          <p class="text-[var(--muted-foreground)]" data-lang="en">
+            1. <b>Coordinate-Free Rodrigues Derivation</b>: Decomposing <code>v</code> into <code>v_∥ = (v·k̂)k̂</code> and disk vectors <code>v_⊥</code> and <code>k̂ × v</code> avoids awkward coordinate-axis alignment matrices.<br/>
+            2. <b>Extracting Axis &amp; Angle from R</b>: <code>Trace(R) = 1 + 2·cos(θ)</code> gives the angle, and the skew-symmetric part <code>R - Rᵀ = 2·sin(θ)·[k̂]ₓ</code> gives the axis!
+          </p>
+        </div>
+      </div>
+
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            MIT 6.837 · Fall 2021 · Lecture 04 (Part 2)
+          </span>
+          <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">
+            <span data-lang="zh">打开完整 YouTube 播放列表 ↗</span>
+            <span data-lang="en">Open Full YouTube Playlist ↗</span>
+          </a>
+        </div>
+        <h3 class="text-lg font-bold">MIT 6.837 Lecture 4: 3D Rotations &amp; Gimbal Lock (Prof. Justin Solomon)</h3>
+        <div class="aspect-video w-full rounded-xl overflow-hidden bg-black border border-[var(--border)]">
+          <iframe class="w-full h-full" src="https://www.youtube.com/embed/videoseries?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi&index=3" title="MIT 6.837 Lecture 4" allowfullscreen></iframe>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================================== -->
+  <!-- TAB 4: PLAYABLE MINI-GAME: DEEP-SPACE GYRO RESCUE (3 MISSIONS)                           -->
+  <!-- ======================================================================================== -->
+  <section id="tab4" class="hidden space-y-6">
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              🎮 Play to Learn · Interactive Mini-Game
+            </span>
+            <span id="gameScoreBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              Cleared: 0 / 3 Missions
+            </span>
+          </div>
+          <h2 class="text-xl font-bold mt-1">
+            <span data-lang="zh">深空陀螺仪救援与罗德里格斯单轴跃迁 (Deep-Space Gyro Rescue · 3 关特训)</span>
+            <span data-lang="en">Deep-Space Gyro Rescue &amp; Rodrigues Jump (3 Missions)</span>
+          </h2>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <button id="mBtn1" onclick="selectMission(1)" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white transition">
+            <span data-lang="zh">关卡 1: SO(3) 正交护盾修复</span>
+            <span data-lang="en">Mission 1: SO(3) Orthonormal Repair</span>
+          </button>
+          <button id="mBtn2" onclick="selectMission(2)" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)] border border-[var(--border)] transition">
+            <span data-lang="zh">关卡 2: 逃离 Pitch=90° 万向节死锁</span>
+            <span data-lang="en">Mission 2: Escape Gimbal Lock</span>
+          </button>
+          <button id="mBtn3" onclick="selectMission(3)" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)] border border-[var(--border)] transition">
+            <span data-lang="zh">关卡 3: 罗德里格斯单轴一击对准</span>
+            <span data-lang="en">Mission 3: Rodrigues Single-Axis Lock</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div class="lg:col-span-7">
+          <div class="relative min-h-[410px] bg-[#070b14] rounded-xl overflow-hidden border border-[var(--border)]">
+            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+            <div class="absolute top-3 left-3 right-3 flex justify-between items-center pointer-events-none">
+              <div id="gameHudLeft" class="bg-black/75 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-800 text-xs math-box">
+                Mission 1
+              </div>
+              <div id="gameStatusPill" class="bg-amber-500/20 border border-amber-500/40 text-amber-300 px-3 py-1 rounded-full text-xs font-bold">
+                IN PROGRESS
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-5 space-y-4">
+          <!-- Mission 1 Panel -->
+          <div id="missionPanel1" class="bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-5 space-y-3 text-xs">
+            <div class="font-bold text-sm text-amber-400">
+              <span data-lang="zh">🛠️ 任务 1：修复受损矩阵，使其满足 RᵀR = I 且 det(R) = +1！</span>
+              <span data-lang="en">🛠️ Mission 1: Restore RᵀR = I and det(R) = +1!</span>
+            </div>
+            <p class="text-[var(--muted-foreground)] leading-relaxed">
+              <span data-lang="zh">第 1 列 <code>u</code> 固定在 <code>35°</code>。请调节第 2 列 <code>v</code> 的角度与长度，使 <code>u · v = 0</code>（正交垂直）、<code>||v|| = 1.00</code>（单位长度）且遵循右手定则 <code>det(R) = +1</code>（即 <code>v</code> 在 <code>u</code> 逆时针 +90° 方向，也就是 <code>125°</code>）！</span>
+              <span data-lang="en">Column 1 <code>u</code> is fixed at <code>35°</code>. Tune Column 2 <code>v</code>'s angle and length so <code>u · v = 0</code>, <code>||v|| = 1.00</code>, and <code>det(R) = +1</code> (+90° CCW from u, at <code>125°</code>)!</span>
+            </p>
+            <div class="space-y-3 pt-1">
+              <div>
+                <label class="flex justify-between"><span>Col 2 Angle θ_v (Target: 125°)</span><span id="m1AngVal" class="math-box">70°</span></label>
+                <input id="m1Ang" type="range" min="-180" max="180" step="1" value="70" oninput="updateGame()" class="w-full" />
+              </div>
+              <div>
+                <label class="flex justify-between"><span>Col 2 Length ||v|| (Target: 1.00)</span><span id="m1LenVal" class="math-box">1.45</span></label>
+                <input id="m1Len" type="range" min="0.5" max="1.6" step="0.05" value="1.45" oninput="updateGame()" class="w-full" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Mission 2 Panel -->
+          <div id="missionPanel2" class="hidden bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-5 space-y-3 text-xs">
+            <div class="font-bold text-sm text-rose-400">
+              <span data-lang="zh">🚨 任务 2：飞船深陷 Pitch = 90° 万向节死锁！解锁中环并对准目标姿态！</span>
+              <span data-lang="en">🚨 Mission 2: Escape Pitch = 90° Gimbal Lock &amp; Align Attitude!</span>
+            </div>
+            <p class="text-[var(--muted-foreground)] leading-relaxed">
+              <span data-lang="zh">当前飞船处于 <code>Pitch = 90°</code> 死锁状态！你会发现只动 Yaw 或 Roll 根本无法让飞船指向金色目标方向。请先把 <b>Pitch 降到 30° 解锁自由度</b>，再把 <b>Yaw 调到 45°</b> 即可过关！</span>
+              <span data-lang="en">The ship starts trapped at <code>Pitch = 90°</code>! First lower <b>Pitch to 30°</b> to unlock the third degree of freedom, then set <b>Yaw to 45°</b>!</span>
+            </p>
+            <div class="space-y-2.5">
+              <div>
+                <label class="flex justify-between"><span>Outer Yaw α (Target: 45°)</span><span id="m2YawVal" class="math-box">0°</span></label>
+                <input id="m2Yaw" type="range" min="-180" max="180" step="5" value="0" oninput="updateGame()" class="w-full" />
+              </div>
+              <div>
+                <label class="flex justify-between text-emerald-400 font-bold"><span>Middle Pitch β (Unlock from 90° → 30°!)</span><span id="m2PitchVal" class="math-box">90°</span></label>
+                <input id="m2Pitch" type="range" min="-90" max="90" step="5" value="90" oninput="updateGame()" class="w-full" />
+              </div>
+              <div>
+                <label class="flex justify-between"><span>Inner Roll γ</span><span id="m2RollVal" class="math-box">0°</span></label>
+                <input id="m2Roll" type="range" min="-180" max="180" step="5" value="0" oninput="updateGame()" class="w-full" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Mission 3 Panel -->
+          <div id="missionPanel3" class="hidden bg-[var(--secondary)] border border-[var(--border)] rounded-xl p-5 space-y-3 text-xs">
+            <div class="font-bold text-sm text-indigo-400">
+              <span data-lang="zh">🧭 任务 3：使用罗德里格斯公式绕任意轴 k̂ 一次性旋转命中目标！</span>
+              <span data-lang="en">🧭 Mission 3: Single-Axis Rodrigues Rotation Sniper!</span>
+            </div>
+            <p class="text-[var(--muted-foreground)] leading-relaxed">
+              <span data-lang="zh">调节旋转轴倾角与绕轴旋转角 <code>θ</code>，使实线金色向量 <code>v_rot</code> 的顶端精确落入绿色目标圆环中（距离误差 ≤ 0.20 即可通关）！</span>
+              <span data-lang="en">Tune the rotation axis tilt and angle <code>θ</code> until the rotated vector <code>v_rot</code> lands inside the green target ring!</span>
+            </p>
+            <div class="space-y-3">
+              <div>
+                <label class="flex justify-between"><span>Axis Tilt Angle (Target: 35°)</span><span id="m3TiltVal" class="math-box">0°</span></label>
+                <input id="m3Tilt" type="range" min="-60" max="60" step="5" value="0" oninput="updateGame()" class="w-full" />
+              </div>
+              <div>
+                <label class="flex justify-between"><span>Rodrigues Rotation θ (Target: 110°)</span><span id="m3ThetaVal" class="math-box">25°</span></label>
+                <input id="m3Theta" type="range" min="0" max="180" step="5" value="25" oninput="updateGame()" class="w-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    let currentLang = 'zh';
+    let currentTab = 0;
+    let camYaw = -0.58;
+    let camPitch = 0.42;
+    let isDragging = false;
+    let lastMouse = { x: 0, y: 0 };
+
+    let currentMission = 1;
+    let missionsCleared = { 1: false, 2: false, 3: false };
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
+      document.getElementById('langBtnLabel').textContent = currentLang === 'zh' ? 'EN / English' : '中文 / Chinese';
+      updateTab0Canvases();
+      drawGimbalLab();
+      drawAxisAngleLab();
+      updateGame();
+    }
+
+    function switchTab(idx) {
+      currentTab = idx;
+      for (let i = 0; i < 5; i++) {
+        const btn = document.getElementById('tabBtn' + i);
+        const sec = document.getElementById('tab' + i);
+        if (i === idx) {
+          btn.className = 'tab-active px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all';
+          sec.classList.remove('hidden');
+        } else {
+          btn.className = 'bg-[var(--secondary)] text-[var(--secondary-foreground)] px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all hover:opacity-90';
+          sec.classList.add('hidden');
+        }
+      }
+      setTimeout(() => {
+        if (idx === 0) updateTab0Canvases();
+        if (idx === 1) drawGimbalLab();
+        if (idx === 2) drawAxisAngleLab();
+        if (idx === 4) updateGame();
+      }, 20);
+    }
+
+    // ============================================================================
+    // 3D MATH & PROJECTION HELPERS
+    // ============================================================================
+    function dot3(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+    function cross3(a, b) {
+      return {
+        x: a.y * b.z - a.z * b.y,
+        y: a.z * b.x - a.x * b.z,
+        z: a.x * b.y - a.y * b.x
+      };
+    }
+    function norm3(v) {
+      const l = Math.hypot(v.x, v.y, v.z) || 1;
+      return { x: v.x / l, y: v.y / l, z: v.z / l };
+    }
+    function rodriguesRotate(v, kUnit, thetaRad) {
+      const c = Math.cos(thetaRad), s = Math.sin(thetaRad);
+      const kv = dot3(kUnit, v);
+      const kxv = cross3(kUnit, v);
+      return {
+        x: v.x * c + kUnit.x * kv * (1 - c) + kxv.x * s,
+        y: v.y * c + kUnit.y * kv * (1 - c) + kxv.y * s,
+        z: v.z * c + kUnit.z * kv * (1 - c) + kxv.z * s
+      };
+    }
+
+    function project3D(p, width, height, scale = 76) {
+      const cosY = Math.cos(camYaw), sinY = Math.sin(camYaw);
+      const x1 = p.x * cosY + p.z * sinY;
+      const z1 = -p.x * sinY + p.z * cosY;
+
+      const cosP = Math.cos(camPitch), sinP = Math.sin(camPitch);
+      const y2 = p.y * cosP - z1 * sinP;
+      const z2 = p.y * sinP + z1 * cosP;
+
+      const camDist = 9.5;
+      const persp = camDist / Math.max(1.5, camDist - z2);
+      return {
+        x: width / 2 + x1 * scale * persp,
+        y: height / 2 + 15 - y2 * scale * persp,
+        depth: z2
+      };
+    }
+
+    function drawArrow2D(ctx, from, to, color, lineWidth = 2.5, label = '') {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 2) return;
+      const angle = Math.atan2(dy, dx);
+      const headLen = Math.min(11, Math.max(6, len * 0.22));
+
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(to.x, to.y);
+      ctx.lineTo(to.x - headLen * Math.cos(angle - Math.PI / 6), to.y - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(to.x - headLen * Math.cos(angle + Math.PI / 6), to.y - headLen * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+
+      if (label) {
+        ctx.font = 'bold 11px ui-monospace, monospace';
+        ctx.fillText(label, to.x + 10 * Math.cos(angle) - 8, to.y + 10 * Math.sin(angle) + 4);
+      }
+      ctx.restore();
+    }
+
+    function setupOrbitCanvas(canvasId, redrawFn) {
+      const c = document.getElementById(canvasId);
+      if (!c) return;
+      c.addEventListener('pointerdown', e => {
+        isDragging = true;
+        lastMouse = { x: e.clientX, y: e.clientY };
+        c.setPointerCapture(e.pointerId);
+      });
+      c.addEventListener('pointermove', e => {
+        if (!isDragging) return;
+        const dx = e.clientX - lastMouse.x;
+        const dy = e.clientY - lastMouse.y;
+        lastMouse = { x: e.clientX, y: e.clientY };
+        camYaw += dx * 0.008;
+        camPitch = Math.max(-1.2, Math.min(1.2, camPitch + dy * 0.008));
+        redrawFn();
+      });
+      c.addEventListener('pointerup', () => { isDragging = false; });
+    }
+
+    // ============================================================================
+    // TAB 0 CANVASES: 1) SO(3) TRANSPOSE DUALITY & 2) RODRIGUES 3D DECOMPOSITION
+    // ============================================================================
+    function updateTab0Canvases() {
+      drawSO3DualityCanvas();
+      drawRodriguesDecompCanvas();
+    }
+
+    function drawSO3DualityCanvas() {
+      const canvas = document.getElementById('so3DualityCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 540;
+      canvas.height = rect.height || 295;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const deg = parseFloat(document.getElementById('so3AngleSlider').value);
+      const skew = parseFloat(document.getElementById('so3SkewSlider').value);
+      const scaleU = parseFloat(document.getElementById('so3ScaleSlider').value);
+
+      document.getElementById('so3AngleLabel').textContent = deg + '°';
+      document.getElementById('so3SkewLabel').textContent = skew + '°';
+      document.getElementById('so3ScaleLabel').textContent = scaleU.toFixed(2);
+
+      const r1 = deg * Math.PI / 180;
+      const r2 = (deg + 90 + skew) * Math.PI / 180;
+
+      const u = { x: scaleU * Math.cos(r1), y: scaleU * Math.sin(r1) };
+      const v = { x: Math.cos(r2), y: Math.sin(r2) };
+
+      const pOrig = { x: 1.2, y: 0.7 };
+      // Forward: p' = R * p = x*u + y*v
+      const pRot = { x: pOrig.x * u.x + pOrig.y * v.x, y: pOrig.x * u.y + pOrig.y * v.y };
+      // Transpose recovery: p_rec = R^T * p' = (u·p', v·p')
+      const pRec = { x: u.x * pRot.x + u.y * pRot.y, y: v.x * pRot.x + v.y * pRot.y };
+
+      const cx = w / 2, cy = h / 2 + 10, scale = 68;
+      const toScr = pt => ({ x: cx + pt.x * scale, y: cy - pt.y * scale });
+      const origScr = toScr({ x: 0, y: 0 });
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.14)';
+      for (let i = -3; i <= 3; i++) {
+        ctx.beginPath(); ctx.moveTo(cx + i * scale, 0); ctx.lineTo(cx + i * scale, h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, cy - i * scale); ctx.lineTo(w, cy - i * scale); ctx.stroke();
+      }
+      ctx.restore();
+
+      drawArrow2D(ctx, origScr, toScr(u), '#ef4444', 2.8, 'Col 1: u');
+      drawArrow2D(ctx, origScr, toScr(v), '#10b981', 2.8, 'Col 2: v');
+
+      drawArrow2D(ctx, origScr, toScr(pOrig), '#f59e0b', 3, 'Original p');
+      drawArrow2D(ctx, origScr, toScr(pRot), '#38bdf8', 3, "Rotated R·p");
+      drawArrow2D(ctx, origScr, toScr(pRec), '#a855f7', 2.5, "Recovered Rᵀ(R·p)");
+
+      const err = Math.hypot(pRec.x - pOrig.x, pRec.y - pOrig.y);
+      const uvDot = u.x * v.x + u.y * v.y;
+      const st = document.getElementById('so3HudStatus');
+      if (err < 0.02) {
+        st.textContent = `✅ Orthonormal (RᵀR = I): Rᵀ(R·p) == p (Error: ${err.toFixed(2)})`;
+        st.className = 'math-box text-emerald-400 font-bold';
+      } else {
+        st.textContent = `❌ Not Orthogonal (RᵀR ≠ I): Rᵀ(R·p) ≠ p (Error: ${err.toFixed(2)})`;
+        st.className = 'math-box text-rose-400 font-bold';
+      }
+      document.getElementById('so3HudDot').textContent =
+        `u·v = ${uvDot.toFixed(2)} | ||u|| = ${scaleU.toFixed(2)}, ||v|| = 1.00`;
+    }
+
+    function drawRodriguesDecompCanvas() {
+      const canvas = document.getElementById('rodriguesDecompCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 540;
+      canvas.height = rect.height || 330;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const thetaDeg = parseFloat(document.getElementById('rodThetaSlider').value);
+      const tiltDeg = parseFloat(document.getElementById('rodAxisTiltSlider').value);
+      document.getElementById('rodThetaLabel').textContent = thetaDeg + '°';
+      document.getElementById('rodAxisTiltLabel').textContent = tiltDeg + '°';
+
+      const tiltRad = tiltDeg * Math.PI / 180;
+      const kUnit = norm3({ x: Math.sin(tiltRad), y: Math.cos(tiltRad), z: 0.15 });
+      const v = { x: 1.5, y: 1.5, z: 0.8 };
+
+      // 1. Parallel component v_|| = (k·v)k
+      const kv = dot3(kUnit, v);
+      const vPar = { x: kUnit.x * kv, y: kUnit.y * kv, z: kUnit.z * kv };
+      // 2. Perpendicular disk component v_perp = v - v_||
+      const vPerp = { x: v.x - vPar.x, y: v.y - vPar.y, z: v.z - vPar.z };
+      // 3. Cross product partner k x v
+      const kxv = cross3(kUnit, v);
+      // 4. Rotated vector v_rot
+      const vRot = rodriguesRotate(v, kUnit, thetaDeg * Math.PI / 180);
+
+      // Draw circular orbit at tip of vPar
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      for (let a = 0; a <= Math.PI * 2 + 0.05; a += 0.1) {
+        const pt = rodriguesRotate(v, kUnit, a);
+        const s = project3D(pt, w, h, 74);
+        if (a === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      const o = project3D({ x: 0, y: 0, z: 0 }, w, h, 74);
+      const pPar = project3D(vPar, w, h, 74);
+      const pAxisTip = project3D({ x: kUnit.x * 2.5, y: kUnit.y * 2.5, z: kUnit.z * 2.5 }, w, h, 74);
+
+      drawArrow2D(ctx, o, pAxisTip, '#06b6d4', 2.5, 'Axis k̂');
+      drawArrow2D(ctx, o, pPar, '#3b82f6', 3.5, 'v_∥=(k̂·v)k̂');
+      drawArrow2D(ctx, pPar, project3D(v, w, h, 74), '#10b981', 3, 'v_⊥');
+      drawArrow2D(
+        ctx,
+        pPar,
+        project3D({ x: vPar.x + kxv.x, y: vPar.y + kxv.y, z: vPar.z + kxv.z }, w, h, 74),
+        '#a855f7',
+        3,
+        'k̂ × v'
+      );
+      drawArrow2D(ctx, o, project3D(vRot, w, h, 74), '#f59e0b', 3.8, 'v_rot(θ)');
+
+      document.getElementById('rodDecompHud').textContent =
+        `θ = ${thetaDeg}° | v_rot = (${vRot.x.toFixed(2)}, ${vRot.y.toFixed(2)}, ${vRot.z.toFixed(2)})`;
+    }
+
+    // ============================================================================
+    // TAB 1: 3-RING GIMBAL LOCK SIMULATOR
+    // ============================================================================
+    function triggerGimbalLock() {
+      document.getElementById('sliderGMPitch').value = 90;
+      drawGimbalLab();
+    }
+
+    function resetGimbal() {
+      document.getElementById('sliderGMYaw').value = 20;
+      document.getElementById('sliderGMPitch').value = 25;
+      document.getElementById('sliderGMRoll').value = 15;
+      drawGimbalLab();
+    }
+
+    function rotY3(v, rad) {
+      const c = Math.cos(rad), s = Math.sin(rad);
+      return { x: v.x * c + v.z * s, y: v.y, z: -v.x * s + v.z * c };
+    }
+    function rotX3(v, rad) {
+      const c = Math.cos(rad), s = Math.sin(rad);
+      return { x: v.x, y: v.y * c - v.z * s, z: v.y * s + v.z * c };
+    }
+    function rotZ3(v, rad) {
+      const c = Math.cos(rad), s = Math.sin(rad);
+      return { x: v.x * c - v.y * s, y: v.x * s + v.y * c, z: v.z };
+    }
+
+    function drawGimbalLab() {
+      const canvas = document.getElementById('gimbalCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 680;
+      canvas.height = rect.height || 430;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const yawDeg = parseFloat(document.getElementById('sliderGMYaw').value);
+      const pitchDeg = parseFloat(document.getElementById('sliderGMPitch').value);
+      const rollDeg = parseFloat(document.getElementById('sliderGMRoll').value);
+
+      document.getElementById('valGMYaw').textContent = yawDeg + '°';
+      document.getElementById('valGMPitch').textContent = pitchDeg + '°';
+      document.getElementById('valGMRoll').textContent = rollDeg + '°';
+
+      const a = yawDeg * Math.PI / 180;
+      const b = pitchDeg * Math.PI / 180;
+      const g = rollDeg * Math.PI / 180;
+
+      const isLocked = Math.abs(Math.abs(pitchDeg) - 90) <= 2;
+      const alertEl = document.getElementById('gimbalAlertHud');
+      if (isLocked) {
+        alertEl.textContent = `🚨 GIMBAL LOCK AT PITCH = ${pitchDeg}°! Outer Yaw & Inner Roll Co-Linear (α - γ = ${yawDeg - rollDeg}°)`;
+        alertEl.className = 'font-bold text-rose-400';
+      } else {
+        alertEl.textContent = '✅ 3 Degrees of Freedom Active (All 3 Gimbal Axes Independent)';
+        alertEl.className = 'font-bold text-emerald-400';
+      }
+      document.getElementById('gimbalAngleHud').textContent =
+        `Yaw α = ${yawDeg}° | Pitch β = ${pitchDeg}° | Roll γ = ${rollDeg}°`;
+
+      // Helper to draw a 3D ring
+      const drawRing = (radius, transformFn, color, lineWidth = 3) => {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.beginPath();
+        for (let i = 0; i <= 64; i++) {
+          const ang = (i / 64) * Math.PI * 2;
+          const localPt = { x: radius * Math.cos(ang), y: radius * Math.sin(ang), z: 0 };
+          const worldPt = transformFn(localPt);
+          const s = project3D(worldPt, w, h, 82);
+          if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      };
+
+      // 1. Outer Ring (Yaw around World Y)
+      drawRing(2.35, pt => rotY3(pt, a), '#38bdf8', 3.5);
+      // 2. Middle Ring (Pitch around Local X, carried by Yaw)
+      drawRing(1.95, pt => rotY3(rotX3({ x: pt.x, y: 0, z: pt.y }, b), a), '#10b981', 3.5);
+      // 3. Inner Ring (Roll around Nose Z, carried by Yaw * Pitch)
+      drawRing(1.55, pt => rotY3(rotX3(rotZ3(pt, g), b), a), isLocked ? '#f43f5e' : '#f59e0b', 3.5);
+
+      const o = project3D({ x: 0, y: 0, z: 0 }, w, h, 82);
+      // Draw Outer Yaw Axis (World Y)
+      drawArrow2D(ctx, o, project3D({ x: 0, y: 2.75, z: 0 }, w, h, 82), '#38bdf8', 3, 'Outer Axis (World Y)');
+      // Draw Inner Roll Axis (Transformed Z-axis = R_y(a) * R_x(b) * (0,0,1))
+      const innerAxis = rotY3(rotX3({ x: 0, y: 0, z: 2.4 }, b), a);
+      drawArrow2D(ctx, o, project3D(innerAxis, w, h, 82), '#f43f5e', 3, 'Inner Roll Axis (Z\')');
+
+      // Draw 3D Spacecraft inside Inner Ring
+      const shipVerts = [
+        { x: 0, y: 0, z: 1.35 },    // Nose
+        { x: -0.85, y: 0, z: -0.7 }, // Left wing
+        { x: 0.85, y: 0, z: -0.7 },  // Right wing
+        { x: 0, y: 0.45, z: -0.5 }   // Tail fin
+      ].map(v => project3D(rotY3(rotX3(rotZ3(v, g), b), a), w, h, 82));
+
+      const shipFaces = [[0,1,2], [0,1,3], [0,2,3], [1,2,3]];
+      ctx.save();
+      ctx.fillStyle = isLocked ? 'rgba(244, 63, 94, 0.32)' : 'rgba(99, 102, 241, 0.32)';
+      ctx.strokeStyle = isLocked ? '#f43f5e' : '#818cf8';
+      ctx.lineWidth = 2;
+      shipFaces.forEach(([i, j, k]) => {
+        ctx.beginPath();
+        ctx.moveTo(shipVerts[i].x, shipVerts[i].y);
+        ctx.lineTo(shipVerts[j].x, shipVerts[j].y);
+        ctx.lineTo(shipVerts[k].x, shipVerts[k].y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    // ============================================================================
+    // TAB 2: RODRIGUES ARBITRARY-AXIS LAB
+    // ============================================================================
+    function drawAxisAngleLab() {
+      const canvas = document.getElementById('axisAngleCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 680;
+      canvas.height = rect.height || 420;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const az = parseFloat(document.getElementById('aaAzSlider').value);
+      const el = parseFloat(document.getElementById('aaElSlider').value);
+      const theta = parseFloat(document.getElementById('aaThetaSlider').value);
+
+      document.getElementById('aaAzVal').textContent = az + '°';
+      document.getElementById('aaElVal').textContent = el + '°';
+      document.getElementById('aaThetaVal').textContent = theta + '°';
+
+      const azRad = az * Math.PI / 180;
+      const elRad = el * Math.PI / 180;
+      const thetaRad = theta * Math.PI / 180;
+
+      const k = norm3({
+        x: Math.cos(elRad) * Math.sin(azRad),
+        y: Math.sin(elRad),
+        z: Math.cos(elRad) * Math.cos(azRad)
+      });
+
+      const Kx = [
+        0, -k.z, k.y,
+        k.z, 0, -k.x,
+        -k.y, k.x, 0
+      ];
+
+      // R columns are rodriguesRotate applied to i, j, k basis
+      const col1 = rodriguesRotate({ x: 1, y: 0, z: 0 }, k, thetaRad);
+      const col2 = rodriguesRotate({ x: 0, y: 1, z: 0 }, k, thetaRad);
+      const col3 = rodriguesRotate({ x: 0, y: 0, z: 1 }, k, thetaRad);
+      const R = [
+        col1.x, col2.x, col3.x,
+        col1.y, col2.y, col3.y,
+        col1.z, col2.z, col3.z
+      ];
+
+      const skewEl = document.getElementById('skewMatGrid');
+      if (skewEl) {
+        skewEl.innerHTML = Kx.map(v => `<div class="py-1 rounded bg-purple-950/30 border border-purple-800/40 text-purple-300">${v.toFixed(2)}</div>`).join('');
+      }
+      const rodEl = document.getElementById('rodriguesMatGrid');
+      if (rodEl) {
+        rodEl.innerHTML = R.map(v => `<div class="py-1 rounded bg-emerald-950/30 border border-emerald-800/40 text-emerald-300">${v.toFixed(2)}</div>`).join('');
+      }
+
+      document.getElementById('axisVecHud').textContent =
+        `Unit Axis k̂ = (${k.x.toFixed(2)}, ${k.y.toFixed(2)}, ${k.z.toFixed(2)}) | ||k̂|| = 1.00`;
+      document.getElementById('axisAngleHud').textContent =
+        `Rotation θ = ${theta}° | Trace(R) = ${(R[0] + R[4] + R[8]).toFixed(2)}`;
+
+      const o = project3D({ x: 0, y: 0, z: 0 }, w, h);
+      drawArrow2D(ctx, project3D({ x: -k.x * 2.5, y: -k.y * 2.5, z: -k.z * 2.5 }, w, h), project3D({ x: k.x * 2.5, y: k.y * 2.5, z: k.z * 2.5 }, w, h), '#06b6d4', 3.2, 'Axis k̂');
+
+      drawArrow2D(ctx, o, project3D({ x: col1.x * 1.5, y: col1.y * 1.5, z: col1.z * 1.5 }, w, h), '#ef4444', 3, "u=R·î");
+      drawArrow2D(ctx, o, project3D({ x: col2.x * 1.5, y: col2.y * 1.5, z: col2.z * 1.5 }, w, h), '#10b981', 3, "v=R·ĵ");
+      drawArrow2D(ctx, o, project3D({ x: col3.x * 1.5, y: col3.y * 1.5, z: col3.z * 1.5 }, w, h), '#38bdf8', 3, "w=R·k̂");
+    }
+
+    // ============================================================================
+    // TAB 4: MINI-GAME (3 MISSIONS)
+    // ============================================================================
+    function selectMission(m) {
+      currentMission = m;
+      for (let i = 1; i <= 3; i++) {
+        document.getElementById('missionPanel' + i).classList.toggle('hidden', i !== m);
+        const btn = document.getElementById('mBtn' + i);
+        btn.className = i === m
+          ? 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white transition'
+          : 'px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)] border border-[var(--border)] transition';
+      }
+      updateGame();
+    }
+
+    function updateGame() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width || 680;
+      canvas.height = rect.height || 410;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const cx = w / 2, cy = h / 2 + 10, scale = 86;
+      const toScr = (x, y) => ({ x: cx + x * scale, y: cy - y * scale });
+
+      if (currentMission === 1) {
+        const angV = parseFloat(document.getElementById('m1Ang').value);
+        const lenV = parseFloat(document.getElementById('m1Len').value);
+        document.getElementById('m1AngVal').textContent = angV + '°';
+        document.getElementById('m1LenVal').textContent = lenV.toFixed(2);
+
+        const uRad = 35 * Math.PI / 180;
+        const vRad = angV * Math.PI / 180;
+        const u = { x: Math.cos(uRad), y: Math.sin(uRad) };
+        const v = { x: lenV * Math.cos(vRad), y: lenV * Math.sin(vRad) };
+
+        const uvDot = u.x * v.x + u.y * v.y;
+        const det = u.x * v.y - u.y * v.x;
+        const cleared = Math.abs(uvDot) <= 0.08 && Math.abs(lenV - 1.0) <= 0.06 && det > 0.9;
+        if (cleared) missionsCleared[1] = true;
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(cx, cy, scale, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        drawArrow2D(ctx, toScr(0, 0), toScr(u.x, u.y), '#ef4444', 3.5, 'u (35°, len=1)');
+        drawArrow2D(ctx, toScr(0, 0), toScr(v.x, v.y), cleared ? '#10b981' : '#f59e0b', 3.5, `v (${angV}°, len=${lenV.toFixed(2)})`);
+
+        document.getElementById('gameHudLeft').textContent =
+          `u·v = ${uvDot.toFixed(2)} (Need 0) | det(R) = ${det.toFixed(2)} (Need +1.00)`;
+        updateGameBadges(cleared);
+      } else if (currentMission === 2) {
+        const yDeg = parseFloat(document.getElementById('m2Yaw').value);
+        const pDeg = parseFloat(document.getElementById('m2Pitch').value);
+        const rDeg = parseFloat(document.getElementById('m2Roll').value);
+        document.getElementById('m2YawVal').textContent = yDeg + '°';
+        document.getElementById('m2PitchVal').textContent = pDeg + '°';
+        document.getElementById('m2RollVal').textContent = rDeg + '°';
+
+        const targetNose = rotY3(rotX3({ x: 0, y: 0, z: 2.0 }, 30 * Math.PI / 180), 45 * Math.PI / 180);
+        const userNose = rotY3(rotX3(rotZ3({ x: 0, y: 0, z: 2.0 }, rDeg * Math.PI / 180), pDeg * Math.PI / 180), yDeg * Math.PI / 180);
+
+        const o = project3D({ x: 0, y: 0, z: 0 }, w, h, 82);
+        const pTarget = project3D(targetNose, w, h, 82);
+        const pUser = project3D(userNose, w, h, 82);
+
+        drawArrow2D(ctx, o, pTarget, '#f59e0b', 3, 'Target Attitude (Yaw=45°, Pitch=30°)');
+        drawArrow2D(ctx, o, pUser, '#38bdf8', 3.5, 'Your Ship Nose');
+
+        const err = Math.hypot(userNose.x - targetNose.x, userNose.y - targetNose.y, userNose.z - targetNose.z);
+        const cleared = err <= 0.22;
+        if (cleared) missionsCleared[2] = true;
+
+        document.getElementById('gameHudLeft').textContent =
+          `Pitch = ${pDeg}° ${Math.abs(pDeg) === 90 ? '(GIMBAL LOCKED!)' : '(Unlocked)'} | Error: ${err.toFixed(2)}`;
+        updateGameBadges(cleared);
+      } else if (currentMission === 3) {
+        const tilt = parseFloat(document.getElementById('m3Tilt').value);
+        const theta = parseFloat(document.getElementById('m3Theta').value);
+        document.getElementById('m3TiltVal').textContent = tilt + '°';
+        document.getElementById('m3ThetaVal').textContent = theta + '°';
+
+        const kUser = norm3({ x: Math.sin(tilt * Math.PI / 180), y: Math.cos(tilt * Math.PI / 180), z: 0.2 });
+        const kTarget = norm3({ x: Math.sin(35 * Math.PI / 180), y: Math.cos(35 * Math.PI / 180), z: 0.2 });
+        const vStart = { x: 1.7, y: 0.6, z: 0.5 };
+
+        const vUser = rodriguesRotate(vStart, kUser, theta * Math.PI / 180);
+        const vTarget = rodriguesRotate(vStart, kTarget, 110 * Math.PI / 180);
+
+        const o = project3D({ x: 0, y: 0, z: 0 }, w, h, 82);
+        const pTarget = project3D(vTarget, w, h, 82);
+        const pUser = project3D(vUser, w, h, 82);
+
+        drawArrow2D(ctx, o, project3D({ x: kUser.x * 2.2, y: kUser.y * 2.2, z: kUser.z * 2.2 }, w, h, 82), '#06b6d4', 2.5, 'Axis k̂');
+        drawArrow2D(ctx, o, pUser, '#f59e0b', 3.5, 'v_rot');
+
+        ctx.save();
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(pTarget.x, pTarget.y, 16, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        const err = Math.hypot(vUser.x - vTarget.x, vUser.y - vTarget.y, vUser.z - vTarget.z);
+        const cleared = err <= 0.22;
+        if (cleared) missionsCleared[3] = true;
+
+        document.getElementById('gameHudLeft').textContent =
+          `Target Ring Error: ${err.toFixed(2)} (Need ≤ 0.22)`;
+        updateGameBadges(cleared);
+      }
+    }
+
+    function updateGameBadges(isCurrentCleared) {
+      const count = Object.values(missionsCleared).filter(Boolean).length;
+      document.getElementById('gameScoreBadge').textContent = `Cleared: ${count} / 3 Missions`;
+      const pill = document.getElementById('gameStatusPill');
+      if (isCurrentCleared) {
+        pill.textContent = '✓ MISSION CLEARED!';
+        pill.className = 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 px-3 py-1 rounded-full text-xs font-bold';
+      } else {
+        pill.textContent = 'IN PROGRESS';
+        pill.className = 'bg-amber-500/20 border border-amber-500/40 text-amber-300 px-3 py-1 rounded-full text-xs font-bold';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setupOrbitCanvas('rodriguesDecompCanvas', drawRodriguesDecompCanvas);
+      setupOrbitCanvas('gimbalCanvas', drawGimbalLab);
+      setupOrbitCanvas('axisAngleCanvas', drawAxisAngleLab);
+      updateTab0Canvases();
+    });
+  </script>
+</body>
+</html>
