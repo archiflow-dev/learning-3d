@@ -590,7 +590,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Planar Projection Shadows, Silhouette Edges & Stencil Shadow Volumes',
     concepts: ['本影 (Umbra) 与半影 (Penumbra)', '平面投影阴影矩阵推导', '轮廓边检测与阴影体积挤出', 'Stencil Buffer +1/-1 深度通行计数'],
     playgroundTitle: '阴影体 (Shadow Volume) 射线计数沙盒',
-    playgroundDescription: '可视化几何体沿光线方向挤出的阴影体积锥，演示视线穿过前后壁时模板缓冲计数器的变化。',
+    playgroundDescription: '用 3Blue1Brown 齐次外积与拓扑环绕数定理推导 Blinn 平面投影阴影矩阵 M=(Π·L)I-LΠᵀ、轮廓边检测与 Stencil Buffer +1/-1 深度计数 (Z-Pass vs. Carmack\'s Reverse Z-Fail)，在双实验台亲手把相机拖入阴影锥内部复现 Z-Pass 反转并用卡马克反转修复，畅玩 3 关 Doom 3 阴影引擎架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',

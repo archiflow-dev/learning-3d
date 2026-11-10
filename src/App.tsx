@@ -22,6 +22,7 @@ import { Lesson19Rasterization } from './lessons/Lesson19Rasterization';
 import { Lesson20VisibilityZBuffer } from './lessons/Lesson20VisibilityZBuffer';
 import { Lesson21ShadingPBR } from './lessons/Lesson21ShadingPBR';
 import { Lesson22TextureMapping } from './lessons/Lesson22TextureMapping';
+import { Lesson23ShadowVolumes } from './lessons/Lesson23ShadowVolumes';
 
 const STORAGE_KEY = 'learning_3d_completed_lessons_v1';
 const LANG_KEY = 'learning_3d_lang_v1';
@@ -325,6 +326,13 @@ export const App: React.FC = () => {
             lang={lang}
             isCompleted={completedIds.includes('L22')}
             onToggleComplete={() => toggleLessonComplete('L22')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L23' ? (
+          <Lesson23ShadowVolumes
+            lang={lang}
+            isCompleted={completedIds.includes('L23')}
+            onToggleComplete={() => toggleLessonComplete('L23')}
             onBackToPortal={() => navigateToLesson(null)}
           />
         ) : activeLessonObj ? (
