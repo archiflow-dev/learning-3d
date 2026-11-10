@@ -490,7 +490,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Bresenham Line Drawing, Scanline Filling & GPU Edge Functions',
     concepts: ['Bresenham 整数画线法', '扫描线活性边表 (AET)', '现代 GPU 并行边缘函数 (Edge Equation)', 'Top-Left 共享边填充规则'],
     playgroundTitle: 'GPU 像素级三角形光栅化模拟器',
-    playgroundDescription: '在放大像素网格上拖动三角形顶点，实时显示每个像素中心的三个有向边函数符号与激活过程。',
+    playgroundDescription: '用 3Blue1Brown 隐函数半平面视角推导零浮点除法的 Bresenham 中点整数画线法与 Pineda 并行边缘函数，在双三角形接缝显微镜体验 Top-Left 填充规则如何根治漏缝与重绘，在 16×16 像素网格拖动三角形检视 2×2 Quad 辅助线程浪费与透视校正插值 (u/w)，并畅玩 3 关 GPU 光栅化架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
