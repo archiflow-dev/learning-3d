@@ -11,6 +11,11 @@ import { Lesson08Splines } from './lessons/Lesson08Splines';
 import { Lesson09Patches } from './lessons/Lesson09Patches';
 import { Lesson10Subdivision1 } from './lessons/Lesson10Subdivision1';
 import { Lesson11Subdivision2 } from './lessons/Lesson11Subdivision2';
+import { Lesson12RayCasting } from './lessons/Lesson12RayCasting';
+import { Lesson13BarycentricCSG } from './lessons/Lesson13BarycentricCSG';
+import { Lesson14RayTracing } from './lessons/Lesson14RayTracing';
+import { Lesson15Acceleration } from './lessons/Lesson15Acceleration';
+import { Lesson16Antialiasing } from './lessons/Lesson16Antialiasing';
 
 const STORAGE_KEY = 'learning_3d_completed_lessons_v1';
 const LANG_KEY = 'learning_3d_lang_v1';
@@ -237,6 +242,41 @@ export const App: React.FC = () => {
             lang={lang}
             isCompleted={completedIds.includes('L11')}
             onToggleComplete={() => toggleLessonComplete('L11')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L12' ? (
+          <Lesson12RayCasting
+            lang={lang}
+            isCompleted={completedIds.includes('L12')}
+            onToggleComplete={() => toggleLessonComplete('L12')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L13' ? (
+          <Lesson13BarycentricCSG
+            lang={lang}
+            isCompleted={completedIds.includes('L13')}
+            onToggleComplete={() => toggleLessonComplete('L13')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L14' ? (
+          <Lesson14RayTracing
+            lang={lang}
+            isCompleted={completedIds.includes('L14')}
+            onToggleComplete={() => toggleLessonComplete('L14')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L15' ? (
+          <Lesson15Acceleration
+            lang={lang}
+            isCompleted={completedIds.includes('L15')}
+            onToggleComplete={() => toggleLessonComplete('L15')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L16' ? (
+          <Lesson16Antialiasing
+            lang={lang}
+            isCompleted={completedIds.includes('L16')}
+            onToggleComplete={() => toggleLessonComplete('L16')}
             onBackToPortal={() => navigateToLesson(null)}
           />
         ) : activeLessonObj ? (

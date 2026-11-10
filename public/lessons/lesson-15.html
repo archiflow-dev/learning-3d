@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 15: Acceleration Structures — BVH, AABB Slab Test, SAH & KD-Trees | 空间加速结构</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body { background: #020617; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .math-box { background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(51, 65, 85, 0.85); border-radius: 0.85rem; padding: 1rem 1.25rem; overflow-x: auto; }
+    canvas { touch-action: none; user-select: none; }
+    .tab-btn.active { background: #0284c7; color: #ffffff; border-color: #38bdf8; box-shadow: 0 0 20px rgba(56, 189, 248, 0.35); }
+    .lang-en { display: none; }
+    body.en-mode .lang-zh { display: none; }
+    body.en-mode .lang-en { display: inline; }
+    body.en-mode div.lang-en, body.en-mode p.lang-en, body.en-mode ul.lang-en, body.en-mode h3.lang-en, body.en-mode h4.lang-en { display: block; }
+    body.en-mode div.lang-zh, body.en-mode p.lang-zh, body.en-mode ul.lang-zh, body.en-mode h3.lang-zh, body.en-mode h4.lang-zh { display: none; }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          <span class="lang-zh">← 课程总目录 (Index)</span>
+          <span class="lang-en">← Course Index</span>
+        </a>
+        <span class="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950">
+          Stage 3 • Lesson 15 / 32
+        </span>
+        <div>
+          <h1 class="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+            <span class="lang-zh">空间加速结构：AABB Slab 求交、包围盒层次 (BVH)、表面积启发式 (SAH) 与 KD-Tree</span>
+            <span class="lang-en">Spatial Acceleration: AABB Slab Test, BVH, Surface Area Heuristic (SAH) &amp; KD-Trees</span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            3Blue1Brown Integral Geometry (Crofton's Formula) &amp; Interval Overlap • MIT 6.837 Lecture 12 (Prof. Justin Solomon)
+          </p>
+        </div>
+      </div>
+
+      <button id="langToggleBtn" onclick="toggleLang()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition">
+        <span>🌐</span>
+        <span id="langBtnText">EN / 中文</span>
+      </button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-3 flex flex-wrap gap-2">
+      <button onclick="switchTab('concepts')" id="tab-btn-concepts" class="tab-btn active px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">1. 3Blue1Brown 精讲：Slab 三明治交集、几何概率推导 SAH 与 BVH vs KD-Tree</span>
+        <span class="lang-en">1. 3Blue1Brown Deep Dive: Slab Test, Geometric Probability SAH &amp; BVH vs KD-Tree</span>
+      </button>
+      <button onclick="switchTab('lab')" id="tab-btn-lab" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">2. 交互实验室：BVH 树单步遍历与提前剪枝 (Early Pruning) 透视镜</span>
+        <span class="lang-en">2. Interactive Lab: Step-by-Step BVH Tree Traversal &amp; Pruning Microscope</span>
+      </button>
+      <button onclick="switchTab('videos')" id="tab-btn-videos" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">3. MIT 6.837 Lec 12 视频、无分支 SIMD Slab 代码与加速结构全表</span>
+        <span class="lang-en">3. MIT 6.837 Lec 12 Video, Branchless Slab Code &amp; Master Table</span>
+      </button>
+      <button onclick="switchTab('game')" id="tab-btn-game" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-indigo-500/40 bg-indigo-950/40 text-indigo-300 transition">
+        <span class="lang-zh">🎮 4. 3关实战游戏：RTX 光追引擎加速架构师</span>
+        <span class="lang-en">🎮 4. 3-Mission Game: RTX Ray-Tracing Acceleration Architect</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <!-- ==================== TAB 1: 3BLUE1BROWN DEEP CONCEPTS ==================== -->
+    <section id="tab-concepts" class="space-y-8">
+      <!-- Intro Banner -->
+      <div class="rounded-3xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/40 p-6 sm:p-8 space-y-4">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+          <span>✨ From $O(N)$ Brute-Force to $O(\log N)$ Real-Time Ray Tracing</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white">
+          <span class="lang-zh">为什么没有加速结构的光线追踪慢一百万倍？如何用“三明治区间交集”与“几何概率论”拯救渲染时间？</span>
+          <span class="lang-en">Why Naive Ray Tracing Is a Million Times Too Slow &amp; How Slab Intervals + Geometric Probability (SAH) Save It</span>
+        </h2>
+        <p class="lang-zh text-sm sm:text-base text-slate-300 leading-relaxed">
+          算一笔账：一张 1080p 画面有 $2\times 10^6$ 个像素，每个像素连同反射、折射、阴影发射 $5$ 条射线，共 $10^7$ 条射线；如果电影级场景里有 $N = 10^7$ 个三角形，朴素的暴力循环（每条射线测试每一个三角形）一帧需要做 <b>$10^{14}$（一百亿亿）次 Möller–Trumbore 求交</b>！就算每秒算 10 亿次，渲染一帧也要整整 27 个小时！
+          <br/><br/>
+          怎么把 $O(N)$ 变成 $O(\log_2 N)$（$10^7$ 个三角形只需约 $24$ 次测试，提速<b>40 万倍</b>）？核心思想就像查字典一样：<b>用容易求交的轴对齐包围盒 (AABB) 把成千上万个三角形层层包裹成一棵树——如果射线连外面的大盒子都没碰到，盒子里面的一百万个三角形看都不用看，直接整棵子树一刀剪除 (Pruning)！</b>
+        </p>
+        <p class="lang-en text-sm sm:text-base text-slate-300 leading-relaxed">
+          Shooting $10^7$ rays against $N = 10^7$ triangles naively requires $10^{14}$ intersection tests per frame! By wrapping geometry in a hierarchy of <b>Axis-Aligned Bounding Boxes (AABBs)</b>, if a ray misses a parent box, we prune all millions of triangles inside it in a single test — dropping complexity from $O(N)$ to $O(\log_2 N)$!
+        </p>
+      </div>
+
+      <!-- Part 1: AABB Slab Intersection Test — CSG Intersection of 3 Parallel Slabs -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-black flex items-center justify-center">01</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">Kay–Kajiya AABB Slab 求交法 (1986)：把 3D 盒子看作 3 片无限平板的 CSG 交集！</span>
+            <span class="lang-en">The Kay–Kajiya AABB Slab Method (1986): A 3D Box Is the CSG Intersection of 3 Infinite Slabs!</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm text-slate-300 leading-relaxed">
+          <div class="space-y-3">
+            <p class="lang-zh">
+              一个<b>轴对齐包围盒 (Axis-Aligned Bounding Box, AABB)</b> 由三个坐标轴上的区间定义：$[x_{\min}, x_{\max}] \times [y_{\min}, y_{\max}] \times [z_{\min}, z_{\max}]$。
+              如果笨拙地把盒子当成 6 个矩形面分别求交，既啰嗦又慢。1986 年 Timothy Kay 与 James Kajiya 提出了天才的 <b>Slab（平行板三明治）视角</b>：
+              <br/>• 两张垂直于 $X$ 轴的无限平面 $x = x_{\min}$ 和 $x = x_{\max}$ 夹出了一片无限厚的<b>X-方向平板 ($\text{Slab}_X$)</b>；
+              <br/>• <b>三维盒子 $\text{AABB}$，本质上就是 $\text{Slab}_X \cap \text{Slab}_Y \cap \text{Slab}_Z$ 的 CSG 交集（Lesson 13）！</b>
+            </p>
+            <div class="math-box text-xs">
+              $$x(t) = o_x + t\,d_x = x_{\min} \implies t_{x,0} = \frac{x_{\min} - o_x}{d_x}, \qquad t_{x,1} = \frac{x_{\max} - o_x}{d_x}$$
+              $$\text{若 } d_x < 0 \text{ 则交换大小，得进入与离开 X 平板的时间: } [t_{x,\min},\; t_{x,\max}]$$
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <p class="lang-zh">
+              同理算出射线穿过 $Y$ 平板的时间区间 $[t_{y,\min}, t_{y,\max}]$ 和 $Z$ 平板的时间区间 $[t_{z,\min}, t_{z,\max}]$。
+              <b>什么时候射线真正处在盒子内部？</b>只有当射线<b>已经进入了全部三个平板</b>，且<b>还没有离开任何一个平板</b>时！因此对三个一维区间求交集 $[t_{\text{enter}}, t_{\text{exit}}]$：
+            </p>
+            <div class="math-box text-xs">
+              $$t_{\text{enter}} = \max\!\big(t_{x,\min},\; t_{y,\min},\; t_{z,\min}\big), \qquad t_{\text{exit}} = \min\!\big(t_{x,\max},\; t_{y,\max},\; t_{z,\max}\big)$$
+              $$\text{射线命中 AABB} \iff \mathbf{t_{\text{enter}} \le t_{\text{exit}}} \;\;\text{且}\;\; \mathbf{t_{\text{exit}} > 0}$$
+            </div>
+            <p class="lang-zh text-xs text-emerald-300">
+              <b>工业级加速技巧</b>：在同一条射线遍历整棵 BVH 树时，预先算好倒数向量 $\text{invD} = (1/d_x, 1/d_y, 1/d_z)$，那么每个盒子的 Slab 测试完全没有除法，只剩 **6 次乘加 (FMA) 和 6 次 `min/max`**，GPU 硬件每时钟周期可并行测试数十个盒子！
+            </p>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer 1: AABB Slab Intersection Microscope -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-bold text-cyan-300">
+                <span class="lang-zh">🔬 交互透视镜 1：AABB Slab 平板交集与一维时间轴 $[t_{\text{enter}}, t_{\text{exit}}]$ 显微镜</span>
+                <span class="lang-en">🔬 Interactive Visualizer 1: AABB Slab Intersection &amp; 1D Interval Overlap $[t_{\text{enter}}, t_{\text{exit}}]$</span>
+              </h4>
+              <p class="text-xs text-slate-400">
+                <span class="lang-zh">拖动射线角度 $\theta$ 或起点高度 $Y$，上半屏观察射线穿过蓝色 X-Slab 与琥珀色 Y-Slab 的 4 个交点，下半屏同步对比一维区间 $I_X \cap I_Y$ 是否重叠！</span>
+                <span class="lang-en">Scrub ray angle $\theta$ or origin $Y$ to see the 4 slab crossings in 2D and watch $I_X \cap I_Y = [\max(t_{x,\min}, t_{y,\min}), \min(t_{x,\max}, t_{y,\max})]$ on the 1D timeline!</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-8">
+              <canvas id="slabCanvas" width="660" height="360" class="w-full rounded-xl border border-slate-800 bg-slate-900/80"></canvas>
+            </div>
+            <div class="lg:col-span-4 space-y-3 text-xs">
+              <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                <div>
+                  <div class="flex justify-between font-bold text-amber-300"><span>Ray Angle θ</span><span id="slAngVal">-14.0°</span></div>
+                  <input id="slAngSlider" type="range" min="-45" max="35" step="0.5" value="-14" oninput="drawSlab()" class="w-full accent-amber-400" />
+                </div>
+                <div>
+                  <div class="flex justify-between font-bold text-cyan-300"><span>Ray Origin Y</span><span id="slOyVal">175</span></div>
+                  <input id="slOySlider" type="range" min="40" max="220" step="2" value="175" oninput="drawSlab()" class="w-full accent-cyan-400" />
+                </div>
+              </div>
+              <div id="slabReadout" class="p-4 rounded-xl bg-slate-900 border border-slate-800 font-mono space-y-1.5 text-slate-200"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: 3Blue1Brown Integral Geometry — Why Probability of Hitting a Box Is Proportional to Surface Area (SAH)! -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black flex items-center justify-center">02</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">3Blue1Brown 几何概率高光时刻：为什么射线击中子盒子的概率正比于“表面积”而不是“体积”？(SAH 推导)</span>
+            <span class="lang-en">3Blue1Brown Geometric Probability Highlight: Why Ray Hit Probability Is Proportional to Surface Area, Not Volume! (SAH)</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm text-slate-300 leading-relaxed">
+          <div class="space-y-3">
+            <h4 class="font-bold text-amber-300 text-base">
+              <span class="lang-zh">① 积分几何 Crofton 定理：投影面积平均值 = 表面积的 $\frac{1}{4}$！</span>
+              <span class="lang-en">1. Crofton's Theorem: Average Projected Area = $\frac{1}{4}$ Surface Area!</span>
+            </h4>
+            <p class="lang-zh">
+              在构建 BVH 树时，怎么把一个父节点盒子 $B$ 切分成左子盒 $L$ 和右子盒 $R$ 才能让后续光线追踪最快？
+              这取决于一个核心条件概率：<b>已知一条随机方向的射线击中了父盒子 $B$，它接着击中内部子盒子 $A \subset B$ 的概率 $P(\text{hit } A \mid \text{hit } B)$ 是多少？</b>
+              <br/><br/>
+              直觉可能会骗你说“看体积比 $\text{Vol}(A)/\text{Vol}(B)$”。但请想一想：一张极大却极薄的纸片，体积几乎为 $0$，却能挡住大量射线！
+              对于任意固定方向 $\boldsymbol{\omega}$，平行射线束击中凸体 $A$ 的数量正比于 $A$ 在垂直于 $\boldsymbol{\omega}$ 平面上的<b>正交投影面积 $A_\perp(\boldsymbol{\omega})$</b>。而柯西-克罗夫顿（Cauchy–Crofton）定理证明：<b>三维空间中任意凸体在所有方向上的平均投影面积，严格等于其总表面积 $S(A)$ 的四分之一</b>！
+            </p>
+            <div class="math-box text-xs">
+              $$\mathbb{E}_{\boldsymbol{\omega}}\!\big[A_\perp(\boldsymbol{\omega})\big] = \frac{1}{4}\,S(A) \implies P(\text{hit } A \mid \text{hit } B) = \frac{S(A)}{S(B)}$$
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="font-bold text-emerald-300 text-base">
+              <span class="lang-zh">② 表面积启发式 (Surface Area Heuristic, SAH) 代价方程</span>
+              <span class="lang-en">2. The Surface Area Heuristic (SAH) Cost Equation</span>
+            </h4>
+            <p class="lang-zh">
+              设测试一次包围盒的开销为 $C_{\text{trav}}$，测试一个三角形的开销为 $C_{\text{isect}}$。若将父盒子 $B$ 的 $N$ 个三角形划分为左子盒 $L$（含 $N_L$ 个三角形，表面积 $S(L)$）与右子盒 $R$（含 $N_R$ 个三角形，表面积 $S(R)$），则访问该节点的<b>期望计算代价</b>为：
+            </p>
+            <div class="math-box text-xs">
+              $$C_{\text{SAH}}(L, R) = C_{\text{trav}} + \frac{S(L)}{S(B)}\,N_L\,C_{\text{isect}} + \frac{S(R)}{S(B)}\,N_R\,C_{\text{isect}}$$
+            </div>
+            <p class="lang-zh text-xs text-slate-300">
+              <b>为什么 SAH 完胜“空间中点切分 (Midpoint)”和“数量均分 (Equal-Count Median)”？</b>
+              假设左侧角落挤了 10 个极小的三角形，右侧散落着 2 个大三角形，中间有大片空白：
+              <br/>• <b>数量均分 (Median)</b> 会强行把左侧密集簇劈成两半（左右两个盒子都很大且重叠）；
+              <br/>• <b>SAH</b> 则会贴着左侧密集簇边缘切一刀：左子盒虽然装着 $N_L=10$ 个三角形，但因为它的**表面积占比 $S(L)/S(B)$ 极小**，绝大多数射线根本不会碰它；而大片空白区域被瞬间隔离！
+            </p>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer 2: SAH Cost Curve Explorer -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-bold text-amber-300">
+                <span class="lang-zh">🎛️ 交互透视镜 2：SAH 表面积启发式 vs 空间中点 vs 数量中位数切分代价分析仪</span>
+                <span class="lang-en">🎛️ Interactive Visualizer 2: SAH Expected Cost Curve vs. Midpoint &amp; Median Splits</span>
+              </h4>
+              <p class="text-xs text-slate-400">
+                <span class="lang-zh">拖动切分刀位置（Split Index $k = 1 \dots 9$），观察左盒（青色）与右盒（琥珀色）的紧致包围盒表面积变化，找到代价曲线 $C_{\text{SAH}}$ 的全局最低谷！</span>
+                <span class="lang-en">Scrub the split index $k \in [1, 9]$ to see the tight Left (Cyan) and Right (Amber) bounding boxes and find the global minimum of the SAH Cost Curve!</span>
+              </p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="setSahSplit(7)" class="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white">★ Jump to Optimal SAH Split (k=7)</button>
+              <button onclick="setSahSplit(5)" class="px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">Equal-Count Median (k=5)</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-8">
+              <canvas id="sahCanvas" width="660" height="320" class="w-full rounded-xl border border-slate-800 bg-slate-900/80"></canvas>
+            </div>
+            <div class="lg:col-span-4 space-y-3 text-xs">
+              <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2.5">
+                <div class="flex justify-between font-bold text-amber-300">
+                  <span>Left Child Triangle Count N_L</span>
+                  <span id="sahSplitVal">7 / 10</span>
+                </div>
+                <input id="sahSplitSlider" type="range" min="1" max="9" step="1" value="7" oninput="setSahSplit(this.value)" class="w-full accent-emerald-400" />
+              </div>
+              <div id="sahReadout" class="p-4 rounded-xl bg-slate-900 border border-slate-800 font-mono space-y-1.5 text-slate-200"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: STEP-BY-STEP BVH TREE TRAVERSAL & PRUNING LAB ==================== -->
+    <section id="tab-lab" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white">
+              <span class="lang-zh">🌳 BVH 树遍历步进透视镜：近邻优先遍历与 `t_enter &gt; best_t` 整枝剪除</span>
+              <span class="lang-en">🌳 Interactive BVH Tree Traversal &amp; Closer-Hit Subtree Pruning Lab</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              <span class="lang-zh">调整射线角度 $\theta$，左侧显示层次包围盒（N0 → N1, N2 → L3..L6）与射线交点，右侧实时高亮 BVH 树中哪些分支被命中展开、哪些分支因为脱靶或被更近交点挡住而整棵剪除！</span>
+              <span class="lang-en">Adjust ray angle $\theta$ to see the spatial BVH boxes on the left and the live BVH Tree status (Visited, Missed-Pruned, or Distance-Culled) on the right!</span>
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3 text-xs">
+            <span class="font-bold text-amber-300">Ray Angle θ: <span id="bvhAngText">-8°</span></span>
+            <input id="bvhAngSlider" type="range" min="-32" max="28" step="1" value="-8" oninput="drawBvhLab()" class="w-44 accent-amber-400" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-7">
+            <canvas id="bvhSceneCanvas" width="620" height="380" class="w-full rounded-2xl border border-slate-800 bg-slate-950"></canvas>
+          </div>
+          <div class="lg:col-span-5 space-y-4">
+            <canvas id="bvhTreeCanvas" width="460" height="270" class="w-full rounded-2xl border border-slate-800 bg-slate-950"></canvas>
+            <div id="bvhStatsBox" class="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono text-xs space-y-1.5 text-slate-200"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: MIT 6.837 LECTURE 12 & BVH VS KD-TREE ==================== -->
+    <section id="tab-videos" class="hidden space-y-8">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <h3 class="text-xl font-bold text-white">
+          <span class="lang-zh">🎥 MIT 6.837 Lecture 12 视频、无分支 Slab 代码与 BVH vs KD-Tree 终极对比表</span>
+          <span class="lang-en">🎥 MIT 6.837 Lecture 12, Branchless Slab Code &amp; BVH vs. KD-Tree Master Table</span>
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 text-xs font-mono font-bold">MIT-12 • Prof. Justin Solomon</span>
+              <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">Playlist ↗</a>
+            </div>
+            <h4 class="font-bold text-white text-base">MIT 6.837 — Lecture 12: Ray Tracing II (Acceleration Structures)</h4>
+            <p class="lang-zh text-xs text-slate-400 leading-relaxed">
+              Justin Solomon 教授系统讲授光线追踪加速结构：从 AABB 包围盒求交、规则网格 (Uniform Grids)、八叉树 (Octrees)、KD-Tree 空间划分，到现代 GPU 光追标配的 BVH 与表面积启发式 (SAH)。
+            </p>
+            <div class="aspect-video rounded-xl overflow-hidden border border-slate-800 bg-slate-900">
+              <iframe class="w-full h-full" src="https://www.youtube.com/embed/videoseries?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi&index=12" title="MIT 6.837 Lecture 12 Acceleration Structures" allowfullscreen></iframe>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-2">
+              <h4 class="font-bold text-emerald-300 text-sm">💻 无分支 IEEE-754 SIMD AABB Slab 求交核代码</h4>
+              <pre class="font-mono text-[11px] text-slate-300 bg-slate-900 p-3.5 rounded-xl border border-slate-800 overflow-x-auto">bool intersectAABB(vec3 orig, vec3 invDir, vec3 bMin, vec3 bMax,
+                   float bestT, out float tEnter) {
+  vec3 t0 = (bMin - orig) * invDir;
+  vec3 t1 = (bMax - orig) * invDir;
+  vec3 tmin = min(t0, t1), tmax = max(t0, t1);
+  tEnter = max(max(tmin.x, tmin.y), tmin.z);
+  float tExit = min(min(tmax.x, tmax.y), tmax.z);
+  return (tEnter &lt;= tExit) &amp;&amp; (tExit &gt; 0.0) &amp;&amp; (tEnter &lt; bestT);
+}</pre>
+            </div>
+
+            <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 overflow-x-auto">
+              <h4 class="font-bold text-white text-sm mb-2">📊 BVH (划分对象) vs KD-Tree (划分空间) 核心差异</h4>
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400">
+                    <th class="py-1.5 pr-2">维度</th>
+                    <th class="py-1.5 px-2 text-emerald-300">BVH (Bounding Volume Hierarchy)</th>
+                    <th class="py-1.5 pl-2 text-cyan-300">KD-Tree (Spatial BSP)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/70 text-slate-300">
+                  <tr>
+                    <td class="py-2 pr-2 font-bold">划分哲学</td>
+                    <td class="py-2 px-2">划分<b>图元集合 (Object Partition)</b></td>
+                    <td class="py-2 pl-2">划分<b>3D 空间区域 (Space Partition)</b></td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 pr-2 font-bold">图元归属</td>
+                    <td class="py-2 px-2">每个三角形<b>只属于 1 个叶子</b>（零复制）</td>
+                    <td class="py-2 pl-2">跨切分面的三角形需<b>复制到两侧</b></td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 pr-2 font-bold">子节点重叠</td>
+                    <td class="py-2 px-2">左右子包围盒<b>允许空间重叠</b></td>
+                    <td class="py-2 pl-2">左右子空间<b>严格不重叠</b></td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 pr-2 font-bold">硬件地位</td>
+                    <td class="py-2 px-2">NVIDIA RTX / OptiX / Embree 工业标准</td>
+                    <td class="py-2 pl-2">适合静态点云与光子映射近邻查询</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-game" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-indigo-500/40 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white">
+              <span class="lang-zh">🎮 3 关实战通关小游戏：RTX 光追引擎加速架构师</span>
+              <span class="lang-en">🎮 3-Mission Game: RTX Ray-Tracing Acceleration Architect</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              <span class="lang-zh">通过计算 Slab 交集区间 $[t_{\text{enter}}, t_{\text{exit}}]$、寻找最优 SAH 切分刀位以及执行 `t_enter > best_t` 子树剪枝完成通关！</span>
+              <span class="lang-en">Complete all 3 missions by computing Slab overlap intervals, finding the minimum SAH cost split, and pruning far BVH subtrees!</span>
+            </p>
+          </div>
+
+          <div class="flex gap-2">
+            <button onclick="setGameMission(1)" id="game-btn-1" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white">
+              Mission 1: Slab Interval Overlap
+            </button>
+            <button onclick="setGameMission(2)" id="game-btn-2" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 2: Optimal SAH Splitter
+            </button>
+            <button onclick="setGameMission(3)" id="game-btn-3" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 3: Closer-Hit Pruning
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-7">
+            <canvas id="gameCanvas" width="640" height="350" class="w-full rounded-2xl border border-slate-800 bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 space-y-4 text-xs">
+            <div id="gameDesc" class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 text-slate-200 leading-relaxed"></div>
+
+            <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div>
+                <div class="flex justify-between font-bold text-amber-300 mb-1">
+                  <span id="gLabel1">Param 1</span>
+                  <span id="gVal1">100</span>
+                </div>
+                <input id="gSlider1" type="range" min="50" max="250" step="10" value="100" oninput="drawGame()" class="w-full accent-amber-400" />
+              </div>
+              <div>
+                <div class="flex justify-between font-bold text-cyan-300 mb-1">
+                  <span id="gLabel2">Param 2</span>
+                  <span id="gVal2">200</span>
+                </div>
+                <input id="gSlider2" type="range" min="100" max="320" step="10" value="200" oninput="drawGame()" class="w-full accent-cyan-400" />
+              </div>
+            </div>
+
+            <div id="gameStatus" class="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== LANGUAGE & TAB CONTROLLER ====================
+    let isEn = false;
+    function toggleLang() {
+      isEn = !isEn;
+      document.body.classList.toggle('en-mode', isEn);
+      drawSlab();
+      drawSah();
+      drawBvhLab();
+      drawGame();
+    }
+
+    function switchTab(tabId) {
+      ['concepts', 'lab', 'videos', 'game'].forEach(id => {
+        document.getElementById('tab-' + id).classList.toggle('hidden', id !== tabId);
+        document.getElementById('tab-btn-' + id).classList.toggle('active', id === tabId);
+      });
+      if (tabId === 'concepts') { drawSlab(); drawSah(); }
+      if (tabId === 'lab') drawBvhLab();
+      if (tabId === 'game') drawGame();
+    }
+
+    // ==================== VISUALIZER 1: AABB SLAB INTERSECTION MICROSCOPE ====================
+    function drawSlab() {
+      const c = document.getElementById('slabCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const deg = Number(document.getElementById('slAngSlider').value);
+      const oy = Number(document.getElementById('slOySlider').value);
+      const ox = 70;
+      document.getElementById('slAngVal').textContent = deg.toFixed(1) + '°';
+      document.getElementById('slOyVal').textContent = oy;
+
+      const xMin = 260, xMax = 440;
+      const yMin = 65, yMax = 195;
+      const splitY = 245;
+
+      // X-Slab vertical band
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+      ctx.fillRect(xMin, 0, xMax - xMin, splitY);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(xMin, 0); ctx.lineTo(xMin, splitY);
+      ctx.moveTo(xMax, 0); ctx.lineTo(xMax, splitY);
+      ctx.stroke();
+
+      // Y-Slab horizontal band
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.08)';
+      ctx.fillRect(0, yMin, W, yMax - yMin);
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
+      ctx.beginPath();
+      ctx.moveTo(0, yMin); ctx.lineTo(W, yMin);
+      ctx.moveTo(0, yMax); ctx.lineTo(W, yMax);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const rad = (deg * Math.PI) / 180;
+      const dx = Math.cos(rad), dy = Math.sin(rad) || 1e-5;
+
+      const tx0 = (xMin - ox) / dx, tx1 = (xMax - ox) / dx;
+      const txMin = Math.min(tx0, tx1), txMax = Math.max(tx0, tx1);
+
+      const ty0 = (yMin - oy) / dy, ty1 = (yMax - oy) / dy;
+      const tyMin = Math.min(ty0, ty1), tyMax = Math.max(ty0, ty1);
+
+      const tEnter = Math.max(txMin, tyMin);
+      const tExit = Math.min(txMax, tyMax);
+      const hit = tEnter <= tExit && tExit > 0;
+
+      // AABB Box
+      ctx.fillStyle = hit ? 'rgba(16, 185, 129, 0.22)' : 'rgba(244, 63, 94, 0.15)';
+      ctx.strokeStyle = hit ? '#10b981' : '#f43f5e';
+      ctx.lineWidth = 2.5;
+      ctx.fillRect(xMin, yMin, xMax - xMin, yMax - yMin);
+      ctx.strokeRect(xMin, yMin, xMax - xMin, yMax - yMin);
+
+      // Ray line
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + dx * 560, oy + dy * 560);
+      ctx.stroke();
+
+      if (hit) {
+        const pIn = [ox + tEnter * dx, oy + tEnter * dy];
+        const pOut = [ox + tExit * dx, oy + tExit * dy];
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(pIn[0], pIn[1]); ctx.lineTo(pOut[0], pOut[1]); ctx.stroke();
+      }
+
+      // Bottom 1D Interval Timeline
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(0, splitY); ctx.lineTo(W, splitY); ctx.stroke();
+
+      const mapT = (t) => Math.max(30, Math.min(W - 30, 60 + t * 0.95));
+      // X Interval bar
+      ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(mapT(txMin), 275); ctx.lineTo(mapT(txMax), 275); ctx.stroke();
+      // Y Interval bar
+      ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(mapT(tyMin), 305); ctx.lineTo(mapT(tyMax), 305); ctx.stroke();
+
+      if (hit) {
+        ctx.strokeStyle = '#10b981'; ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.moveTo(mapT(tEnter), 335); ctx.lineTo(mapT(tExit), 335); ctx.stroke();
+      }
+
+      document.getElementById('slabReadout').innerHTML = `
+        <div class="font-bold ${hit ? 'text-emerald-400' : 'text-rose-400'}">
+          ${hit ? '✓ RAY HITS AABB (t_enter ≤ t_exit)' : '❌ RAY MISSES AABB (t_enter > t_exit!)'}
+        </div>
+        <div class="text-cyan-300">X-Slab: [${txMin.toFixed(0)}, ${txMax.toFixed(0)}]</div>
+        <div class="text-amber-300">Y-Slab: [${tyMin.toFixed(0)}, ${tyMax.toFixed(0)}]</div>
+        <div class="text-emerald-300 font-bold">t_enter = max = ${tEnter.toFixed(0)} | t_exit = min = ${tExit.toFixed(0)}</div>
+      `;
+    }
+
+    // ==================== VISUALIZER 2: SAH COST ANALYZER ====================
+    const sahTris = [
+      // 7 clustered triangles on the left
+      { x: 65, y: 55, w: 22, h: 22 },
+      { x: 90, y: 75, w: 20, h: 24 },
+      { x: 72, y: 105, w: 24, h: 20 },
+      { x: 105, y: 52, w: 22, h: 22 },
+      { x: 118, y: 95, w: 22, h: 22 },
+      { x: 85, y: 132, w: 24, h: 22 },
+      { x: 128, y: 128, w: 22, h: 22 },
+      // 3 spread-out triangles across middle/right
+      { x: 310, y: 65, w: 45, h: 42 },
+      { x: 430, y: 120, w: 50, h: 45 },
+      { x: 540, y: 75, w: 48, h: 48 }
+    ];
+    let sahK = 7;
+
+    function computeBox(list) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      list.forEach(t => {
+        x0 = Math.min(x0, t.x); y0 = Math.min(y0, t.y);
+        x1 = Math.max(x1, t.x + t.w); y1 = Math.max(y1, t.y + t.h);
+      });
+      const perim = 2 * ((x1 - x0) + (y1 - y0));
+      return { x0, y0, x1, y1, perim };
+    }
+
+    function setSahSplit(val) {
+      sahK = Number(val);
+      document.getElementById('sahSplitSlider').value = sahK;
+      document.getElementById('sahSplitVal').textContent = `${sahK} / 10`;
+      drawSah();
+    }
+
+    function drawSah() {
+      const c = document.getElementById('sahCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const parentB = computeBox(sahTris);
+      const leftB = computeBox(sahTris.slice(0, sahK));
+      const rightB = computeBox(sahTris.slice(sahK));
+
+      // Draw Parent Box
+      ctx.strokeStyle = '#475569';
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(parentB.x0 - 6, parentB.y0 - 6, parentB.x1 - parentB.x0 + 12, parentB.y1 - parentB.y0 + 12);
+      ctx.setLineDash([]);
+
+      // Draw Left & Right Child Boxes
+      ctx.fillStyle = 'rgba(34, 211, 238, 0.14)';
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 2.5;
+      ctx.fillRect(leftB.x0, leftB.y0, leftB.x1 - leftB.x0, leftB.y1 - leftB.y0);
+      ctx.strokeRect(leftB.x0, leftB.y0, leftB.x1 - leftB.x0, leftB.y1 - leftB.y0);
+
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.14)';
+      ctx.strokeStyle = '#fbbf24';
+      ctx.fillRect(rightB.x0, rightB.y0, rightB.x1 - rightB.x0, rightB.y1 - rightB.y0);
+      ctx.strokeRect(rightB.x0, rightB.y0, rightB.x1 - rightB.x0, rightB.y1 - rightB.y0);
+
+      // Draw Triangles
+      sahTris.forEach((t, idx) => {
+        ctx.fillStyle = idx < sahK ? '#38bdf8' : '#f59e0b';
+        ctx.beginPath();
+        ctx.moveTo(t.x, t.y + t.h);
+        ctx.lineTo(t.x + t.w * 0.5, t.y);
+        ctx.lineTo(t.x + t.w, t.y + t.h);
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      // Draw SAH Cost Curve at bottom (y = 200..305)
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(40, 295); ctx.lineTo(W - 40, 295); ctx.stroke();
+
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      let activeCost = 0;
+      for (let k = 1; k <= 9; k++) {
+        const bL = computeBox(sahTris.slice(0, k));
+        const bR = computeBox(sahTris.slice(k));
+        const cost = 1.0 + (bL.perim / parentB.perim) * k + (bR.perim / parentB.perim) * (10 - k);
+        if (k === sahK) activeCost = cost;
+        const px = 60 + (k - 1) * 65;
+        const py = 295 - cost * 14;
+        if (k === 1) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      for (let k = 1; k <= 9; k++) {
+        const bL = computeBox(sahTris.slice(0, k));
+        const bR = computeBox(sahTris.slice(k));
+        const cost = 1.0 + (bL.perim / parentB.perim) * k + (bR.perim / parentB.perim) * (10 - k);
+        const px = 60 + (k - 1) * 65;
+        const py = 295 - cost * 14;
+        ctx.fillStyle = k === sahK ? '#fbbf24' : '#10b981';
+        ctx.beginPath(); ctx.arc(px, py, k === sahK ? 7 : 4.5, 0, Math.PI * 2); ctx.fill();
+      }
+
+      const pL = leftB.perim / parentB.perim;
+      const pR = rightB.perim / parentB.perim;
+      document.getElementById('sahReadout').innerHTML = `
+        <div class="font-bold ${sahK === 7 ? 'text-emerald-400' : 'text-amber-300'}">
+          SAH Expected Cost = ${activeCost.toFixed(2)} ${sahK === 7 ? '(★ GLOBAL OPTIMUM!)' : ''}
+        </div>
+        <div class="text-cyan-300">P(L|B) = S_L/S_P = ${(pL * 100).toFixed(1)}% (N_L = ${sahK})</div>
+        <div class="text-amber-300">P(R|B) = S_R/S_P = ${(pR * 100).toFixed(1)}% (N_R = ${10 - sahK})</div>
+        <div class="text-slate-400">No-Split Cost = 10.00</div>
+      `;
+    }
+
+    // ==================== TAB 2: BVH TREE TRAVERSAL & PRUNING LAB ====================
+    const bvhBoxes = [
+      { id: 'N0 (Root)', x0: 185, y0: 40, x1: 580, y1: 340 },
+      { id: 'N1 (Top)', x0: 195, y0: 48, x1: 570, y1: 175 },
+      { id: 'N2 (Bot)', x0: 195, y0: 205, x1: 570, y1: 332 },
+      { id: 'L3 (Near-T)', x0: 205, y0: 56, x1: 355, y1: 165 },
+      { id: 'L4 (Far-T)', x0: 405, y0: 56, x1: 560, y1: 165 },
+      { id: 'L5 (Near-B)', x0: 205, y0: 215, x1: 355, y1: 324 },
+      { id: 'L6 (Far-B)', x0: 405, y0: 215, x1: 560, y1: 324 }
+    ];
+
+    function rayBoxTest(ox, oy, dx, dy, b) {
+      const tx0 = (b.x0 - ox) / dx, tx1 = (b.x1 - ox) / dx;
+      const ty0 = (b.y0 - oy) / dy, ty1 = (b.y1 - oy) / dy;
+      const tEnter = Math.max(Math.min(tx0, tx1), Math.min(ty0, ty1));
+      const tExit = Math.min(Math.max(tx0, tx1), Math.max(ty0, ty1));
+      return { hit: tEnter <= tExit && tExit > 0, tEnter };
+    }
+
+    function drawBvhLab() {
+      const sc = document.getElementById('bvhSceneCanvas');
+      const tc = document.getElementById('bvhTreeCanvas');
+      if (!sc || !tc) return;
+
+      const deg = Number(document.getElementById('bvhAngSlider').value);
+      document.getElementById('bvhAngText').textContent = deg + '°';
+
+      const ox = 45, oy = 190;
+      const rad = (deg * Math.PI) / 180;
+      const dx = Math.cos(rad), dy = Math.sin(rad) || 1e-5;
+
+      const status = bvhBoxes.map(b => rayBoxTest(ox, oy, dx, dy, b));
+      // Simulate closest triangle hit inside L3 or L5 if hit
+      let bestT = Infinity;
+      let hitLeaf = 'None';
+      if (status[3].hit) { bestT = status[3].tEnter + 35; hitLeaf = 'L3 (Near-Top)'; }
+      else if (status[5].hit) { bestT = status[5].tEnter + 35; hitLeaf = 'L5 (Near-Bot)'; }
+      else if (status[4].hit) { bestT = status[4].tEnter + 35; hitLeaf = 'L4 (Far-Top)'; }
+      else if (status[6].hit) { bestT = status[6].tEnter + 35; hitLeaf = 'L6 (Far-Bot)'; }
+
+      // Determine node states: 'visited' (green), 'culled' (purple: hit box but tEnter > bestT), 'pruned' (red: missed box)
+      const nodeState = bvhBoxes.map((b, i) => {
+        if (!status[0].hit) return 'pruned';
+        if (i === 1 && !status[1].hit) return 'pruned';
+        if (i === 2 && !status[2].hit) return 'pruned';
+        if ((i === 3 || i === 4) && !status[1].hit) return 'pruned';
+        if ((i === 5 || i === 6) && !status[2].hit) return 'pruned';
+        if (!status[i].hit) return 'pruned';
+        if (status[i].tEnter > bestT) return 'culled';
+        return 'visited';
+      });
+
+      const sctx = sc.getContext('2d');
+      sctx.clearRect(0, 0, sc.width, sc.height);
+
+      bvhBoxes.forEach((b, idx) => {
+        const st = nodeState[idx];
+        sctx.strokeStyle = st === 'visited' ? '#10b981' : st === 'culled' ? '#a855f7' : '#334155';
+        sctx.lineWidth = idx >= 3 ? 2.2 : 1.2;
+        sctx.strokeRect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+        sctx.fillStyle = sctx.strokeStyle;
+        sctx.font = 'bold 11px monospace';
+        sctx.fillText(b.id, b.x0 + 6, b.y0 + 15);
+      });
+
+      // Draw ray
+      const len = isFinite(bestT) ? bestT : 580;
+      sctx.strokeStyle = '#fbbf24';
+      sctx.lineWidth = 3;
+      sctx.beginPath(); sctx.moveTo(ox, oy); sctx.lineTo(ox + dx * len, oy + dy * len); sctx.stroke();
+
+      // Draw Tree Graph
+      const tctx = tc.getContext('2d');
+      tctx.clearRect(0, 0, tc.width, tc.height);
+      const pos = [
+        [230, 42],
+        [125, 125], [335, 125],
+        [68, 215], [178, 215], [282, 215], [392, 215]
+      ];
+      const edges = [[0,1],[0,2],[1,3],[1,4],[2,5],[2,6]];
+      edges.forEach(([u, v]) => {
+        tctx.strokeStyle = nodeState[v] === 'visited' ? '#10b981' : '#334155';
+        tctx.lineWidth = 2;
+        tctx.beginPath(); tctx.moveTo(pos[u][0], pos[u][1]); tctx.lineTo(pos[v][0], pos[v][1]); tctx.stroke();
+      });
+
+      pos.forEach((p, idx) => {
+        const st = nodeState[idx];
+        tctx.fillStyle = st === 'visited' ? '#065f46' : st === 'culled' ? '#581c87' : '#1e293b';
+        tctx.strokeStyle = st === 'visited' ? '#10b981' : st === 'culled' ? '#a855f7' : '#f43f5e';
+        tctx.lineWidth = 2.5;
+        tctx.beginPath(); tctx.arc(p[0], p[1], 22, 0, Math.PI * 2); tctx.fill(); tctx.stroke();
+        tctx.fillStyle = '#f8fafc'; tctx.font = 'bold 11px monospace';
+        tctx.fillText(idx === 0 ? 'N0' : idx <= 2 ? `N${idx}` : `L${idx}`, p[0] - 8, p[1] + 4);
+      });
+
+      const visitedLeaves = [3, 4, 5, 6].filter(i => nodeState[i] === 'visited').length;
+      document.getElementById('bvhStatsBox').innerHTML = `
+        <div class="text-emerald-400 font-bold">Closest Hit Leaf: ${hitLeaf}</div>
+        <div>Green = Visited | Red = Missed-Box Pruned | Purple = Distance Culled (t_enter &gt; best_t)</div>
+        <div class="text-amber-300 font-bold">Triangles Tested: ${visitedLeaves * 3} / 12 (Saved ${100 - visitedLeaves * 25}% work!)</div>
+      `;
+    }
+
+    // ==================== TAB 4: 3-MISSION MINI-GAME ====================
+    let gameMission = 1;
+    function setGameMission(m) {
+      gameMission = m;
+      [1, 2, 3].forEach(idx => {
+        document.getElementById('game-btn-' + idx).className = idx === m
+          ? 'px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white'
+          : 'px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      const s1 = document.getElementById('gSlider1');
+      const s2 = document.getElementById('gSlider2');
+      if (m === 1) {
+        s1.min = 60; s1.max = 200; s1.step = 10; s1.value = 90;
+        s2.min = 160; s2.max = 300; s2.step = 10; s2.value = 280;
+      } else if (m === 2) {
+        s1.min = 1; s1.max = 9; s1.step = 1; s1.value = 4;
+        s2.min = 1; s2.max = 9; s2.step = 1; s2.value = 6;
+      } else {
+        s1.min = 1; s1.max = 2; s1.step = 1; s1.value = 2;
+        s2.min = 100; s2.max = 300; s2.step = 25; s2.value = 250;
+      }
+      drawGame();
+    }
+
+    function drawGame() {
+      const c = document.getElementById('gameCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const v1 = Number(document.getElementById('gSlider1').value);
+      const v2 = Number(document.getElementById('gSlider2').value);
+      document.getElementById('gVal1').textContent = v1;
+      document.getElementById('gVal2').textContent = v2;
+
+      let passed = false;
+      const desc = document.getElementById('gameDesc');
+      const status = document.getElementById('gameStatus');
+
+      if (gameMission === 1) {
+        document.getElementById('gLabel1').textContent = 't_enter = max(t_x,min, t_y,min)';
+        document.getElementById('gLabel2').textContent = 't_exit = min(t_x,max, t_y,max)';
+        desc.innerHTML = isEn
+          ? '<b>Mission 1 (Slab Overlap Calculator)</b>: Given X-Slab = [80, 240] and Y-Slab = [120, 290], set t_enter = max(80, 120) = 120 and t_exit = min(240, 290) = 240!'
+          : '<b>第 1 关（Slab 区间交集解算）</b>：已知射线穿过 X 平板区间为 [80, 240]，穿过 Y 平板区间为 [120, 290]。请算出正确的进入时间 t_enter = max(80,120) = 120 与离开时间 t_exit = min(240,290) = 240！';
+        passed = v1 === 120 && v2 === 240;
+      } else if (gameMission === 2) {
+        document.getElementById('gLabel1').textContent = 'Left Cluster Count N_L (Target 7)';
+        document.getElementById('gLabel2').textContent = 'Right Count N_R (Target 3)';
+        desc.innerHTML = isEn
+          ? '<b>Mission 2 (Optimal SAH Partition)</b>: Partition the 10 triangles into N_L = 7 (dense cluster) and N_R = 3 (sparse) to achieve the global minimum SAH expected cost!'
+          : '<b>第 2 关（SAH 表面积启发式最优切分）</b>：将 10 个图元切分为左簇 N_L = 7（高密度小面积）与右簇 N_R = 3，使 SAH 期望代价降至全局最低！';
+        passed = v1 === 7 && v2 === 3;
+      } else {
+        document.getElementById('gLabel1').textContent = 'First Visited Child (1=Near, 2=Far)';
+        document.getElementById('gLabel2').textContent = 'best_t Cutoff (Target 150)';
+        desc.innerHTML = isEn
+          ? '<b>Mission 3 (Front-to-Back Early Pruning)</b>: Visit Child 1 (Near Box at t=100..180) first, find a triangle hit at best_t = 150, and automatically prune Child 2 (Far Box at t_enter = 220 > 150)!'
+          : '<b>第 3 关（近邻优先与提前剪枝）</b>：选择先访问 1 号近邻子盒，并将命中距离 best_t 锁定为 150，使远端子盒（t_enter = 220 > 150）被整枝剪除！';
+        passed = v1 === 1 && v2 === 150;
+      }
+
+      ctx.strokeStyle = passed ? '#10b981' : '#38bdf8';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(45, 45, W - 90, H - 90);
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 19px monospace';
+      ctx.fillText(`Mission ${gameMission}: Param1 = ${v1} | Param2 = ${v2}`, 80, 160);
+      ctx.fillStyle = passed ? '#10b981' : '#fbbf24';
+      ctx.fillText(passed ? '★ BVH ACCELERATION VERIFIED!' : '● Tune parameters to optimize ray traversal', 80, 210);
+
+      status.innerHTML = passed
+        ? `<div class="text-emerald-400 font-bold text-sm">★ MISSION ${gameMission} CLEARED! / 恭喜通关！</div>`
+        : `<div class="text-amber-300 font-bold">● Calibrating BVH parameters...</div>`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+      drawSlab();
+      drawSah();
+      drawBvhLab();
+      setGameMission(1);
+    });
+  </script>
+</body>
+</html>
