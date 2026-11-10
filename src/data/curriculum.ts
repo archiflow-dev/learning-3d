@@ -425,7 +425,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Nyquist Frequency, Aliasing, Supersampling & Reconstruction Filters',
     concepts: ['走样 (Jaggies / Moiré) 的频域本质', 'Nyquist 采样定理', 'SSAA / MSAA / 分层抖动采样 (Stratified)', 'Box / Tent / Gaussian 重建滤波器'],
     playgroundTitle: '走样与超采样像素显微镜',
-    playgroundDescription: '在放大像素网格下观察高频棋盘格与斜边三角形，切换不同采样分布与滤波核对比反走样效果。',
+    playgroundDescription: '用 3Blue1Brown 傅里叶频谱克隆与折叠视角推导奈奎斯特采样定理，对比 Box / Tent / Gaussian / Sinc 重建滤波核的空频响应，在 28×28 超采样像素显微镜中点击任意像素检视分层抖动采样针与 MSAA 架构，并畅玩 3 关信号与反走样总工程师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
