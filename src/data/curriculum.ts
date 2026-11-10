@@ -515,7 +515,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Painter Algorithm, BSP Trees, Z-Buffer & Deferred Shading Intro',
     concepts: ['画家算法与循环遮挡悖论', 'BSP 二叉空间分割树', '逐像素 Z-Buffer 深度测试', 'Early-Z 与延迟着色 (G-Buffer)'],
     playgroundTitle: '画家算法循环遮挡 vs Z-Buffer 对决台',
-    playgroundDescription: '构造三个相互穿插遮挡的三角形，直观演示按面排序为何失败，以及逐像素深度缓冲如何解决。',
+    playgroundDescription: '用 3Blue1Brown 偏序传递性视角证明为什么画家算法在循环遮挡风车 (A≺B≺C≺A) 下必然崩溃，拖动相机体验 DOOM 的 BSP 二叉空间分割树零排序遍历，在现代 GPU 深度管线实验室对比 Early-Z 过绘制热力图与延迟着色 G-Buffer 四大物理通道，并畅玩 3 关可见性总架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',

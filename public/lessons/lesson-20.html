@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 20: 可见面判定算法与现代深度缓冲管线 | Painter's Algorithm, BSP, Z-Buffer & Deferred Shading</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body { background: #020617; color: #f1f5f9; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    canvas { touch-action: none; }
+    .math-box { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 0.75rem; padding: 1rem; }
+  </style>
+</head>
+<body class="min-h-screen selection:bg-indigo-500 selection:text-white">
+  <!-- Top Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 transition">
+          ← Course Index
+        </a>
+        <div>
+          <div class="flex items-center gap-2 text-xs font-bold text-indigo-400">
+            <span>Stage 4 • Rasterization Pipeline, Projection & Shaders</span>
+            <span>•</span>
+            <span>Lesson 20 / 32</span>
+          </div>
+          <h1 class="text-base sm:text-lg font-extrabold text-white">
+            L20: 可见面判定算法与现代深度缓冲管线 (Painter's Algorithm, BSP, Z-Buffer & Deferred Shading)
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button onclick="toggleLang()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition">
+          <span>🌐</span>
+          <span>EN / 中文</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap gap-2 pb-3">
+      <button onclick="switchTab(1)" id="tab-btn-1" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow">
+        1. 📐 3B1B 循环遮挡悖论、BSP 树与逐像素 Z-Buffer
+      </button>
+      <button onclick="switchTab(2)" id="tab-btn-2" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        2. 🖥️ Early-Z 深度早测与延迟着色 G-Buffer 实验室
+      </button>
+      <button onclick="switchTab(3)" id="tab-btn-3" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        3. 🎥 UCD L14 / MIT L18 & Early-Z 失效铁律
+      </button>
+      <button onclick="switchTab(4)" id="tab-btn-4" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        4. 🎮 3 关可见性与 GPU 管线总架构师挑战
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-8">
+    <!-- ==================== TAB 1: 3B1B INTUITION ==================== -->
+    <section id="tab-1" class="space-y-8">
+      <!-- Part 1: Why Sorting Polygons Fails (Cyclic Overlap Paradox) vs Per-Pixel Z-Buffer -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-700/60 text-xs font-bold text-indigo-300">
+          <span>🎨 Newell (1972) • Ed Catmull (1974) • Fuchs BSP (1980)</span>
+        </div>
+        <h2 class="text-xl sm:text-2xl font-extrabold text-white" data-zh="1. 为什么“先画远处、后画近处”的画家算法在数学上必然失败？(循环遮挡悖论 vs. 逐像素 Z-Buffer)" data-en="1. Why Does the Painter's Algorithm Mathematically Fail? (Cyclic Overlap Paradox vs. Per-Pixel Z-Buffer)">
+          1. 为什么“先画远处、后画近处”的画家算法在数学上必然失败？(循环遮挡悖论 vs. 逐像素 Z-Buffer)
+        </h2>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-6 space-y-3.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p>
+              为了解决三维场景中的遮挡关系（Hidden Surface Removal），最符合人类直觉的想法是 <strong>画家算法 (Painter's Algorithm)</strong>：就像油画家先画远处的天空和群山，再把近处的树木画上去覆盖背景一样，我们把所有三角形按深度从远到近排序（Back-to-Front），依次涂到屏幕上！
+            </p>
+            <p>
+              <strong>3Blue1Brown 数学批判：一个集合能够被排序的前提是，它上面的比较关系必须是一个满足传递性 (Transitivity) 的偏序关系 (Partial Order)！</strong>
+              然而在三维空间中，“多边形 $A$ 遮挡多边形 $B$”这个二元关系<strong>根本不满足传递性</strong>！
+            </p>
+            <div class="math-box">
+              $$\text{Red } A \prec \text{Green } B, \quad \text{Green } B \prec \text{Blue } C, \quad \text{但 Blue } C \prec \text{Red } A \;\;(\text{剪刀石头布死循环！})$$
+            </div>
+            <p>
+              如右侧实验台所示：三个互不相交的长条三角形像风车叶片一样互相压住对方的一端。无论你尝试全部 $3! = 6$ 种绘制顺序中的哪一种，<strong>永远至少有一处交叠区的遮挡关系是画反的</strong>！
+            </p>
+            <p>
+              1974 年，皮克斯创始人 <strong>Ed Catmull</strong> 提出了一个降维打击的哲学突破——<strong>Z-Buffer（深度缓冲）</strong>：
+              <strong>不要再去给“整个三维三角形”排序了！把排序的粒度拆碎到“每一个二维像素 $(x, y)$”上！</strong>
+              虽然整片三角形之间会形成剪刀石头布的循环遮挡，但在<strong>穿过单个像素 $(x, y)$ 的同一条一维视线上</strong>，三个深度实数 $z_A(x,y), z_B(x,y), z_C(x,y) \in \mathbb{R}$ 永远具有严格的全序关系！每个像素只需独立记录当前见过的最小深度 `zBuffer[x][y]`：
+            </p>
+            <div class="math-box">
+              $$\text{if }\big(z_{\text{frag}}(x, y) < \text{zBuffer}[x][y]\big)\; \big\{\; \text{zBuffer}[x][y] \leftarrow z_{\text{frag}};\;\; \text{color}[x][y] \leftarrow C_{\text{frag}}; \;\big\}$$
+            </div>
+            <p class="text-emerald-300 font-semibold">
+              ✨ <strong>结论</strong>：Z-Buffer 彻底解放了三角形的提交顺序——无论你按什么顺序把三角形丢给 GPU，逐像素深度测试都能自动解开任意复杂的循环遮挡和互相穿插！
+            </p>
+          </div>
+
+          <!-- Interactive Visualizer 1A: Cyclic Overlap vs Z-Buffer Arena -->
+          <div class="lg:col-span-6 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="font-bold text-cyan-300">⚔️ 交互实验 1A：画家算法循环遮挡风车 vs. 逐像素 Z-Buffer 对决台</span>
+              <span id="cyc-status-badge" class="px-2.5 py-0.5 rounded-full font-bold bg-emerald-950 text-emerald-300 border border-emerald-700 text-[11px]">
+                ✓ Z-Buffer 开启：3 处交叠全部正确！
+              </span>
+            </div>
+
+            <div class="flex flex-wrap gap-1.5">
+              <button onclick="setCyclicMode('zbuffer')" id="cyc-btn-zbuffer" class="px-2.5 py-1 rounded bg-indigo-600 text-white font-bold text-[11px]">
+                ✓ 逐像素 Z-Buffer (完美)
+              </button>
+              <button onclick="setCyclicMode('ABC')" id="cyc-btn-ABC" class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 font-bold text-[11px]">
+                画家: A→B→C
+              </button>
+              <button onclick="setCyclicMode('BCA')" id="cyc-btn-BCA" class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 font-bold text-[11px]">
+                画家: B→C→A
+              </button>
+              <button onclick="setCyclicMode('CAB')" id="cyc-btn-CAB" class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 font-bold text-[11px]">
+                画家: C→A→B
+              </button>
+              <button onclick="setCyclicMode('CBA')" id="cyc-btn-CBA" class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 font-bold text-[11px]">
+                画家: C→B→A
+              </button>
+            </div>
+
+            <canvas id="canvas-cyclic" width="520" height="295" class="w-full rounded-lg bg-slate-900 border border-slate-800 cursor-crosshair"></canvas>
+
+            <div id="cyc-pixel-readout" class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-[11px] text-slate-300">
+              🖱️ 移动鼠标悬停在风车三角形交叠区，实时读取该像素处 Red(A)、Green(B)、Blue(C) 的真实深度 z(x,y)！
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: BSP Trees (Binary Space Partitioning) -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <h3 class="text-lg sm:text-xl font-bold text-emerald-300">
+          2. 如果没有硬件 Z-Buffer 怎么办？——《DOOM (1993)》背后的 BSP 二叉空间分割树
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-5 space-y-3 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p>
+              在 1993 年 3D 加速卡尚未诞生时，内存极其昂贵，根本塞不下全屏 Z-Buffer。John Carmack 是如何让《DOOM》在 486 CPU 上以丝滑帧率渲染出复杂迷宫且绝不发生遮挡错乱的？答案是 **Fuchs 等人 (1980) 提出的 BSP 树 (Binary Space Partitioning Tree)**！
+            </p>
+            <ol class="list-decimal pl-5 space-y-1.5 text-xs">
+              <li>
+                <strong class="text-white">离线递归切分 (Offline Split)</strong>：任选一面墙所在平面 $H_0: \mathbf{n}_0 \cdot \mathbf{x} + d_0 = 0$ 作为根节点，将空间一分为二：正半空间 $H_0^+$ 与负半空间 $H_0^-$。若有任何其他墙面横跨切分平面 $H_0$，<strong>直接在交线处把它锯成两半</strong>（从而彻底斩断所有循环遮挡环！）。
+              </li>
+              <li>
+                <strong class="text-white">运行时视角自适应中序遍历 (Runtime $O(N)$ Traversal)</strong>：无论玩家相机 $\mathbf{E}$ 走到哪里，只需把相机坐标代入节点平面方程 $s = \mathbf{n} \cdot \mathbf{E} + d$：
+                <ul class="list-disc pl-4 mt-1 text-slate-400">
+                  <li>若相机在正侧 ($s > 0$)：先递归画<strong>负子树 $H^-$（远侧）</strong> $\to$ 再画<strong>当前根节点墙面</strong> $\to$ 最后递归画<strong>正子树 $H^+$（相机同侧）</strong>！</li>
+                  <li>若相机在负侧 ($s < 0$)：顺序完全反转（先画 $H^+$ $\to$ 根节点 $\to$ $H^-$）！</li>
+                </ul>
+              </li>
+            </ol>
+            <div id="bsp-order-box" class="p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-amber-300">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Interactive Visualizer 1B: 2D BSP Tree View-Dependent Traversal -->
+          <div class="lg:col-span-7 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-indigo-300">🧭 交互实验 1B：拖动金色相机 $\mathbf{E}$ 跨越分割线，观察 BSP 树如何零排序生成精确画家顺序</span>
+            </div>
+            <canvas id="canvas-bsp" width="540" height="270" class="w-full rounded-lg bg-slate-900 border border-slate-800 cursor-grab"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: EARLY-Z & DEFERRED G-BUFFER LAB ==================== -->
+    <section id="tab-2" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-extrabold text-white">
+              🖥️ 现代 GPU 深度管线实验室：Early-Z 过绘制优化与延迟着色 (Deferred G-Buffer)
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">
+              对比不同提交顺序（从后往前 vs. 从前往后）在硬件 Early-Z 下的片元着色器过绘制率 (Overdraw)，并切换检视延迟渲染 G-Buffer 的四大物理通道！
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setGBufferView('lit')" id="gb-btn-lit" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow">1. 最终光照合成 (Final Lit)</button>
+            <button onclick="setGBufferView('depth')" id="gb-btn-depth" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">2. 深度缓冲 (Z-Buffer)</button>
+            <button onclick="setGBufferView('normal')" id="gb-btn-normal" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">3. 世界法线 (G-Normal)</button>
+            <button onclick="setGBufferView('overdraw')" id="gb-btn-overdraw" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-950 text-rose-300 border border-rose-700">4. 🔥 着色过绘制热力图 (Overdraw)</button>
+          </div>
+        </div>
+
+        <!-- Pipeline Configuration Controls -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
+          <div>
+            <label class="block text-slate-400 font-semibold mb-1.5">不透明物体绘制提交顺序 (Draw Call Order):</label>
+            <select id="sel-draw-order" onchange="updatePipelineLab()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-semibold">
+              <option value="b2f">从远到近 (Back-to-Front — 最差 Overdraw!)</option>
+              <option value="f2b" selected>从近到远 (Front-to-Back — 激活 Early-Z 剔除!)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-slate-400 font-semibold mb-1.5">硬件 Early-Z 状态 (是否在着色前测深度):</label>
+            <select id="sel-earlyz" onchange="updatePipelineLab()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-semibold">
+              <option value="on" selected>✓ 开启 Early-Z (标准不透明 Shader)</option>
+              <option value="off">✗ 禁用 Early-Z (因 Shader 含 discard 或改写 gl_FragDepth!)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-slate-400 font-semibold mb-1.5">光照管线架构 (32 盏动态点光源):</label>
+            <select id="sel-arch" onchange="updatePipelineLab()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-semibold">
+              <option value="forward">前向渲染 (Forward: 每个通过深度的片元都算 32 盏灯)</option>
+              <option value="deferred" selected>延迟渲染 (Deferred G-Buffer: 仅对最终可见像素算 1 次光照!)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <canvas id="canvas-pipeline" width="520" height="360" class="w-full rounded-lg bg-slate-900 border border-slate-800"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4 text-xs">
+            <div class="font-bold text-indigo-300">📊 GPU 硬件性能计数器 (Performance Telemetry)</div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[11px]">平均片元过绘制率 (Overdraw)</div>
+                <div id="tel-overdraw" class="text-lg font-mono font-extrabold text-emerald-400 mt-0.5">1.00x</div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[11px]">Early-Z 提前拦截片元比例</div>
+                <div id="tel-earlyz-saved" class="text-lg font-mono font-extrabold text-cyan-400 mt-0.5">68.5%</div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[11px]">每像素动态光源计算次数</div>
+                <div id="tel-light-evals" class="text-lg font-mono font-extrabold text-amber-300 mt-0.5">32.0</div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[11px]">当前检视缓冲通道</div>
+                <div id="tel-channel" class="text-sm font-mono font-bold text-white mt-1">Final Lit</div>
+              </div>
+            </div>
+
+            <div id="pipeline-diagnosis" class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-300 leading-relaxed">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: UCD L14 & MIT L18 + EARLY-Z RULES ==================== -->
+    <section id="tab-3" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <div class="text-xs font-bold text-amber-400">🎥 配套名校公开课精要 • UC Davis ECS 175 L14 & MIT 6.837 L18</div>
+            <h2 class="text-xl font-extrabold text-white mt-1">
+              Visible Surface Algorithms, Early-Z Hardware Rules & Deferred G-Buffers
+            </h2>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+14" target="_blank" rel="noreferrer" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-500/20 border border-indigo-500/50 text-indigo-300">
+              ▶ UC Davis Lecture 14 (Visible Surface Algorithms) ↗
+            </a>
+            <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500/20 border border-amber-500/50 text-amber-300">
+              ▶ MIT 6.837 Lecture 18 (Part 2: Visibility & Z-Buffer) ↗
+            </a>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-300 leading-relaxed">
+          <div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <h3 class="text-sm font-bold text-rose-300">⚠️ 哪三种操作会当场废掉 GPU 硬件的 Early-Z 深度早测优化？</h3>
+            <p>
+              现代 GPU 默认在光栅化之后、<strong>执行 Fragment Shader 之前</strong>进行 `Early-Z` 测试。但如果你的 Shader 触犯了以下三条禁忌，硬件被迫退回 `Late-Z`（必须先跑完昂贵的 Shader 才能测深度）：
+            </p>
+            <ol class="list-decimal pl-5 space-y-1.5">
+              <li><strong class="text-white">在 Fragment Shader 中改写深度 (<code>gl_FragDepth = ...</code>)</strong>：因为跑完 Shader 前根本不知道最终深度是多少！（除非使用 `layout(depth_greater) out float gl_FragDepth;` 保守深度声明）。</li>
+              <li><strong class="text-white">使用 <code>discard</code> 或 Alpha Test 镂空丢弃片元</strong>：如果提前在 Early-Z 阶段把该镂空片元的深度写进了 Z-Buffer，而后面 Shader 却执行了 `discard`，就会在画面上留下错误的隐形遮挡黑洞！</li>
+              <li><strong class="text-white">在 Fragment Shader 中写入 UAV / SSBO 原子缓冲（侧信道副作用）</strong>且未显式声明 `layout(early_fragment_tests) in;`。</li>
+            </ol>
+          </div>
+
+          <div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <h3 class="text-sm font-bold text-cyan-300">⚖️ 为什么不透明物体要“从近到远”画，而半透明物体必须“从远到近”画？</h3>
+            <ul class="list-disc pl-5 space-y-2">
+              <li>
+                <strong class="text-emerald-300">阶段一：不透明物体 (Opaque Pass)</strong>：开启深度测试 (`DepthTest = LESS`) 且开启深度写入 (`DepthWrite = ON`)，按 <strong>从近到远 (Front-to-Back)</strong> 排序提交——让近处物体率先填满 Z-Buffer，使后方被挡住的物体全部被 `Early-Z` 零成本剔除！
+              </li>
+              <li>
+                <strong class="text-amber-300">阶段二：半透明物体 (Transparent Pass)</strong>：因为标准 Z-Buffer 每像素只存 1 个深度，无法混合插在中间的玻璃；因此必须<strong>保持深度测试开启 (`DepthTest = LESS`)，但关闭深度写入 (`DepthWrite = OFF`)</strong>，严格按 <strong>从远到近 (Back-to-Front 画家顺序)</strong> 依次执行 Alpha Blending：$C_{\text{dst}} \leftarrow \alpha C_{\text{src}} + (1-\alpha) C_{\text{dst}}$！
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-4" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="text-xs font-bold text-emerald-400">🎮 交互式通关挑战 • Visibility & GPU Pipeline Chief Architect</div>
+            <h2 class="text-xl font-extrabold text-white mt-0.5">
+              3 关可见性与现代深度管线总架构师挑战赛
+            </h2>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-bold">
+            <span id="v-badge-1" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 1: 待通关</span>
+            <span id="v-badge-2" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 2: 待通关</span>
+            <span id="v-badge-3" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 3: 待通关</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <!-- Mission 1 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-cyan-400">关卡 1：循环遮挡悖论终结者</div>
+            <p class="text-slate-300 leading-relaxed">
+              三个风车叶片三角形满足 $A \prec B \prec C \prec A$ 循环遮挡，而又不能像静态 BSP 树那样把动态变形的网格切碎。请选出唯一能在不切碎三角形的前提下 100% 解决该遮挡的机制：
+            </p>
+            <select id="v-m1-sel" onchange="evalVMission1()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              <option value="none">请选择判定机制...</option>
+              <option value="centroid">按三角形重心 z_centroid 做快速排序</option>
+              <option value="zbuf">逐像素 Z-Buffer (将排序粒度降维到单条像素视线上的实数全序比较！)</option>
+              <option value="maxz">按三角形最远顶点 z_max 排序</option>
+            </select>
+            <div id="v-m1-fb" class="text-[11px] text-amber-300">
+              提示：整片多边形之间没有偏序，但单条像素射线上的实数深度一定有全序！
+            </div>
+          </div>
+
+          <!-- Mission 2 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-indigo-400">关卡 2：Early-Z 过绘制拯救行动</div>
+            <p class="text-slate-300 leading-relaxed">
+              当前不透明主城场景包含 4 层前后重叠的建筑，因按<strong>从远到近 (Back-to-Front)</strong> 提交，导致每像素跑了 4 遍昂贵的 PBR 着色器（Overdraw = 4.0x）。请选择最优渲染管线配置将 Overdraw 压至 $1.0\times$：
+            </p>
+            <select id="v-m2-sel" onchange="evalVMission2()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              <option value="b2f">保持从远到近 (Back-to-Front) + 开启 Early-Z</option>
+              <option value="f2b_discard">从近到远 (Front-to-Back)，但在 Shader 里随意写入 gl_FragDepth</option>
+              <option value="f2b_earlyz">从近到远 (Front-to-Back) 提交不透明物体 + 保持硬件 Early-Z 激活！</option>
+            </select>
+            <div id="v-m2-fb" class="text-[11px] text-rose-400">
+              当前状态：远建筑先画，近建筑每次都通过深度测试并覆盖旧像素，浪费 300% 算力！
+            </div>
+          </div>
+
+          <!-- Mission 3 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-emerald-400">关卡 3：不透明 + 半透明混合管线总师</div>
+            <p class="text-slate-300 leading-relaxed">
+              场景中既有不透明机甲，又有 3 层半透明能量护盾。请选出工业界标准的两阶段深度缓冲状态与排序组合：
+            </p>
+            <select id="v-m3-sel" onchange="evalVMission3()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              <option value="wrong1">全部开启 DepthWrite，全部从远到近绘制</option>
+              <option value="correct">先画不透明(Front-to-Back, ZWrite=ON)，再画半透明(Back-to-Front, ZTest=ON, ZWrite=OFF)！</option>
+              <option value="wrong2">先画半透明，再画不透明</option>
+            </select>
+            <div id="v-m3-fb" class="text-[11px] text-slate-400">
+              提示：半透明物体必须测试不透明物体的 Z-Buffer，但不能互相写死 Z-Buffer。
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== LANGUAGE & TABS ====================
+    let currentLang = 'zh';
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.querySelectorAll('[data-zh]').forEach(el => {
+        el.textContent = currentLang === 'zh' ? el.getAttribute('data-zh') : el.getAttribute('data-en');
+      });
+      updateCyclicLab();
+      updateBSPLab();
+      updatePipelineLab();
+    }
+
+    function switchTab(idx) {
+      for (let i = 1; i <= 4; i++) {
+        const sec = document.getElementById('tab-' + i);
+        const btn = document.getElementById('tab-btn-' + i);
+        if (i === idx) {
+          sec.classList.remove('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800';
+        }
+      }
+      if (idx === 1) { updateCyclicLab(); updateBSPLab(); }
+      if (idx === 2) { updatePipelineLab(); }
+    }
+
+    // ==================== TAB 1A: CYCLIC OVERLAP VS Z-BUFFER ====================
+    let cyclicMode = 'zbuffer';
+    let hoverCyc = null;
+
+    // 3 Pinwheel Triangles in 3D: each has (x, y, z) at its 3 vertices
+    // Junction J_AB (top-right): A (z=2.0) in front of B (z=5.0)
+    // Junction J_BC (bottom): B (z=2.0) in front of C (z=5.0)
+    // Junction J_CA (top-left): C (z=2.0) in front of A (z=5.0)
+    const pinwheelTris = {
+      A: {
+        name: 'Red A',
+        col: [239, 68, 68],
+        v: [
+          { x: 145, y: 70, z: 5.2 },   // Top-left (behind C!)
+          { x: 375, y: 75, z: 1.8 },   // Top-right (in front of B!)
+          { x: 315, y: 140, z: 2.2 }
+        ]
+      },
+      B: {
+        name: 'Green B',
+        col: [16, 185, 129],
+        v: [
+          { x: 355, y: 55, z: 5.2 },   // Top-right (behind A!)
+          { x: 260, y: 265, z: 1.8 },  // Bottom (in front of C!)
+          { x: 225, y: 190, z: 2.2 }
+        ]
+      },
+      C: {
+        name: 'Blue C',
+        col: [59, 130, 246],
+        v: [
+          { x: 295, y: 255, z: 5.2 },  // Bottom (behind B!)
+          { x: 130, y: 95, z: 1.8 },   // Top-left (in front of A!)
+          { x: 220, y: 115, z: 2.2 }
+        ]
+      }
+    };
+
+    function setCyclicMode(m) {
+      cyclicMode = m;
+      ['zbuffer', 'ABC', 'BCA', 'CAB', 'CBA'].forEach(k => {
+        const btn = document.getElementById('cyc-btn-' + k);
+        btn.className = (k === m)
+          ? 'px-2.5 py-1 rounded bg-indigo-600 text-white font-bold text-[11px]'
+          : 'px-2.5 py-1 rounded bg-slate-800 text-slate-300 font-bold text-[11px]';
+      });
+      updateCyclicLab();
+    }
+
+    function barycentricZ(tri, px, py) {
+      const v0 = tri.v[0], v1 = tri.v[1], v2 = tri.v[2];
+      const det = (v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y);
+      const l0 = ((v1.y - v2.y) * (px - v2.x) + (v2.x - v1.x) * (py - v2.y)) / det;
+      const l1 = ((v2.y - v0.y) * (px - v2.x) + (v0.x - v2.x) * (py - v2.y)) / det;
+      const l2 = 1.0 - l0 - l1;
+      if (l0 >= 0 && l1 >= 0 && l2 >= 0) {
+        return l0 * v0.z + l1 * v1.z + l2 * v2.z;
+      }
+      return null;
+    }
+
+    function updateCyclicLab() {
+      const canvas = document.getElementById('canvas-cyclic');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const badge = document.getElementById('cyc-status-badge');
+      if (cyclicMode === 'zbuffer') {
+        badge.className = 'px-2.5 py-0.5 rounded-full font-bold bg-emerald-950 text-emerald-300 border border-emerald-700 text-[11px]';
+        badge.textContent = '✓ 逐像素 Z-Buffer 开启：A 压 B、B 压 C、C 压 A 同时完美呈现！';
+      } else {
+        badge.className = 'px-2.5 py-0.5 rounded-full font-bold bg-rose-950 text-rose-300 border border-rose-700 text-[11px]';
+        badge.textContent = `⚠️ 画家顺序 ${cyclicMode.split('').join('→')}：全局覆写导致红圈交界处遮挡画反！`;
+      }
+
+      // Software rasterize at 2x2 pixel blocks for crisp speed
+      const step = 2;
+      const order = cyclicMode === 'zbuffer' ? ['A', 'B', 'C'] : cyclicMode.split('');
+
+      for (let py = 35; py < H - 20; py += step) {
+        for (let px = 100; px < W - 100; px += step) {
+          let bestZ = 1e9;
+          let winCol = null;
+
+          for (const key of order) {
+            const tri = pinwheelTris[key];
+            const z = barycentricZ(tri, px, py);
+            if (z !== null) {
+              if (cyclicMode === 'zbuffer') {
+                if (z < bestZ) {
+                  bestZ = z;
+                  winCol = tri.col;
+                }
+              } else {
+                // Painter's algorithm unconditionally overwrites!
+                winCol = tri.col;
+              }
+            }
+          }
+
+          if (winCol) {
+            ctx.fillStyle = `rgb(${winCol[0]}, ${winCol[1]}, ${winCol[2]})`;
+            ctx.fillRect(px, py, step, step);
+          }
+        }
+      }
+
+      // Draw triangle outlines and depth labels
+      Object.values(pinwheelTris).forEach(tri => {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        tri.v.forEach((p, i) => { if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
+        ctx.closePath();
+        ctx.stroke();
+      });
+
+      // Highlight broken junction if in Painter mode
+      if (cyclicMode !== 'zbuffer') {
+        const errSpots = {
+          ABC: { x: 335, y: 95, msg: '错误！C或B盖住了更近的A/B' },
+          BCA: { x: 265, y: 225, msg: '错误！A盖住了更近的C' },
+          CAB: { x: 165, y: 95, msg: '错误！B或A盖住了更近的C' },
+          CBA: { x: 265, y: 225, msg: '错误！远端面覆盖了近端面' }
+        };
+        const sp = errSpots[cyclicMode];
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, 26, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('左上交界: Blue C(z=1.9) 遮挡 Red A(z=5.0)', 16, 30);
+      ctx.fillText('右上交界: Red A(z=1.9) 遮挡 Green B(z=5.0)', 285, 30);
+      ctx.fillText('底部交界: Green B(z=1.9) 遮挡 Blue C(z=5.0)', 155, H - 10);
+    }
+
+    // ==================== TAB 1B: 2D BSP TREE LAB ====================
+    let bspCam = { x: 120, y: 210 };
+    let draggingBSP = false;
+
+    function updateBSPLab() {
+      const canvas = document.getElementById('canvas-bsp');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // Root plane H0: vertical line x = 270, normal pointing right (+1, 0)
+      const rootX = 270;
+      ctx.strokeStyle = 'rgba(99, 102, 241, 0.55)';
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(rootX, 15);
+      ctx.lineTo(rootX, H - 15);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Wall segments: Root W0 on x=270, Left subtree W1 (x<270), Right subtree W2 (x>270)
+      const walls = [
+        { id: 'W0 (Root)', x0: 270, y0: 85, x1: 270, y1: 185, col: '#818cf8' },
+        { id: 'W1 (H⁻ 左半空间)', x0: 95, y0: 70, x1: 210, y1: 145, col: '#38bdf8' },
+        { id: 'W2 (H⁺ 右半空间)', x0: 335, y0: 145, x1: 455, y1: 75, col: '#34d399' }
+      ];
+
+      walls.forEach(w => {
+        ctx.strokeStyle = w.col;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(w.x0, w.y0);
+        ctx.lineTo(w.x1, w.y1);
+        ctx.stroke();
+        ctx.fillStyle = w.col;
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(w.id, (w.x0 + w.x1) * 0.5 - 35, (w.y0 + w.y1) * 0.5 - 12);
+      });
+
+      // Draw Camera Eye
+      ctx.fillStyle = '#fbbf24';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(bspCam.x, bspCam.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText('Eye E (拖拽我)', bspCam.x - 32, bspCam.y + 22);
+
+      const camInRight = bspCam.x >= rootX;
+      const orderStr = camInRight
+        ? '1. W1 (远侧 H⁻) → 2. W0 (根节点分割墙) → 3. W2 (相机同侧 H⁺)'
+        : '1. W2 (远侧 H⁺) → 2. W0 (根节点分割墙) → 3. W1 (相机同侧 H⁻)';
+
+      document.getElementById('bsp-order-box').innerHTML = `
+        <div>相机相对于根平面 H₀ (x=270): <span class="text-white">${camInRight ? '正半空间 H⁺ (x > 270)' : '负半空间 H⁻ (x < 270)'}</span></div>
+        <div class="mt-1 text-emerald-400">当前无冲突画家遍历序: ${orderStr}</div>
+      `;
+    }
+
+    // ==================== TAB 2: EARLY-Z & DEFERRED G-BUFFER LAB ====================
+    let gbView = 'lit';
+    function setGBufferView(v) {
+      gbView = v;
+      ['lit', 'depth', 'normal', 'overdraw'].forEach(k => {
+        const btn = document.getElementById('gb-btn-' + k);
+        btn.className = (k === v)
+          ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow'
+          : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      updatePipelineLab();
+    }
+
+    function updatePipelineLab() {
+      const drawOrder = document.getElementById('sel-draw-order').value;
+      const earlyZ = document.getElementById('sel-earlyz').value === 'on';
+      const arch = document.getElementById('sel-arch').value;
+
+      const canvas = document.getElementById('canvas-pipeline');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // 4 overlapping spheres ordered by depth z (smaller z = closer to camera)
+      const spheres = [
+        { cx: 235, cy: 195, r: 92, z: 0.22, col: [56, 189, 248], name: 'Near Cyan Sphere' },
+        { cx: 275, cy: 175, r: 96, z: 0.45, col: [16, 185, 129], name: 'Mid-Near Emerald' },
+        { cx: 315, cy: 155, r: 102, z: 0.68, col: [251, 191, 36], name: 'Mid-Far Amber' },
+        { cx: 355, cy: 135, r: 108, z: 0.88, col: [244, 63, 94], name: 'Far Rose Sphere' }
+      ];
+
+      const ordered = drawOrder === 'f2b' ? spheres.slice() : spheres.slice().reverse();
+      const step = 3;
+      let totalActivePixels = 0;
+      let totalShadedFragments = 0;
+      let totalEarlyZRejected = 0;
+
+      for (let py = 0; py < H; py += step) {
+        for (let px = 0; px < W; px += step) {
+          let zBuf = 1.0;
+          let finalCol = [15, 23, 42];
+          let finalNorm = [0, 0, 1];
+          let shadedHere = 0;
+          let coveredHere = false;
+
+          for (const sp of ordered) {
+            const dx = (px - sp.cx) / sp.r;
+            const dy = (py - sp.cy) / sp.r;
+            const r2 = dx * dx + dy * dy;
+            if (r2 <= 1.0) {
+              coveredHere = true;
+              const nz = Math.sqrt(1.0 - r2);
+              const fragZ = sp.z - nz * 0.08;
+
+              if (earlyZ) {
+                // Test depth BEFORE running Fragment Shader!
+                if (fragZ < zBuf) {
+                  zBuf = fragZ;
+                  shadedHere++;
+                  finalCol = sp.col;
+                  finalNorm = [dx, -dy, nz];
+                } else {
+                  totalEarlyZRejected++;
+                }
+              } else {
+                // Late-Z: Fragment Shader ALWAYS runs first!
+                shadedHere++;
+                if (fragZ < zBuf) {
+                  zBuf = fragZ;
+                  finalCol = sp.col;
+                  finalNorm = [dx, -dy, nz];
+                }
+              }
+            }
+          }
+
+          if (coveredHere) {
+            totalActivePixels++;
+            totalShadedFragments += shadedHere;
+          }
+
+          let outR = 15, outG = 23, outB = 42;
+          if (coveredHere) {
+            if (gbView === 'lit') {
+              const ndotl = Math.max(0.18, finalNorm[0] * 0.4 + finalNorm[1] * 0.5 + finalNorm[2] * 0.76);
+              outR = Math.round(finalCol[0] * ndotl);
+              outG = Math.round(finalCol[1] * ndotl);
+              outB = Math.round(finalCol[2] * ndotl);
+            } else if (gbView === 'depth') {
+              const d = Math.round((1.0 - zBuf) * 255);
+              outR = d; outG = d; outB = d;
+            } else if (gbView === 'normal') {
+              outR = Math.round((finalNorm[0] * 0.5 + 0.5) * 255);
+              outG = Math.round((finalNorm[1] * 0.5 + 0.5) * 255);
+              outB = Math.round((finalNorm[2] * 0.5 + 0.5) * 255);
+            } else {
+              // Overdraw heatmap: 1 = emerald, 2 = cyan, 3 = amber, 4 = red!
+              if (shadedHere === 1) { outR = 16; outG = 185; outB = 129; }
+              else if (shadedHere === 2) { outR = 56; outG = 189; outB = 248; }
+              else if (shadedHere === 3) { outR = 251; outG = 191; outB = 36; }
+              else { outR = 244; outG = 63; outB = 94; }
+            }
+          }
+          ctx.fillStyle = `rgb(${outR}, ${outG}, ${outB})`;
+          ctx.fillRect(px, py, step, step);
+        }
+      }
+
+      const avgOverdraw = totalActivePixels > 0 ? totalShadedFragments / totalActivePixels : 1.0;
+      const totalTests = totalShadedFragments + totalEarlyZRejected;
+      const savedPct = totalTests > 0 ? (totalEarlyZRejected / totalTests) * 100 : 0;
+      const lightEvals = arch === 'deferred' ? 32.0 : avgOverdraw * 32.0;
+
+      document.getElementById('tel-overdraw').textContent = avgOverdraw.toFixed(2) + 'x';
+      document.getElementById('tel-earlyz-saved').textContent = savedPct.toFixed(1) + '%';
+      document.getElementById('tel-light-evals').textContent = lightEvals.toFixed(1);
+      document.getElementById('tel-channel').textContent = gbView.toUpperCase();
+
+      const diag = document.getElementById('pipeline-diagnosis');
+      if (drawOrder === 'f2b' && earlyZ) {
+        diag.innerHTML = `<span class="text-emerald-400 font-bold">✓ 黄金零浪费状态：</span>从近到远 (Front-to-Back) 提交配合硬件 Early-Z，近处青色球率先写满 Z-Buffer，后方重叠的 3 层球体在进入 Fragment Shader 前就被 Early-Z 拦截剔除了 <strong>${savedPct.toFixed(1)}%</strong>，平均每个可见像素仅执行 <strong>1.00 次</strong>着色！`;
+      } else if (drawOrder === 'b2f' && earlyZ) {
+        diag.innerHTML = `<span class="text-amber-300 font-bold">⚠️ 顺序反了导致 Early-Z 扑空：</span>虽然硬件开启了 Early-Z，但因为按从远到近 (Back-to-Front) 提交，每一层新画的球都比旧深度更近，100% 通过深度测试并反复覆写，导致中心重叠区跑了 4 遍 Shader (平均 Overdraw = <strong>${avgOverdraw.toFixed(2)}x</strong>)！`;
+      } else {
+        diag.innerHTML = `<span class="text-rose-400 font-bold">✗ 硬件 Early-Z 失效：</span>由于 Shader 中使用了 <code>discard</code> 或手动改写了 <code>gl_FragDepth</code>，硬件被迫退回 Late-Z，不管怎么排序都必须把所有重叠片元的 Shader 全部跑完 (Overdraw = <strong>${avgOverdraw.toFixed(2)}x</strong>)！`;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const cycCanvas = document.getElementById('canvas-cyclic');
+      cycCanvas.addEventListener('pointermove', (e) => {
+        const rect = cycCanvas.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * cycCanvas.width;
+        const y = ((e.clientY - rect.top) / rect.height) * cycCanvas.height;
+        const zA = barycentricZ(pinwheelTris.A, x, y);
+        const zB = barycentricZ(pinwheelTris.B, x, y);
+        const zC = barycentricZ(pinwheelTris.C, x, y);
+        const fmt = (v) => v !== null ? v.toFixed(2) : '未覆盖';
+        document.getElementById('cyc-pixel-readout').innerHTML =
+          `📍 像素 (${Math.round(x)}, ${Math.round(y)}) 深度对比: ` +
+          `<span class="text-rose-400">z_A=${fmt(zA)}</span> | ` +
+          `<span class="text-emerald-400">z_B=${fmt(zB)}</span> | ` +
+          `<span class="text-cyan-400">z_C=${fmt(zC)}</span>`;
+      });
+
+      const bspCanvas = document.getElementById('canvas-bsp');
+      bspCanvas.addEventListener('pointerdown', () => { draggingBSP = true; });
+      window.addEventListener('pointermove', (e) => {
+        if (draggingBSP) {
+          const rect = bspCanvas.getBoundingClientRect();
+          bspCam = {
+            x: Math.max(20, Math.min(bspCanvas.width - 20, ((e.clientX - rect.left) / rect.width) * bspCanvas.width)),
+            y: Math.max(20, Math.min(bspCanvas.height - 20, ((e.clientY - rect.top) / rect.height) * bspCanvas.height))
+          };
+          updateBSPLab();
+        }
+      });
+      window.addEventListener('pointerup', () => { draggingBSP = false; });
+
+      updateCyclicLab();
+      updateBSPLab();
+      updatePipelineLab();
+
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+    });
+
+    // ==================== TAB 4: MINI-GAME MISSIONS ====================
+    function evalVMission1() {
+      const val = document.getElementById('v-m1-sel').value;
+      const fb = document.getElementById('v-m1-fb');
+      const badge = document.getElementById('v-badge-1');
+      if (val === 'zbuf') {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = '✓ 通关成功！逐像素 Z-Buffer 将全局多边形排序降维到单像素射线上的一维实数比较，完美化解循环遮挡！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 1: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = '按重心或最远顶点对整块三角形排序依然无法打破 A ≺ B ≺ C ≺ A 循环环！';
+      }
+    }
+
+    function evalVMission2() {
+      const val = document.getElementById('v-m2-sel').value;
+      const fb = document.getElementById('v-m2-fb');
+      const badge = document.getElementById('v-badge-2');
+      if (val === 'f2b_earlyz') {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = '✓ 通关成功！从近到远 (Front-to-Back) 配合硬件 Early-Z，让近处建筑直接拦截后方 3 层建筑的着色器调用！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 2: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = '未达最优！从远到近或改写 gl_FragDepth 都会导致后方被挡片元白白执行 Shader。';
+      }
+    }
+
+    function evalVMission3() {
+      const val = document.getElementById('v-m3-sel').value;
+      const fb = document.getElementById('v-m3-fb');
+      const badge = document.getElementById('v-badge-3');
+      if (val === 'correct') {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = '✓ 通关成功！先从近到远画不透明物体写满 Z-Buffer，再关掉 ZWrite 从远到近混合半透明层！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 3: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = '配置错误！若半透明开启 ZWrite 会挡死后方半透明层；若先画半透明则会被后画的不透明物体覆盖。';
+      }
+    }
+  </script>
+</body>
+</html>

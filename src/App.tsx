@@ -19,6 +19,7 @@ import { Lesson16Antialiasing } from './lessons/Lesson16Antialiasing';
 import { Lesson17GlobalIllumination } from './lessons/Lesson17GlobalIllumination';
 import { Lesson18ProjectionClipping } from './lessons/Lesson18ProjectionClipping';
 import { Lesson19Rasterization } from './lessons/Lesson19Rasterization';
+import { Lesson20VisibilityZBuffer } from './lessons/Lesson20VisibilityZBuffer';
 
 const STORAGE_KEY = 'learning_3d_completed_lessons_v1';
 const LANG_KEY = 'learning_3d_lang_v1';
@@ -301,6 +302,13 @@ export const App: React.FC = () => {
             lang={lang}
             isCompleted={completedIds.includes('L19')}
             onToggleComplete={() => toggleLessonComplete('L19')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L20' ? (
+          <Lesson20VisibilityZBuffer
+            lang={lang}
+            isCompleted={completedIds.includes('L20')}
+            onToggleComplete={() => toggleLessonComplete('L20')}
             onBackToPortal={() => navigateToLesson(null)}
           />
         ) : activeLessonObj ? (
