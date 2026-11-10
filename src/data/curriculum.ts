@@ -565,7 +565,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'UV Mapping, Perspective-Correct Interpolation, Mipmaps & Normal Mapping',
     concepts: ['屏幕空间仿射扭曲 vs 1/z 透视校正插值', '双线性与三线性过滤', 'Mipmap 层级计算与各向异性过滤', '切线空间法线贴图 (TBN Matrix)'],
     playgroundTitle: '透视校正插值与 Mipmap 层级可视化仪',
-    playgroundDescription: '一键对比错误的仿射纹理插值与正确的透视校正插值，开启 Mipmap 彩色层级视图并测试法线贴图光照。',
+    playgroundDescription: '用 3Blue1Brown 双曲透视几何与雅可比矩阵推导 1/Z 与 u/Z 屏幕线性插值定理、Mipmap 金字塔 d=log2(ρ) 与 TBN 切线空间法线矩阵，在双实验台对比 PS1 对角线仿射扭曲、Mipmap 彩虹 LOD 与各向异性过滤，并畅玩 3 关首席纹理与材质架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
