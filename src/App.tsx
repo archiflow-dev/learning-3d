@@ -24,6 +24,7 @@ import { Lesson21ShadingPBR } from './lessons/Lesson21ShadingPBR';
 import { Lesson22TextureMapping } from './lessons/Lesson22TextureMapping';
 import { Lesson23ShadowVolumes } from './lessons/Lesson23ShadowVolumes';
 import { Lesson24ShadowMapping } from './lessons/Lesson24ShadowMapping';
+import { Lesson25CameraMotion } from './lessons/Lesson25CameraMotion';
 
 const STORAGE_KEY = 'learning_3d_completed_lessons_v1';
 const LANG_KEY = 'learning_3d_lang_v1';
@@ -341,6 +342,13 @@ export const App: React.FC = () => {
             lang={lang}
             isCompleted={completedIds.includes('L24')}
             onToggleComplete={() => toggleLessonComplete('L24')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L25' ? (
+          <Lesson25CameraMotion
+            lang={lang}
+            isCompleted={completedIds.includes('L25')}
+            onToggleComplete={() => toggleLessonComplete('L25')}
             onBackToPortal={() => navigateToLesson(null)}
           />
         ) : activeLessonObj ? (

@@ -636,7 +636,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Camera Path Interpolation, Arc-Length Parameterization & Orientation Splines',
     concepts: ['关键帧插值与 Ease-In/Ease-Out', '为什么参数 t 匀速会导致镜头忽快忽慢', '弧长参数化查找表 (Arc-Length Reparameterization)', 'Frenet 标架与四元数朝向平滑'],
     playgroundTitle: '3D 电影运镜轨迹与弧长匀速编辑器',
-    playgroundDescription: '在 3D 样条路径上对比“参数 t 匀速”与“弧长 s 匀速”的相机运动速度，实时调整时间缓动曲线。',
+    playgroundDescription: '用 3Blue1Brown 微积分链式法则与反函数求导定理推导弧长参数化 u=s⁻¹(e(t)) 如何完美约掉曲线内禀导数模长 ||P\'(u)||，在双实验台同轨对比参数直驱与弧长匀速竞速、亲眼目睹 S 弯拐点处 Frenet 标架 180° 翻转并用 World-Up + Banking 修复，畅玩 3 关好莱坞首席虚拟运镜总监游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
