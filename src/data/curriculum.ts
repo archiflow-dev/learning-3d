@@ -540,7 +540,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Flat/Gouraud/Phong Shading, Blinn-Phong & Cook-Torrance Microfacet PBR',
     concepts: ['Lambert 漫反射与半程向量 H', 'Flat vs Gouraud vs Phong 着色频率', '能量守恒与 BRDF', 'Cook-Torrance 微表面模型 (D, F, G)'],
     playgroundTitle: '材质球着色演化与 PBR 微表面实验室',
-    playgroundDescription: '同屏对比 Flat/Gouraud/Phong，并实时调节 PBR 材质球的 Roughness、Metallic 与微表面法线分布曲线。',
+    playgroundDescription: '用 3Blue1Brown 微表面角平分线几何直觉推导半程向量 H=(L+V)/||L+V|| 与 Cook–Torrance BRDF (GGX D、Schlick F、Smith G 与 4(n·l)(n·v) 消去定理)，同屏对比 Flat/Gouraud/Phong 着色频率与实时 PBR 材质球，畅玩 3 关 PBR 首席材质技术美术师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
