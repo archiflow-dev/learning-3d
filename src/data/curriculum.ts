@@ -337,7 +337,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Ray Generation, Ray-Sphere/Plane Intersection & Z-Buffer vs Ray Casting',
     concepts: ['针孔相机射线方程 r(t) = o + td', '射线与平面/球体解析求交', '二次方程判别式 Δ 几何意义', 'Object-order vs Image-order 渲染'],
     playgroundTitle: '像素射线发射与球体求交可视化器',
-    playgroundDescription: '点击虚拟成像平面上的任意像素发射 3D 射线，动态展示判别式 Δ > 0 / = 0 / < 0 与最近交点 t。',
+    playgroundDescription: '在几何半弦长直角三角形 (t_ca, d_⊥, t_hc) 与二次抛物线 f(t) 同步显微镜中理解判别式 Δ，在双视窗实验室点击任意像素发射 3D 射线并切换法线/深度/判别式缓冲，畅玩 3 关深空激光雷达指挥官游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
@@ -361,7 +362,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Barycentric Interpolation, Möller–Trumbore & Constructive Solid Geometry',
     concepts: ['重心坐标 (α,β,γ) 面积比定义', 'Möller–Trumbore 快速求交', 'CSG 射线区间布尔运算 (并/交/差)', '法向量逆转置变换 (M⁻¹)ᵀ'],
     playgroundTitle: '重心坐标插值与 CSG 射线布尔实验室',
-    playgroundDescription: '在三角形内拖动采样点观察面积比权重与属性插值；切换两个几何体的射线交点区间布尔运算。',
+    playgroundDescription: '用 3Blue1Brown 行列式体积推导 Möller–Trumbore 三角形求交与对偶逆转置法线矩阵 (M⁻¹)ᵀ，在双实验台体验重心坐标面积天平与 CSG 一维射线区间布尔运算（并/交/差与翻转法线 -N_B），畅玩 3 关重心与 CSG 透镜雕刻师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
@@ -379,7 +381,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Shadow Rays, Mirror Reflection, Snell Refraction & Ray Trees',
     concepts: ['Shadow Bias (ε) 防自遮挡', '镜面反射向量推导', '斯涅尔折射定律与全内反射 (TIR)', 'Fresnel 方程与递归光线树'],
     playgroundTitle: '交互式光线树 (Ray Tree) 与折射追踪器',
-    playgroundDescription: '调节玻璃球折射率 η 与入射角，实时展开反射、折射与阴影射线的完整递归树。',
+    playgroundDescription: '用正交向量分解 (d_∥ + d_⊥) 推导镜面反射与斯涅尔折射向量、观察全内反射 (TIR) 临界角与 Schlick 菲涅尔能量分配，在 Shadow Bias 显微镜修复自遮挡黑麻子，并在递归光线树实验室实时追踪玻璃球折射，畅玩 3 关光学与光纤总工程师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
@@ -403,7 +406,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'AABB Slab Test, Bounding Volume Hierarchies, SAH & KD-Trees',
     concepts: ['AABB Slab 射线求交算法', 'BVH 树构建与遍历', '表面积启发式 (SAH)', 'BVH (划分对象) vs KD-Tree (划分空间)'],
     playgroundTitle: 'BVH 树遍历步进透视镜',
-    playgroundDescription: '发射一条射线穿过复杂场景，单步动画演示 BVH 节点剔除过程，对比 O(N) 与 O(log N) 求交次数。',
+    playgroundDescription: '用 3Blue1Brown 积分几何 (Cauchy–Crofton 定理) 推导为什么光线击中包围盒的概率正比于表面积而非体积，亲手调节 Kay–Kajiya AABB Slab 区间交集与 SAH 切分代价曲线，在 BVH vs KD-Tree 步进实验室单步体验 front-to-back 子树剪枝，并畅玩 3 关 BVH 空间加速架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
