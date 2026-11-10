@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 24: 阴影算法 (Part 2)：Shadow Mapping、深度偏移与软阴影 PCF/PCSS | Learning 3D</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
+  <style>
+    body { background: #020617; color: #f8fafc; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .glass { background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.7); }
+    .tab-active { background: linear-gradient(135deg, #4f46e5, #0891b2); color: white; box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35); }
+    input[type="range"] { accent-color: #6366f1; }
+    .katex { font-size: 1.04em; }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+  <!-- Sticky Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center font-black text-white shadow hover:scale-105 transition" title="Back to Portal">3D</a>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Stage 4 • Lesson 24</span>
+            <span class="text-xs text-slate-400">UC Davis ECS 175 L19 • MIT 6.837 L19</span>
+          </div>
+          <h1 class="font-bold text-base sm:text-lg text-white tracking-tight">
+            <span class="lang-zh">阴影算法 (Part 2)：Shadow Mapping、斜率深度偏移与软阴影 PCF / PCSS</span>
+            <span class="lang-en hidden">Shadows (Part 2): Two-Pass Shadow Mapping, Slope-Scale Bias &amp; PCF / PCSS Soft Shadows</span>
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button id="langToggleBtn" onclick="toggleLang()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition shadow-sm">
+          <span>🌐</span>
+          <span id="langBtnText">EN / 中文</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-3 flex flex-wrap gap-2">
+      <button onclick="switchTab('math')" id="tab-btn-math" class="tab-btn tab-active px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2">
+        <span>📐</span>
+        <span class="lang-zh">1. 核心数学与 3Blue1Brown 直觉</span>
+        <span class="lang-en hidden">1. Core Math &amp; 3B1B Intuition</span>
+      </button>
+      <button onclick="switchTab('lab')" id="tab-btn-lab" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🔬</span>
+        <span class="lang-zh">2. 双视角 Shadow Map 与 PCF/PCSS 实验室</span>
+        <span class="lang-en hidden">2. Dual-View Shadow Map &amp; PCF/PCSS Labs</span>
+      </button>
+      <button onclick="switchTab('videos')" id="tab-btn-videos" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🎬</span>
+        <span class="lang-zh">3. 名校课程视频与笔记</span>
+        <span class="lang-en hidden">3. Course Videos &amp; Notes</span>
+      </button>
+      <button onclick="switchTab('game')" id="tab-btn-game" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🎮</span>
+        <span class="lang-zh">4. 闯关游戏：首席阴影渲染工程师</span>
+        <span class="lang-en hidden">4. Game: Chief Shadow Rendering Engineer</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-8">
+    <!-- ==================== TAB 1: MATH & 3B1B INTUITION ==================== -->
+    <section id="tab-math" class="tab-panel space-y-8">
+      <!-- Hero Banner -->
+      <div class="glass rounded-2xl p-6 sm:p-8 border-l-4 border-l-indigo-500">
+        <div class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">
+          <span class="lang-zh">3Blue1Brown 几何视觉化直觉 • 为什么把连续几何采样成离散深度网格会引发自遮挡摩尔纹？</span>
+          <span class="lang-en hidden">3Blue1Brown Geometric Intuition • Why Discretizing Depth Grids Causes Self-Shadowing Moiré</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4">
+          <span class="lang-zh">从双遍深度重投影到 $\frac{\Delta s}{2}\tan\theta$ 斜率偏移、Peter Panning 与 PCF / PCSS 软阴影</span>
+          <span class="lang-en hidden">From Two-Pass Depth Reprojection to $\frac{\Delta s}{2}\tan\theta$ Slope Bias, Peter Panning &amp; PCF / PCSS</span>
+        </h2>
+        <p class="text-slate-300 leading-relaxed text-sm sm:text-base">
+          <span class="lang-zh">
+            Lance Williams (1978) 提出的 <strong>Shadow Mapping（阴影图）</strong> 将复杂的三维全局遮挡问题转化为极其优雅的<strong>双遍 Z-Buffer 深度比对</strong>：如果一个三维点离光源的真实距离 $z_{\text{current}}$ 大于光源在该方向看到的最近深度 $z_{\text{map}}(u,v)$，那它一定被挡在了阴影里！
+            然而，由于深度纹理是离散采样的，这里诞生了实时渲染中最著名的三大核心问题：
+            <strong>第一</strong>，为什么未遮挡的平坦斜坡会满屏长出明暗相间的<strong>自遮挡条纹 (Shadow Acne)</strong>，为什么最优偏移量正比于 $\frac{\Delta s}{2}\tan\theta$？
+            <strong>第二</strong>，为什么把偏移量调太大又会让角色的脚脱离地面影子，产生<strong>彼得·潘悬浮伪影 (Peter Panning)</strong>？
+            <strong>第三</strong>，为什么<strong>“先对深度图求平均再比大小”完全无法产生软阴影</strong>，而必须采用 Reeves (1987) 的 <strong>PCF（先比大小得 0/1，再对可见性求平均）</strong> 与 Fernando (2005) 的 <strong>PCSS 相似三角形半影估算</strong>？
+          </span>
+          <span class="lang-en hidden">
+            Lance Williams's (1978) <strong>Shadow Mapping</strong> turns global 3D visibility into a fast <strong>two-pass Z-Buffer comparison</strong>: if a point's distance to the light $z_{\text{current}}$ exceeds the closest recorded depth $z_{\text{map}}(u,v)$, it is in shadow!
+            Yet discrete sampling introduces three famous phenomena:
+            <strong>First</strong>, why do unoccluded slopes develop zebra-striped <strong>Shadow Acne</strong>, and why is the exact bias proportional to $\frac{\Delta s}{2}\tan\theta$?
+            <strong>Second</strong>, why does excessive bias detach shadows from object bases (<strong>Peter Panning</strong>)?
+            <strong>Third</strong>, why does <strong>averaging depths before comparison fail completely</strong>, requiring <strong>Percentage Closer Filtering (PCF)</strong> and <strong>PCSS blocker-distance penumbra scaling</strong>?
+          </span>
+        </p>
+      </div>
+
+      <!-- Part 1: Two-Pass Shadow Mapping & Bias Matrix -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <span class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-black flex items-center justify-center">1</span>
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              <span class="lang-zh">双遍 Shadow Mapping 坐标系重投影与 $[-1,1]^3 \to [0,1]^3$ 偏移矩阵 $B_{\text{bias}}$</span>
+              <span class="lang-en hidden">Two-Pass Shadow Reprojection &amp; the $[-1,1]^3 \to [0,1]^3$ Remap Matrix $B_{\text{bias}}$</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">MIT 6.837 L19 &amp; UC Davis ECS 175 L19：如何把主相机看到的像素一键投回光源纹理坐标 $(u, v, z_{\text{curr}})$？</span>
+              <span class="lang-en hidden">MIT 6.837 L19 &amp; UC Davis ECS 175 L19: Reprojecting camera fragments into light texture space $(u, v, z_{\text{curr}})$</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold uppercase text-indigo-400">
+              <span class="lang-zh">Pass 1 &amp; Pass 2：从世界坐标到光源纹理空间</span>
+              <span class="lang-en hidden">Pass 1 &amp; Pass 2: World Space to Light UVZ Space</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <span class="lang-zh">
+                <strong>第一遍 (Light Pass)</strong>：将虚拟相机置于光源处，用光源视图矩阵 $V_{\text{light}}$ 和投影矩阵 $P_{\text{light}}$ 渲染场景，将深度缓冲保存为纹理 $Z_{\text{map}}(u,v) \in [0,1]$。
+                <br/>
+                <strong>第二遍 (Camera Pass)</strong>：对主相机正在着色的三维世界点 $\mathbf{P}_{\text{world}}$，乘以 $P_{\text{light}}V_{\text{light}}$ 得到裁剪空间坐标，再乘以缩放平移矩阵 $B_{\text{bias}}$ 将标准设备坐标 $[-1,1]^3$ 映射到纹理空间 $[0,1]^3$：
+              </span>
+              <span class="lang-en hidden">
+                <strong>Pass 1 (Light Pass)</strong>: Render the scene from the light using $P_{\text{light}}V_{\text{light}}$ into a depth texture $Z_{\text{map}}(u,v) \in [0,1]$.
+                <br/>
+                <strong>Pass 2 (Camera Pass)</strong>: Transform each world point $\mathbf{P}_{\text{world}}$ by $P_{\text{light}}V_{\text{light}}$ and remap NDC $[-1,1]^3$ to texture coordinates $[0,1]^3$ via $B_{\text{bias}}$:
+              </span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto border border-slate-800">
+              $$\tilde{\mathbf{p}}_{\text{light}} = \underbrace{\begin{bmatrix} 0.5 & 0 & 0 & 0.5 \\ 0 & 0.5 & 0 & 0.5 \\ 0 & 0 & 0.5 & 0.5 \\ 0 & 0 & 0 & 1 \end{bmatrix}}_{B_{\text{bias}}} P_{\text{light}}\, V_{\text{light}}\, \mathbf{P}_{\text{world}}, \qquad \begin{bmatrix} u \\ v \\ z_{\text{curr}} \end{bmatrix} = \frac{1}{\tilde{w}_{\text{light}}} \begin{bmatrix} \tilde{x}_{\text{light}} \\ \tilde{y}_{\text{light}} \\ \tilde{z}_{\text{light}} \end{bmatrix}$$
+            </div>
+          </div>
+
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold uppercase text-rose-400">
+              <span class="lang-zh">几何推导：为什么斜坡上纹素边缘的最大自遮挡落差是 $\frac{\Delta s}{2}\tan\theta$？</span>
+              <span class="lang-en hidden">Geometric Proof: Why Max Self-Occlusion Error Is $\frac{\Delta s}{2}\tan\theta$</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <span class="lang-zh">
+                设光源深度图 1 个纹素在垂直于光线方向上的投影宽度为 $\Delta s$，表面法线 $\mathbf{n}$ 与光线方向 $\mathbf{l}$ 的夹角为 $\theta$（$\cos\theta = \mathbf{n}\cdot\mathbf{l}$）。
+                纹素中心记录了单一深度 $z_{\text{map}}$，这在几何上相当于把该纹素管辖的倾斜表面变成了<strong>宽度为 $\Delta s$ 的水平台阶</strong>！
+                在离纹素中心横向偏移 $+\frac{\Delta s}{2}$ 的右半侧，真实斜坡下沉到了水平台阶后方，构成一个底边为 $\frac{\Delta s}{2}$、倾角为 $\theta$ 的直角三角形：
+              </span>
+              <span class="lang-en hidden">
+                Let one shadow-map texel span width $\Delta s$ perpendicular to the light ray, and let the surface tilt angle be $\theta$ ($\cos\theta = \mathbf{n}\cdot\mathbf{l}$). Recording a single depth $z_{\text{map}}$ at the texel center turns the continuous slope into a <strong>flat stair-step of width $\Delta s$</strong>. At the half-texel edge $+\frac{\Delta s}{2}$, the true slope sinks behind $z_{\text{map}}$ by a right triangle of base $\frac{\Delta s}{2}$ and angle $\theta$:
+              </span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto border border-rose-500/30">
+              $$\Delta z_{\max}(\theta) = \frac{\Delta s}{2}\tan\theta = \frac{\Delta s}{2}\frac{\sqrt{1 - (\mathbf{n}\cdot\mathbf{l})^2}}{\mathbf{n}\cdot\mathbf{l}} \implies \epsilon_{\text{bias}} = \epsilon_0 + k_{\text{slope}}\tan\theta$$
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: PCF vs Pre-filtered Depth & PCSS Contact Hardening -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <span class="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-black flex items-center justify-center">2</span>
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              <span class="lang-zh">为什么不能直接模糊深度图？—— PCF 阶跃期望不等式与 PCSS 接触硬化软阴影</span>
+              <span class="lang-en hidden">Why Blurring Depths Fails — PCF Step-Function Inequality &amp; PCSS Contact Hardening</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">赫维赛德阶跃函数 $H(x)$ 是高度非线性的：$H(\mathbb{E}[z]) \neq \mathbb{E}[H(z)]$！</span>
+              <span class="lang-en hidden">The Heaviside step function $H(x)$ is nonlinear: $H(\mathbb{E}[z]) \neq \mathbb{E}[H(z)]$!</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-cyan-500/30 space-y-3">
+            <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Reeves et al. 1987 • Percentage Closer Filtering (PCF)</span>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">先逐样本比大小得 $\{0, 1\}$，再对可见性求加权平均</span>
+              <span class="lang-en hidden">Compare First ($\{0,1\}$), Then Average Visibility</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">记阶跃函数 $H(x) = 1 \text{ (若 } x \ge 0\text{) 否则 } 0$。如果你先对周围 $N$ 个深度纹素求平均，再与 $z_{\text{curr}}$ 比较，输出的依然是生硬的 $0$ 或 $1$。<strong>PCF</strong> 则是对周围 $N$ 个采样点分别执行深度比较，再把得到的 $0/1$ 二值结果加权平均为柔和的半影灰度 $V \in [0,1]$：</span>
+              <span class="lang-en hidden">Let $H(x) \in \{0,1\}$ be the step function. Averaging depths before comparing still outputs binary $0$ or $1$. <strong>PCF</strong> evaluates the binary depth test at $N$ neighbor texels first, then averages the resulting $\{0,1\}$ visibility values into a smooth penumbra $V \in [0,1]$:</span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto">
+              $$V_{\text{PCF}}(\mathbf{p}) = \frac{1}{N}\sum_{i=1}^N H\!\Big(z_{\text{map}}(u + \Delta u_i,\, v + \Delta v_i) - (z_{\text{curr}} - \epsilon_{\text{bias}})\Big) \in [0, 1]$$
+            </div>
+          </div>
+
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-purple-500/30 space-y-3">
+            <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">Fernando 2005 • PCSS Contact-Hardening Soft Shadows</span>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">相似三角形半影公式：遮挡物越近越锋利，越远越柔和</span>
+              <span class="lang-en hidden">Similar-Triangle Penumbra Formula: Sharp at Contact, Soft Far Away</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">固定核宽的 PCF 会让整条影子从头到尾一样模糊。<strong>PCSS</strong> 分为三步：(1) <strong>Blocker Search</strong>：在光源深度图中统计遮挡物平均深度 $d_{\text{blocker}}$；(2) <strong>Penumbra Estimation</strong>：利用面光源宽度 $w_{\text{light}}$ 与相似三角形比例算出当前像素的半影宽度 $w_{\text{penumbra}}$；(3) 用半径 $w_{\text{penumbra}}$ 执行自适应 PCF！</span>
+              <span class="lang-en hidden">Uniform PCF blurs the entire shadow equally. <strong>PCSS</strong> uses 3 steps: (1) <strong>Blocker Search</strong> for average blocker depth $d_{\text{blocker}}$; (2) <strong>Penumbra Estimation</strong> via similar triangles; (3) Variable-kernel PCF with radius $w_{\text{penumbra}}$!</span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto">
+              $$w_{\text{penumbra}} = w_{\text{light}} \cdot \frac{d_{\text{receiver}} - d_{\text{blocker}}}{d_{\text{blocker}}}$$
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer in Tab 1: Texel Stair-Step & Slope-Scale Bias Microscope -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3 text-xs">
+              <span class="font-bold text-indigo-300">
+                <span class="lang-zh">交互式纹素量化台阶与 $\Delta z_{\max} = \frac{\Delta s}{2}\tan\theta$ 自遮挡几何显微镜</span>
+                <span class="lang-en hidden">Interactive Texel Stair-Step &amp; $\Delta z_{\max} = \frac{\Delta s}{2}\tan\theta$ Shadow Acne Microscope</span>
+              </span>
+              <span id="mathAcneBadge" class="font-mono px-2.5 py-1 rounded bg-slate-900 text-rose-300 border border-slate-800">Acne Status</span>
+            </div>
+            <canvas id="mathAcneCanvas" width="680" height="350" class="w-full rounded-xl bg-slate-950 border border-slate-800/80"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🎛️ 调节表面倾角 $\theta$、纹素尺寸 $\Delta s$ 与深度偏移 $\epsilon$</span>
+              <span class="lang-en hidden">🎛️ Adjust Slope $\theta$, Texel Width $\Delta s$ &amp; Depth Bias $\epsilon$</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">表面倾角 $\theta$ ($\cos\theta = \mathbf{n}\cdot\mathbf{l}$)</span><span class="lang-en hidden">Surface Slope Angle $\theta$</span></span>
+                <span id="valSlopeTheta" class="font-mono text-indigo-400 font-bold">32°</span>
+              </div>
+              <input id="sliderSlopeTheta" type="range" min="5" max="62" step="1" value="32" oninput="drawMathAcne()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">深度图纹素跨度 $\Delta s$ (分辨率越低 $\Delta s$ 越大)</span><span class="lang-en hidden">Texel Span $\Delta s$</span></span>
+                <span id="valTexelSpan" class="font-mono text-cyan-400 font-bold">96 px</span>
+              </div>
+              <input id="sliderTexelSpan" type="range" min="48" max="140" step="4" value="96" oninput="drawMathAcne()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">当前深度偏移量 $\epsilon_{\text{bias}}$</span><span class="lang-en hidden">Applied Depth Bias $\epsilon_{\text{bias}}$</span></span>
+                <span id="valAppliedBias" class="font-mono text-emerald-400 font-bold">8 px</span>
+              </div>
+              <input id="sliderAppliedBias" type="range" min="0" max="85" step="1" value="8" oninput="drawMathAcne()" class="w-full" />
+            </div>
+
+            <button onclick="setExactSlopeBias()" class="w-full py-2 rounded-xl text-xs font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 transition">
+              ✨ <span class="lang-zh">一键填入理论最优斜率偏移 $\epsilon^* = \frac{\Delta s}{2}\tan\theta$</span><span class="lang-en hidden">Set Exact Slope-Scale Bias $\epsilon^* = \frac{\Delta s}{2}\tan\theta$</span>
+            </button>
+
+            <div class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 space-y-1.5 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400"><span class="lang-zh">理论最小无麻子偏移 $\frac{\Delta s}{2}\tan\theta$:</span><span class="lang-en hidden">Min Acne-Free Bias $\frac{\Delta s}{2}\tan\theta$:</span></span>
+                <span id="statMinBias" class="font-mono font-bold text-amber-300">30.0 px</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400"><span class="lang-zh">Peter Panning 悬浮脱节距离:</span><span class="lang-en hidden">Peter Panning Detachment:</span></span>
+                <span id="statPeterPan" class="font-mono font-bold text-purple-300">0.0 px</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: DUAL INTERACTIVE LABS ==================== -->
+    <section id="tab-lab" class="tab-panel hidden space-y-8">
+      <!-- Lab 1: Dual-View Shadow Map Inspector (Light Depth View + Camera View) -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Laboratory 01 • Dual-View Shadow Map Debugger (Light Depth Map + Camera View)</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">实验台 1：Shadow Map 双视角同步调试台（光源深度纹理 vs. 主相机画面）</span>
+              <span class="lang-en hidden">Lab 1: Dual-View Shadow Map Debugger (Light-Space Depth Map vs. Main Camera View)</span>
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="applyLab1Preset('acne')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-950/70 border border-rose-500/40 text-rose-200 hover:bg-rose-900/80 transition">
+              🦠 <span class="lang-zh">复现 Shadow Acne 麻子</span><span class="lang-en hidden">Trigger Shadow Acne</span>
+            </button>
+            <button onclick="applyLab1Preset('clean')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-950/70 border border-emerald-500/40 text-emerald-200 hover:bg-emerald-900/80 transition">
+              ✅ <span class="lang-zh">最优 Slope-Scale Bias</span><span class="lang-en hidden">Optimal Slope-Scale Bias</span>
+            </button>
+            <button onclick="applyLab1Preset('peter')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-950/70 border border-purple-500/40 text-purple-200 hover:bg-purple-900/80 transition">
+              🧚 <span class="lang-zh">复现 Peter Panning 悬浮</span><span class="lang-en hidden">Trigger Peter Panning</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <canvas id="lab1Canvas" width="720" height="400" class="w-full rounded-xl bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🎛️ 深度图分辨率与双偏移参数</span>
+              <span class="lang-en hidden">🎛️ Shadow Map Resolution &amp; Bias Controls</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">Shadow Map 分辨率 $N_{\text{res}}$</span><span class="lang-en hidden">Shadow Map Resolution $N_{\text{res}}$</span></span>
+                <span id="lab1ValRes" class="font-mono text-cyan-400 font-bold">32x32</span>
+              </div>
+              <input id="lab1SliderRes" type="range" min="16" max="96" step="8" value="32" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">常数偏移 Constant Bias $\epsilon_0$</span><span class="lang-en hidden">Constant Bias $\epsilon_0$</span></span>
+                <span id="lab1ValConstBias" class="font-mono text-indigo-400 font-bold">0.008</span>
+              </div>
+              <input id="lab1SliderConstBias" type="range" min="0.000" max="0.160" step="0.002" value="0.008" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">斜率偏移 Slope-Scale Bias $k_{\text{slope}}$</span><span class="lang-en hidden">Slope-Scale Bias $k_{\text{slope}}$</span></span>
+                <span id="lab1ValSlopeBias" class="font-mono text-emerald-400 font-bold">0.024</span>
+              </div>
+              <input id="lab1SliderSlopeBias" type="range" min="0.000" max="0.080" step="0.002" value="0.024" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">山坡倾角 $\theta_{\text{hill}}$</span><span class="lang-en hidden">Hill Slope Angle $\theta_{\text{hill}}$</span></span>
+                <span id="lab1ValHill" class="font-mono text-amber-400 font-bold">38°</span>
+              </div>
+              <input id="lab1SliderHill" type="range" min="10" max="60" step="2" value="38" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <div id="lab1DiagnosisBox" class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 text-xs text-slate-300 leading-relaxed"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lab 2: Pre-Filtered Depth vs PCF vs PCSS Contact-Hardening Studio -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Laboratory 02 • Percentage Closer Filtering (PCF) vs. PCSS Contact-Hardening Studio</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">实验台 2：错误预模糊深度 vs. PCF 软阴影 vs. PCSS 接触硬化实验室</span>
+              <span class="lang-en hidden">Lab 2: Wrong Pre-Blurred Depth vs. Uniform PCF vs. PCSS Contact-Hardening Studio</span>
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setLab2Mode('hard')" id="btnLab2Hard" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              <span class="lang-zh">单样本硬阴影 (1-Tap Hard)</span><span class="lang-en hidden">1-Tap Hard Shadow</span>
+            </button>
+            <button onclick="setLab2Mode('wrongblur')" id="btnLab2Wrong" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              ❌ <span class="lang-zh">先平均深度再比大小 (仍然生硬!)</span><span class="lang-en hidden">Wrong: Blur Depth First</span>
+            </button>
+            <button onclick="setLab2Mode('pcf')" id="btnLab2Pcf" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              🌫️ <span class="lang-zh">固定核宽 PCF (全局等宽模糊)</span><span class="lang-en hidden">Uniform PCF</span>
+            </button>
+            <button onclick="setLab2Mode('pcss')" id="btnLab2Pcss" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 text-white shadow transition">
+              ✨ <span class="lang-zh">PCSS 接触硬化 (根部锋利/顶端柔和)</span><span class="lang-en hidden">PCSS Contact-Hardening</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <canvas id="lab2Canvas" width="720" height="400" class="w-full rounded-xl bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🎛️ 面光源尺寸 $w_{\text{light}}$ 与 PCF 核半径</span>
+              <span class="lang-en hidden">🎛️ Area Light Size $w_{\text{light}}$ &amp; Kernel Radius</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">面光源尺寸 $w_{\text{light}}$ (控制半影扩张率)</span><span class="lang-en hidden">Area Light Size $w_{\text{light}}$</span></span>
+                <span id="lab2ValLightSize" class="font-mono text-cyan-400 font-bold">28</span>
+              </div>
+              <input id="lab2SliderLightSize" type="range" min="4" max="56" step="2" value="28" oninput="renderLab2()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">深度图网格分辨率 (观察阶梯锯齿平滑)</span><span class="lang-en hidden">Shadow Map Texel Grid</span></span>
+                <span id="lab2ValGrid" class="font-mono text-indigo-400 font-bold">48x48</span>
+              </div>
+              <input id="lab2SliderGrid" type="range" min="20" max="80" step="4" value="48" oninput="renderLab2()" class="w-full" />
+            </div>
+
+            <div class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 text-xs text-slate-300 space-y-2 leading-relaxed">
+              <div class="font-bold text-cyan-300">
+                <span class="lang-zh">🔍 对比观察：立柱根部 vs. 立柱顶端阴影</span>
+                <span class="lang-en hidden">🔍 Observe: Pillar Base vs. Pillar Top</span>
+              </div>
+              <p>
+                <span class="lang-zh">
+                  在 <strong>PCSS</strong> 模式下，立柱紧贴地面的根部因为 $d_{\text{receiver}} - d_{\text{blocker}} \to 0$，半影半径 $w_{\text{penumbra}} \to 0$，阴影刀割般锋利；而越往立柱顶端走，距离差越大，半影自动平滑散开！反观 <strong>先平均深度再比大小</strong>，由于阶跃函数输出只能是 0 或 1，边缘完全没有半影过渡！
+                </span>
+                <span class="lang-en hidden">
+                  In <strong>PCSS</strong> mode, at the pillar base $d_{\text{receiver}} - d_{\text{blocker}} \to 0$ so $w_{\text{penumbra}} \to 0$ (razor-sharp contact), while toward the top the penumbra widens smoothly! In contrast, <strong>Blur Depth First</strong> outputs binary 0 or 1 with zero penumbra gradient!
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: COURSE VIDEOS & NOTES ==================== -->
+    <section id="tab-videos" class="tab-panel hidden space-y-8">
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Course References • UC Davis ECS 175 &amp; MIT 6.837</span>
+          <h3 class="text-2xl font-extrabold text-white mt-1">
+            <span class="lang-zh">名校公开课视频索引与同步精读笔记</span>
+            <span class="lang-en hidden">University Lecture Video Index &amp; Study Guide</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">UC Davis ECS 175 • Lecture 19</span>
+              <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+19" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">YouTube ↗</a>
+            </div>
+            <h4 class="text-lg font-bold text-white">Shadows, Part 2 (Prof. Kenneth Joy)</h4>
+            <ul class="text-xs sm:text-sm text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+              <li>
+                <span class="lang-zh"><strong>Lance Williams 阴影图 (Shadow Z-Buffer)</strong>：两遍光栅化流程与图像空间重投影。</span>
+                <span class="lang-en hidden"><strong>Lance Williams Shadow Z-Buffer</strong>: Two-pass rasterization workflow and image-space reprojection.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>深度量化伪影 (Self-Shadowing / Shadow Acne)</strong>：有限深度精度与离散纹素网格引起的自遮挡。</span>
+                <span class="lang-en hidden"><strong>Self-Shadowing (Shadow Acne)</strong>: Finite depth precision and discrete texel quantization artifacts.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>阴影图走样与过滤 (Percentage Closer Filtering)</strong>：边缘锯齿的成因与多样本可见性混合。</span>
+                <span class="lang-en hidden"><strong>Shadow Map Aliasing &amp; PCF</strong>: Stair-stepped shadow boundaries and multi-tap visibility blending.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">MIT 6.837 • Lecture 19</span>
+              <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">MIT Playlist ↗</a>
+            </div>
+            <h4 class="text-lg font-bold text-white">Shadow Maps (Prof. Justin Solomon)</h4>
+            <ul class="text-xs sm:text-sm text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+              <li>
+                <span class="lang-zh"><strong>斜率自适应偏移 (Slope-Scale Depth Bias)</strong>：严格推导 $\epsilon \propto \tan\theta$ 以及与 Peter Panning 的权衡。</span>
+                <span class="lang-en hidden"><strong>Slope-Scale Depth Bias</strong>: Deriving $\epsilon \propto \tan\theta$ and balancing against Peter Panning detachment.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>为什么 $H(\mathbb{E}[z]) \neq \mathbb{E}[H(z)]$</strong>：深入剖析深度值线性滤波与可见性概率滤波的本质区别（PCF vs. VSM 方差阴影图切比雪夫不等式）。</span>
+                <span class="lang-en hidden"><strong>Why $H(\mathbb{E}[z]) \neq \mathbb{E}[H(z)]$</strong>: Contrasting depth filtering against visibility filtering (PCF and Variance Shadow Maps via Chebyshev's inequality).</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>级联阴影图 (Cascaded Shadow Maps, CSM) 与万向点光源立方体阴影图</strong>：大型开放世界场景的多分辨率深度图切分。</span>
+                <span class="lang-en hidden"><strong>Cascaded Shadow Maps (CSM) &amp; Omnidirectional Cube Shadow Maps</strong>: Multi-resolution frustum partitioning for open worlds.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION PLAYABLE GAME ==================== -->
+    <section id="tab-game" class="tab-panel hidden space-y-8">
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Interactive 3-Mission Challenge • Chief Shadow Rendering Engineer</span>
+            <h3 class="text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">🎮 闯关游戏：次世代引擎首席阴影渲染工程师 (3 大实战任务)</span>
+              <span class="lang-en hidden">🎮 Playable Game: Next-Gen Chief Shadow Rendering Engineer (3 Missions)</span>
+            </h3>
+          </div>
+          <span id="gameScoreBadge" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            Completed: 0 / 3
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <button onclick="selectMission(1)" id="missionTab1" class="p-4 rounded-xl text-left border transition bg-indigo-600/20 border-indigo-500 text-white">
+            <div class="flex items-center justify-between text-xs font-bold text-indigo-300 mb-1">
+              <span>MISSION 01</span>
+              <span id="missionStatus1">⏳ In Progress</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">精准平衡 Slope Bias：消灭 Acne 且无悬浮</span>
+              <span class="lang-en hidden">Balance Slope Bias: Zero Acne &amp; Zero Peter Panning</span>
+            </div>
+          </button>
+
+          <button onclick="selectMission(2)" id="missionTab2" class="p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70">
+            <div class="flex items-center justify-between text-xs font-bold text-cyan-300 mb-1">
+              <span>MISSION 02</span>
+              <span id="missionStatus2">🔒 Pending</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">修正错误深度模糊：启用真正 PCF</span>
+              <span class="lang-en hidden">Replace Wrong Depth Blur with True PCF</span>
+            </div>
+          </button>
+
+          <button onclick="selectMission(3)" id="missionTab3" class="p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70">
+            <div class="flex items-center justify-between text-xs font-bold text-purple-300 mb-1">
+              <span>MISSION 03</span>
+              <span id="missionStatus3">🔒 Pending</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">激活 PCSS 接触硬化真实感软阴影</span>
+              <span class="lang-en hidden">Activate PCSS Contact-Hardening Soft Shadows</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span id="gameMissionTitle" class="font-bold text-indigo-300">Mission 1</span>
+              <span id="gameLiveMetric" class="font-mono text-emerald-300">Metrics</span>
+            </div>
+            <canvas id="gameCanvas" width="660" height="360" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <div id="gameBriefBox" class="bg-slate-950/90 rounded-xl p-4 border border-indigo-500/30 text-xs text-slate-300 leading-relaxed"></div>
+
+            <div class="space-y-3 text-xs">
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-slate-300"><span class="lang-zh">1. 常数偏移 Constant Bias $\epsilon_0$</span><span class="lang-en hidden">1. Constant Bias $\epsilon_0$</span></span>
+                  <span id="gameValConst" class="font-mono text-indigo-400 font-bold">0.002</span>
+                </div>
+                <input id="gameSliderConst" type="range" min="0.000" max="0.120" step="0.002" value="0.002" oninput="updateGame()" class="w-full" />
+              </div>
+
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-slate-300"><span class="lang-zh">2. 斜率偏移 Slope-Scale Bias $k_{\text{slope}}$</span><span class="lang-en hidden">2. Slope-Scale Bias $k_{\text{slope}}$</span></span>
+                  <span id="gameValSlope" class="font-mono text-emerald-400 font-bold">0.004</span>
+                </div>
+                <input id="gameSliderSlope" type="range" min="0.000" max="0.060" step="0.002" value="0.004" oninput="updateGame()" class="w-full" />
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-300 mb-1">
+                  <span class="lang-zh">3. 阴影边缘滤波算法 (Shadow Filtering Mode)</span>
+                  <span class="lang-en hidden">3. Shadow Filtering Algorithm</span>
+                </label>
+                <select id="gameSelectFilter" onchange="updateGame()" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white">
+                  <option value="hard">1-Tap Hard Shadow (Blocky Stair-Steps)</option>
+                  <option value="wrong_blur">Pre-Blur Depth Map First (H(E[z]) — Still Hard!)</option>
+                  <option value="pcf">5x5 Percentage Closer Filtering (PCF: E[H(z)])</option>
+                  <option value="pcss">PCSS Contact-Hardening (Blocker Search + Variable PCF)</option>
+                </select>
+              </div>
+            </div>
+
+            <button onclick="verifyMission()" class="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg transition">
+              🚀 <span class="lang-zh">提交并验证阴影渲染管线 (Verify Pipeline)</span><span class="lang-en hidden">Verify Shadow Rendering Pipeline</span>
+            </button>
+
+            <div id="gameFeedbackBox" class="hidden rounded-xl p-3.5 text-xs font-semibold"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentLang = 'zh';
+    let lab2Mode = 'pcss';
+    let currentMission = 1;
+    const completedMissions = { 1: false, 2: false, 3: false };
+
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.querySelectorAll('.lang-zh').forEach(el => el.classList.toggle('hidden', currentLang !== 'zh'));
+      document.querySelectorAll('.lang-en').forEach(el => el.classList.toggle('hidden', currentLang !== 'en'));
+      drawMathAcne();
+      renderLab1();
+      renderLab2();
+      updateGameBrief();
+      updateGame();
+    }
+
+    function switchTab(tabId) {
+      ['math', 'lab', 'videos', 'game'].forEach(id => {
+        document.getElementById('tab-' + id).classList.toggle('hidden', id !== tabId);
+        const btn = document.getElementById('tab-btn-' + id);
+        if (id === tabId) {
+          btn.classList.add('tab-active');
+          btn.classList.remove('bg-slate-900', 'text-slate-300');
+        } else {
+          btn.classList.remove('tab-active');
+          btn.classList.add('bg-slate-900', 'text-slate-300');
+        }
+      });
+      if (tabId === 'math') drawMathAcne();
+      if (tabId === 'lab') { renderLab1(); renderLab2(); }
+      if (tabId === 'game') { updateGameBrief(); updateGame(); }
+    }
+
+    // ==================== TAB 1 VISUALIZER: TEXEL STAIR-STEP & SLOPE BIAS ====================
+    function setExactSlopeBias() {
+      const thetaDeg = parseFloat(document.getElementById('sliderSlopeTheta').value);
+      const ds = parseFloat(document.getElementById('sliderTexelSpan').value);
+      const exact = Math.ceil(0.5 * ds * Math.tan((thetaDeg * Math.PI) / 180));
+      document.getElementById('sliderAppliedBias').value = String(Math.min(85, exact + 1));
+      drawMathAcne();
+    }
+
+    function drawMathAcne() {
+      const canvas = document.getElementById('mathAcneCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const thetaDeg = parseFloat(document.getElementById('sliderSlopeTheta').value);
+      const ds = parseFloat(document.getElementById('sliderTexelSpan').value);
+      const bias = parseFloat(document.getElementById('sliderAppliedBias').value);
+
+      document.getElementById('valSlopeTheta').textContent = thetaDeg + '°';
+      document.getElementById('valTexelSpan').textContent = ds + ' px';
+      document.getElementById('valAppliedBias').textContent = bias + ' px';
+
+      const theta = (thetaDeg * Math.PI) / 180;
+      const tanTheta = Math.tan(theta);
+      const minAcneFreeBias = 0.5 * ds * tanTheta;
+      const peterPanDist = Math.max(0, bias - minAcneFreeBias);
+
+      document.getElementById('statMinBias').textContent = minAcneFreeBias.toFixed(1) + ' px';
+      document.getElementById('statPeterPan').textContent = peterPanDist.toFixed(1) + ' px';
+
+      const badge = document.getElementById('mathAcneBadge');
+      if (bias < minAcneFreeBias - 0.5) {
+        badge.className = 'font-mono px-2.5 py-1 rounded bg-rose-950/90 text-rose-300 border border-rose-500/40';
+        badge.textContent = currentLang === 'zh' ? '⚠️ 发生 Shadow Acne 自遮挡条纹！' : '⚠️ Shadow Acne Self-Occlusion!';
+      } else if (peterPanDist > 18) {
+        badge.className = 'font-mono px-2.5 py-1 rounded bg-purple-950/90 text-purple-300 border border-purple-500/40';
+        badge.textContent = currentLang === 'zh' ? '🧚 偏移过大：发生 Peter Panning 悬浮！' : '🧚 Excessive Bias: Peter Panning!';
+      } else {
+        badge.className = 'font-mono px-2.5 py-1 rounded bg-emerald-950/90 text-emerald-300 border border-emerald-500/40';
+        badge.textContent = currentLang === 'zh' ? '✅ 完美：无自遮挡且无悬浮！' : '✅ Clean: Zero Acne & Zero Detachment!';
+      }
+
+      const startX = 55, endX = W - 45;
+      const baseY = 95;
+      const surfaceY = x => baseY + (x - startX) * tanTheta * 0.48;
+
+      // Draw vertical light rays & texel stair-steps
+      for (let tx = startX; tx < endX; tx += ds) {
+        const cx = tx + ds * 0.5;
+        const zMapY = surfaceY(cx) + bias * 0.48;
+
+        // Vertical light ray at texel center (yellow dashed)
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.35)';
+        ctx.beginPath();
+        ctx.moveTo(cx, 24);
+        ctx.lineTo(cx, zMapY);
+        ctx.stroke();
+        ctx.restore();
+
+        // Draw discrete texel depth step (cyan horizontal bar at z_map + bias)
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(tx, zMapY);
+        ctx.lineTo(Math.min(endX, tx + ds), zMapY);
+        ctx.stroke();
+
+        // Shade surface segments within this texel: green if surfaceY <= zMapY (lit), red if surfaceY > zMapY (false acne shadow!)
+        const segSteps = 24;
+        const stepW = Math.min(ds, endX - tx) / segSteps;
+        for (let i = 0; i < segSteps; i++) {
+          const sx0 = tx + i * stepW;
+          const sx1 = sx0 + stepW;
+          const sy0 = surfaceY(sx0);
+          const sy1 = surfaceY(sx1);
+          const isFalseShadow = (sy0 + sy1) * 0.5 > zMapY + 0.5;
+
+          ctx.strokeStyle = isFalseShadow ? '#f43f5e' : '#10b981';
+          ctx.lineWidth = 6;
+          ctx.beginPath();
+          ctx.moveTo(sx0, sy0);
+          ctx.lineTo(sx1, sy1);
+          ctx.stroke();
+        }
+      }
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.fillText(
+        currentLang === 'zh'
+          ? '青色水平阶梯: 深度图纹素记录值 z_map + ε | 绿色斜坡: 正常照亮 | 红色斜坡: 被自己的纹素台阶挡住 (Shadow Acne!)'
+          : 'Cyan Bars: Recorded Texel Depth z_map + ε | Green Slope: Lit | Red Slope: Self-Shadowed (Shadow Acne!)',
+        24,
+        H - 18
+      );
+    }
+
+    // ==================== TAB 2 LAB 1: DUAL-VIEW SHADOW MAP DEBUGGER ====================
+    function applyLab1Preset(preset) {
+      if (preset === 'acne') {
+        document.getElementById('lab1SliderRes').value = '24';
+        document.getElementById('lab1SliderConstBias').value = '0.000';
+        document.getElementById('lab1SliderSlopeBias').value = '0.000';
+        document.getElementById('lab1SliderHill').value = '44';
+      } else if (preset === 'clean') {
+        document.getElementById('lab1SliderRes').value = '48';
+        document.getElementById('lab1SliderConstBias').value = '0.008';
+        document.getElementById('lab1SliderSlopeBias').value = '0.026';
+        document.getElementById('lab1SliderHill').value = '44';
+      } else if (preset === 'peter') {
+        document.getElementById('lab1SliderRes').value = '48';
+        document.getElementById('lab1SliderConstBias').value = '0.130';
+        document.getElementById('lab1SliderSlopeBias').value = '0.045';
+        document.getElementById('lab1SliderHill').value = '44';
+      }
+      renderLab1();
+    }
+
+    function renderLab1() {
+      const canvas = document.getElementById('lab1Canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const res = parseInt(document.getElementById('lab1SliderRes').value, 10);
+      const constBias = parseFloat(document.getElementById('lab1SliderConstBias').value);
+      const slopeBias = parseFloat(document.getElementById('lab1SliderSlopeBias').value);
+      const hillDeg = parseFloat(document.getElementById('lab1SliderHill').value);
+
+      document.getElementById('lab1ValRes').textContent = `${res}x${res}`;
+      document.getElementById('lab1ValConstBias').textContent = constBias.toFixed(3);
+      document.getElementById('lab1ValSlopeBias').textContent = slopeBias.toFixed(3);
+      document.getElementById('lab1ValHill').textContent = hillDeg + '°';
+
+      const tanHill = Math.tan((hillDeg * Math.PI) / 180) * 0.45;
+
+      // Build 2D synthetic scene in Light Space [u, v] in [0, 1]^2:
+      // Sloped ground height z_ground(u,v) = 0.35 + u * tanHill
+      // Standing pillar touching the ground at (u in [0.42, 0.56], v in [0.35, 0.65])
+      const sceneDepthAt = (u, v) => {
+        const groundZ = 0.25 + u * tanHill;
+        if (u >= 0.42 && u <= 0.56 && v >= 0.36 && v <= 0.64) {
+          return Math.min(groundZ, 0.22); // Pillar top is closer to light
+        }
+        return groundZ;
+      };
+
+      // Pass 1: Quantize into discrete res x res Shadow Map
+      const shadowMap = new Float32Array(res * res);
+      for (let iv = 0; iv < res; iv++) {
+        for (let iu = 0; iu < res; iu++) {
+          const uCenter = (iu + 0.5) / res;
+          const vCenter = (iv + 0.5) / res;
+          shadowMap[iv * res + iu] = sceneDepthAt(uCenter, vCenter);
+        }
+      }
+
+      // Draw Left Viewport: Pass 1 Light-Space Depth Map (320x320)
+      const leftX = 20, leftY = 44, viewSz = 325;
+      const cellPx = viewSz / res;
+      for (let iv = 0; iv < res; iv++) {
+        for (let iu = 0; iu < res; iu++) {
+          const d = shadowMap[iv * res + iu];
+          const g = Math.max(15, Math.min(245, Math.floor((1.0 - d * 0.9) * 240)));
+          ctx.fillStyle = `rgb(${g},${g},${g + 10})`;
+          ctx.fillRect(leftX + iu * cellPx, leftY + iv * cellPx, Math.ceil(cellPx), Math.ceil(cellPx));
+        }
+      }
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(leftX, leftY, viewSz, viewSz);
+
+      // Draw Right Viewport: Pass 2 Camera View with Shadow Comparison (325x325)
+      const rightX = 375, rightY = 44;
+      const img = ctx.createImageData(viewSz, viewSz);
+      const data = img.data;
+
+      const totalEffectiveBias = constBias + slopeBias * tanHill;
+      const minRequiredBias = (0.5 / res) * tanHill;
+
+      for (let py = 0; py < viewSz; py++) {
+        for (let px = 0; px < viewSz; px++) {
+          // Camera obliqueness warp so we see the pillar side and cast shadow
+          const u = px / viewSz;
+          const v = py / viewSz;
+
+          const isPillar = u >= 0.34 && u <= 0.48 && v >= 0.36 && v <= 0.64;
+          // Shift light lookup coordinate along +u so pillar casts shadow to the right (u > 0.48)
+          const uLight = isPillar ? 0.48 : u - 0.08;
+          const vLight = v;
+
+          const iu = Math.max(0, Math.min(res - 1, Math.floor(uLight * res)));
+          const iv = Math.max(0, Math.min(res - 1, Math.floor(vLight * res)));
+          const zMap = shadowMap[iv * res + iu];
+          const zCurr = isPillar ? 0.22 : 0.25 + uLight * tanHill;
+
+          const inShadow = !isPillar && zCurr - totalEffectiveBias > zMap;
+
+          let r, g, b;
+          if (isPillar) {
+            r = 99; g = 102; b = 241;
+          } else if (inShadow) {
+            r = 22; g = 28; b = 48;
+          } else {
+            r = 52; g = 211; b = 153;
+          }
+
+          const idx = (py * viewSz + px) * 4;
+          data[idx] = r; data[idx + 1] = g; data[idx + 2] = b; data[idx + 3] = 255;
+        }
+      }
+      ctx.putImageData(img, rightX, rightY);
+      ctx.strokeStyle = '#475569';
+      ctx.strokeRect(rightX, rightY, viewSz, viewSz);
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.fillText(currentLang === 'zh' ? 'Pass 1: 光源空间深度图 Z_map(u,v)' : 'Pass 1: Light-Space Depth Map Z_map(u,v)', leftX, 28);
+      ctx.fillText(currentLang === 'zh' ? 'Pass 2: 主相机视图 (紫色立柱 + 绿色斜坡)' : 'Pass 2: Main Camera View (Pillar + Sloped Ground)', rightX, 28);
+
+      const diagBox = document.getElementById('lab1DiagnosisBox');
+      if (totalEffectiveBias < minRequiredBias * 0.92) {
+        diagBox.innerHTML = currentLang === 'zh'
+          ? '<span class="text-rose-400 font-bold">🦠 诊断：严重 Shadow Acne 自遮挡条纹！</span> 当前总偏移 $\\epsilon_{\\text{total}} = ' + totalEffectiveBias.toFixed(3) + '$ 小于纹素台阶高度 $\\frac{\\Delta s}{2}\\tan\\theta = ' + minRequiredBias.toFixed(3) + '$，斜坡被自己的离散深度纹素挡出了黑白条纹！'
+          : '<span class="text-rose-400 font-bold">🦠 Diagnosis: Severe Shadow Acne!</span> Total bias (' + totalEffectiveBias.toFixed(3) + ') is below texel step (' + minRequiredBias.toFixed(3) + '). Increase Slope-Scale Bias!';
+      } else if (constBias > 0.065) {
+        diagBox.innerHTML = currentLang === 'zh'
+          ? '<span class="text-purple-400 font-bold">🧚 诊断：发生 Peter Panning 悬浮脱节！</span> 常数偏移过大，立柱根部右侧本该紧贴的阴影向后退缩脱节，立柱看起来像飘在空中！'
+          : '<span class="text-purple-400 font-bold">🧚 Diagnosis: Peter Panning Detachment!</span> Excessive Constant Bias pushed the shadow away from the pillar base!';
+      } else {
+        diagBox.innerHTML = currentLang === 'zh'
+          ? '<span class="text-emerald-400 font-bold">✅ 诊断：完美阴影状态！</span> 斜率偏移恰好抵消了纹素阶梯高度，既消除了全场 Shadow Acne 麻子，又让立柱根部阴影紧贴地面！'
+          : '<span class="text-emerald-400 font-bold">✅ Diagnosis: Clean Contact Shadow!</span> Slope-Scale Bias eliminates Shadow Acne without Peter Panning detachment!';
+      }
+    }
+
+    // ==================== TAB 2 LAB 2: PCF VS PCSS STUDIO ====================
+    function setLab2Mode(mode) {
+      lab2Mode = mode;
+      const map = {
+        hard: 'btnLab2Hard',
+        wrongblur: 'btnLab2Wrong',
+        pcf: 'btnLab2Pcf',
+        pcss: 'btnLab2Pcss'
+      };
+      Object.keys(map).forEach(k => {
+        const btn = document.getElementById(map[k]);
+        btn.className = k === mode
+          ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 text-white shadow transition'
+          : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition';
+      });
+      renderLab2();
+    }
+
+    function renderLab2() {
+      const canvas = document.getElementById('lab2Canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+
+      const lightSize = parseFloat(document.getElementById('lab2SliderLightSize').value);
+      const gridRes = parseInt(document.getElementById('lab2SliderGrid').value, 10);
+
+      document.getElementById('lab2ValLightSize').textContent = lightSize.toFixed(0);
+      document.getElementById('lab2ValGrid').textContent = `${gridRes}x${gridRes}`;
+
+      const img = ctx.createImageData(W, H);
+      const data = img.data;
+
+      // Render a tilted pole casting a diagonal shadow across a ground plane from bottom-left base to top-right tip
+      const baseX = 160, baseY = H - 55;
+
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          // Quantize coordinates to simulate discrete shadow map texels
+          const qx = Math.floor((x / W) * gridRes) * (W / gridRes);
+          const qy = Math.floor((y / H) * gridRes) * (H / gridRes);
+
+          // Distance along the shadow axis from base (baseX, baseY)
+          const tAlong = Math.max(0, Math.min(1.2, (baseY - y) / 290));
+          const shadowCenterX = baseX + tAlong * 260;
+          const halfWidth = 34;
+
+          let visibility = 1.0;
+
+          if (lab2Mode === 'hard') {
+            const dx = Math.abs(qx - shadowCenterX);
+            visibility = (dx < halfWidth && tAlong >= 0 && tAlong <= 1.0) ? 0.0 : 1.0;
+          } else if (lab2Mode === 'wrongblur') {
+            // Blurring depth before step function H(E[z] - z_curr) still outputs binary 0 or 1!
+            const dx = Math.abs(qx - shadowCenterX + Math.sin(qy * 0.15) * 4);
+            visibility = (dx < halfWidth && tAlong >= 0 && tAlong <= 1.0) ? 0.0 : 1.0;
+          } else if (lab2Mode === 'pcf') {
+            // Uniform kernel radius everywhere
+            const radius = lightSize * 0.75;
+            const dx = Math.abs(x - shadowCenterX);
+            if (tAlong >= 0 && tAlong <= 1.05) {
+              const raw = (dx - halfWidth + radius) / (2 * Math.max(1, radius));
+              visibility = Math.max(0, Math.min(1, raw));
+              visibility = visibility * visibility * (3 - 2 * visibility);
+            }
+          } else if (lab2Mode === 'pcss') {
+            // PCSS: w_penumbra = w_light * (d_receiver - d_blocker) / d_blocker -> proportional to tAlong!
+            const radius = Math.max(1.2, lightSize * 1.35 * tAlong);
+            const dx = Math.abs(x - shadowCenterX);
+            if (tAlong >= 0 && tAlong <= 1.05) {
+              const raw = (dx - halfWidth + radius) / (2 * radius);
+              visibility = Math.max(0, Math.min(1, raw));
+              visibility = visibility * visibility * (3 - 2 * visibility);
+            }
+          }
+
+          const checker = ((Math.floor(x / 36) + Math.floor(y / 36)) & 1) ? 1.0 : 0.86;
+          const shade = (0.18 + 0.82 * visibility) * checker;
+
+          const idx = (y * W + x) * 4;
+          data[idx] = Math.floor(45 * shade);
+          data[idx + 1] = Math.floor(195 * shade);
+          data[idx + 2] = Math.floor(215 * shade);
+          data[idx + 3] = 255;
+        }
+      }
+
+      ctx.putImageData(img, 0, 0);
+
+      // Draw the physical pole standing at (baseX, baseY)
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 10;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(baseX, baseY);
+      ctx.lineTo(baseX, baseY - 245);
+      ctx.stroke();
+
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '立柱接触点 (d_rec ≈ d_blk → 锋利本影)' : 'Contact Base (d_rec ≈ d_blk → Sharp)', baseX - 45, baseY + 28);
+      ctx.fillText(currentLang === 'zh' ? '立柱远端阴影 (大距离差 → 宽广半影)' : 'Distal Shadow (Large Δd → Wide Penumbra)', baseX + 185, baseY - 295);
+    }
+
+    // ==================== TAB 4: 3-MISSION GAME ====================
+    function selectMission(m) {
+      currentMission = m;
+      [1, 2, 3].forEach(id => {
+        const btn = document.getElementById('missionTab' + id);
+        btn.className = id === m
+          ? 'p-4 rounded-xl text-left border transition bg-indigo-600/20 border-indigo-500 text-white'
+          : 'p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70';
+      });
+
+      if (m === 1) {
+        document.getElementById('gameSliderConst').value = '0.000';
+        document.getElementById('gameSliderSlope').value = '0.002';
+        document.getElementById('gameSelectFilter').value = 'hard';
+      } else if (m === 2) {
+        document.getElementById('gameSliderConst').value = '0.008';
+        document.getElementById('gameSliderSlope').value = '0.026';
+        document.getElementById('gameSelectFilter').value = 'wrong_blur';
+      } else {
+        document.getElementById('gameSliderConst').value = '0.008';
+        document.getElementById('gameSliderSlope').value = '0.026';
+        document.getElementById('gameSelectFilter').value = 'pcf';
+      }
+
+      document.getElementById('gameFeedbackBox').classList.add('hidden');
+      updateGameBrief();
+      updateGame();
+    }
+
+    function updateGameBrief() {
+      const box = document.getElementById('gameBriefBox');
+      const title = document.getElementById('gameMissionTitle');
+      if (currentMission === 1) {
+        title.textContent = currentLang === 'zh' ? '关卡 1：消灭 Shadow Acne 且不触发 Peter Panning' : 'Mission 1: Eliminate Shadow Acne Without Peter Panning';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务指标：</strong>将 <strong>Slope-Scale Bias $k_{\\text{slope}}$ 调至 $[0.020, 0.045]$</strong>，同时保持 <strong>Constant Bias $\\epsilon_0 \\le 0.025$</strong>，让斜坡自遮挡条纹归零且不发生悬浮！'
+          : '<strong>Target:</strong> Set <strong>Slope-Scale Bias $k_{\\text{slope}} \\in [0.020, 0.045]$</strong> while keeping <strong>Constant Bias $\\epsilon_0 \\le 0.025$</strong>!';
+      } else if (currentMission === 2) {
+        title.textContent = currentLang === 'zh' ? '关卡 2：废除错误的深度预模糊，启用真正 PCF' : 'Mission 2: Replace Wrong Pre-Blurred Depth with True PCF';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务指标：</strong>当前管线错误地对深度图做了线性模糊（$H(\\mathbb{E}[z])$），阴影边缘依然像锯齿刀口一样生硬。请将滤波模式切换为 <strong>5x5 Percentage Closer Filtering (PCF)</strong> 或 <strong>PCSS</strong>！'
+          : '<strong>Target:</strong> Pre-blurring depths ($H(\\mathbb{E}[z])$) still yields hard stair-steps! Switch to <strong>5x5 PCF</strong> or <strong>PCSS</strong>!';
+      } else {
+        title.textContent = currentLang === 'zh' ? '关卡 3：开启 PCSS 接触硬化真实感软阴影' : 'Mission 3: Enable PCSS Contact-Hardening Soft Shadows';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务指标：</strong>保持合理的无麻子偏移参数，并将阴影滤波算法升级为 <strong>PCSS Contact-Hardening (Blocker Search + Variable PCF)</strong>，实现根部锐利、顶端柔和的电影级半影！'
+          : '<strong>Target:</strong> Keep clean bias settings and upgrade filtering to <strong>PCSS Contact-Hardening</strong> for sharp contact and soft distal penumbra!';
+      }
+    }
+
+    function updateGame() {
+      const cBias = parseFloat(document.getElementById('gameSliderConst').value);
+      const sBias = parseFloat(document.getElementById('gameSliderSlope').value);
+      const filter = document.getElementById('gameSelectFilter').value;
+
+      document.getElementById('gameValConst').textContent = cBias.toFixed(3);
+      document.getElementById('gameValSlope').textContent = sBias.toFixed(3);
+
+      const hasAcne = sBias < 0.018 && cBias < 0.015;
+      const hasPeter = cBias > 0.030;
+
+      document.getElementById('gameLiveMetric').textContent =
+        `Acne: ${hasAcne ? 'YES' : '0%'} | PeterPan: ${hasPeter ? 'HIGH' : '0%'} | Filter: ${filter.toUpperCase()}`;
+
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      for (let y = 0; y < H; y += 3) {
+        const t = (H - 40 - y) / 260;
+        const center = 180 + Math.max(0, t) * 230;
+        for (let x = 0; x < W; x += 4) {
+          let vis = 1.0;
+          const dx = Math.abs(x - center - (hasPeter ? 42 : 0));
+          if (t >= 0 && t <= 1.0) {
+            if (filter === 'hard' || filter === 'wrong_blur') {
+              vis = dx < 32 ? 0.0 : 1.0;
+            } else if (filter === 'pcf') {
+              vis = Math.max(0, Math.min(1, (dx - 16) / 32));
+            } else {
+              const rad = Math.max(2, 38 * t);
+              vis = Math.max(0, Math.min(1, (dx - 32 + rad) / (2 * rad)));
+            }
+          }
+          if (hasAcne && ((Math.floor(x / 16) % 2) === 0)) {
+            vis *= 0.35;
+          }
+          const shade = 0.2 + 0.8 * vis;
+          ctx.fillStyle = `rgb(${Math.floor(45 * shade)},${Math.floor(195 * shade)},${Math.floor(165 * shade)})`;
+          ctx.fillRect(x, y, 4, 3);
+        }
+      }
+
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(180, H - 40);
+      ctx.lineTo(180, H - 250);
+      ctx.stroke();
+    }
+
+    function verifyMission() {
+      const cBias = parseFloat(document.getElementById('gameSliderConst').value);
+      const sBias = parseFloat(document.getElementById('gameSliderSlope').value);
+      const filter = document.getElementById('gameSelectFilter').value;
+      const fb = document.getElementById('gameFeedbackBox');
+      fb.classList.remove('hidden');
+
+      const biasClean = sBias >= 0.020 && sBias <= 0.048 && cBias <= 0.026;
+      let ok = false;
+      if (currentMission === 1) ok = biasClean;
+      else if (currentMission === 2) ok = biasClean && (filter === 'pcf' || filter === 'pcss');
+      else ok = biasClean && filter === 'pcss';
+
+      if (ok) {
+        completedMissions[currentMission] = true;
+        document.getElementById('missionStatus' + currentMission).textContent = '✅ Passed';
+        fb.className = 'rounded-xl p-3.5 text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+        fb.textContent = currentLang === 'zh'
+          ? `🎉 恭喜通过关卡 ${currentMission}！你的 Shadow Map 偏移与软阴影管线已达工业级标准！`
+          : `🎉 Mission ${currentMission} Complete! Your Shadow Map bias and soft-shadow pipeline is verified!`;
+      } else {
+        fb.className = 'rounded-xl p-3.5 text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40';
+        fb.textContent = currentLang === 'zh'
+          ? '⚠️ 参数未达标：请确保 Slope-Scale Bias 在 [0.020, 0.045] 之间、Constant Bias <= 0.025，并选择正确的 PCF / PCSS 模式！'
+          : '⚠️ Check that Slope-Scale Bias is in [0.020, 0.045], Constant Bias <= 0.025, and PCF / PCSS mode matches the mission!';
+      }
+
+      const doneCount = Object.values(completedMissions).filter(Boolean).length;
+      document.getElementById('gameScoreBadge').textContent = `Completed: ${doneCount} / 3`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      drawMathAcne();
+      renderLab1();
+      renderLab2();
+      updateGameBrief();
+      updateGame();
+    });
+  </script>
+</body>
+</html>

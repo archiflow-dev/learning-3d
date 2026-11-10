@@ -609,7 +609,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Two-Pass Shadow Mapping, Shadow Acne, Bias & Percentage Closer Filtering',
     concepts: ['光源空间深度图渲染', 'Shadow Acne 成因与 Slope-Scale Bias', 'Peter Panning 悬浮伪影', 'PCF 软阴影滤波核'],
     playgroundTitle: 'Shadow Map 双视角调试工作台',
-    playgroundDescription: '同屏展示光源深度纹理与主相机画面，亲手调参复现 Shadow Acne 摩尔纹并用 Bias 与 PCF 修复。',
+    playgroundDescription: '用 3Blue1Brown 纹素量化阶梯与赫维赛德阶跃函数不等式 H(E[z])≠E[H(z)] 推导斜率深度偏移 ε=(Δs/2)tan(θ)、Peter Panning 成因以及 PCF 与 PCSS 接触硬化软阴影，在双实验台同屏对比光源深度图与主相机画面，并畅玩 3 关首席阴影渲染工程师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
