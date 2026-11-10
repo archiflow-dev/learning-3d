@@ -465,7 +465,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Perspective Projection Matrix, NDC Space & Sutherland-Hodgman Clipping',
     concepts: ['正交投影 vs 透视投影矩阵', '非线性深度 z/w 与 Z-Fighting', 'Cohen-Sutherland 线段裁剪', 'Sutherland-Hodgman 多边形逐边裁剪'],
     playgroundTitle: '视锥体挤压变形与多边形裁剪沙盒',
-    playgroundDescription: '同步观察透视视锥体如何被矩阵非线性变换为 [-1,1]³ NDC 立方体，并逐步演示跨边界多边形裁剪。',
+    playgroundDescription: '用 3Blue1Brown 齐次坐标延迟除法 (w_c = -z_e) 推导透视投影矩阵与 1/z 双曲线深度映射，连续变形观察视锥棱台如何被挤压成 [-1,1]³ NDC 立方体并引发 Z-Fighting，亲手体验 Cohen–Sutherland 四位编码线段裁剪与 Sutherland–Hodgman 多边形逐边分治裁剪，并畅玩 3 关投影与裁剪架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
