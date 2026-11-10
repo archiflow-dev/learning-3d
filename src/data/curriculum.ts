@@ -381,7 +381,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Shadow Rays, Mirror Reflection, Snell Refraction & Ray Trees',
     concepts: ['Shadow Bias (ε) 防自遮挡', '镜面反射向量推导', '斯涅尔折射定律与全内反射 (TIR)', 'Fresnel 方程与递归光线树'],
     playgroundTitle: '交互式光线树 (Ray Tree) 与折射追踪器',
-    playgroundDescription: '调节玻璃球折射率 η 与入射角，实时展开反射、折射与阴影射线的完整递归树。',
+    playgroundDescription: '用正交向量分解 (d_∥ + d_⊥) 推导镜面反射与斯涅尔折射向量、观察全内反射 (TIR) 临界角与 Schlick 菲涅尔能量分配，在 Shadow Bias 显微镜修复自遮挡黑麻子，并在递归光线树实验室实时追踪玻璃球折射，畅玩 3 关光学与光纤总工程师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',

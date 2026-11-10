@@ -13,6 +13,7 @@ import { Lesson10Subdivision1 } from './lessons/Lesson10Subdivision1';
 import { Lesson11Subdivision2 } from './lessons/Lesson11Subdivision2';
 import { Lesson12RayCasting } from './lessons/Lesson12RayCasting';
 import { Lesson13BarycentricCSG } from './lessons/Lesson13BarycentricCSG';
+import { Lesson14RayTracing } from './lessons/Lesson14RayTracing';
 
 const STORAGE_KEY = 'learning_3d_completed_lessons_v1';
 const LANG_KEY = 'learning_3d_lang_v1';
@@ -253,6 +254,13 @@ export const App: React.FC = () => {
             lang={lang}
             isCompleted={completedIds.includes('L13')}
             onToggleComplete={() => toggleLessonComplete('L13')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L14' ? (
+          <Lesson14RayTracing
+            lang={lang}
+            isCompleted={completedIds.includes('L14')}
+            onToggleComplete={() => toggleLessonComplete('L14')}
             onBackToPortal={() => navigateToLesson(null)}
           />
         ) : activeLessonObj ? (
