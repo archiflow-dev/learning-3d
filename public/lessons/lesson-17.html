@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 17: 全局光照与蒙特卡洛路径追踪 | Global Illumination & Monte Carlo Path Tracing</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body { background: #020617; color: #f1f5f9; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    canvas { touch-action: none; }
+    .math-box { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 0.75rem; padding: 1rem; }
+  </style>
+</head>
+<body class="min-h-screen selection:bg-indigo-500 selection:text-white">
+  <!-- Top Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 transition">
+          ← Course Index
+        </a>
+        <div>
+          <div class="flex items-center gap-2 text-xs font-bold text-indigo-400">
+            <span>Stage 3 Finale • Ray Tracing & Global Illumination</span>
+            <span>•</span>
+            <span>Lesson 17 / 32</span>
+          </div>
+          <h1 class="text-base sm:text-lg font-extrabold text-white">
+            L17: 全局光照 (Global Illumination) 与蒙特卡洛路径追踪 (Path Tracing)
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button onclick="toggleLang()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition">
+          <span>🌐</span>
+          <span>EN / 中文</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap gap-2 pb-3">
+      <button onclick="switchTab(1)" id="tab-btn-1" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow">
+        1. 📐 3B1B 渲染方程与余弦重要性采样直觉
+      </button>
+      <button onclick="switchTab(2)" id="tab-btn-2" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        2. 🏮 Cornell Box 实时渐进式路径追踪实验室
+      </button>
+      <button onclick="switchTab(3)" id="tab-btn-3" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        3. 🎥 MIT 6.837 L16 & 路径追踪核心架构
+      </button>
+      <button onclick="switchTab(4)" id="tab-btn-4" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        4. 🎮 3 关全局光照与蒙特卡洛架构师挑战
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-8">
+    <!-- ==================== TAB 1: 3B1B INTUITION ==================== -->
+    <section id="tab-1" class="space-y-8">
+      <!-- Intro: Why Whitted Ray Tracing Looks Fake -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-700/60 text-xs font-bold text-indigo-300">
+          <span>✨ Stage 3 终章 • James Kajiya (1986) *The Rendering Equation*</span>
+        </div>
+        <h2 class="text-xl sm:text-2xl font-extrabold text-white" data-zh="为什么 Whitted 光线追踪看起来像“塑料”，而真实世界充满柔和溢色？" data-en="Why Whitted Ray Tracing Looks 'Plastic' While the Real World Glows with Color Bleeding">
+          为什么 Whitted 光线追踪看起来像“塑料”，而真实世界充满柔和溢色？
+        </h2>
+        <p class="text-sm text-slate-300 leading-relaxed" data-zh="在 Lesson 14 的 Whitted-Style 光线追踪中，光线只在完美镜面或玻璃上继续弹射；一旦击中粗糙的漫反射表面（如粉刷墙壁、木桌、织物），算法立刻停止弹射，只向点光源连一条硬阴影射线，再用一个虚假的常数环境光 k_a·I_a 强行填亮背光面！但在真实物理世界中：没有任何物体是光线的终点，每一个受光表面本身都变成了照亮周围物体的“次级面光源”！" data-en="In Lesson 14's Whitted ray tracing, rays only bounce off perfect mirrors or glass; upon hitting a matte diffuse wall, recursion stops immediately and relies on a fake constant ambient term k_a·I_a. In the real physical world, no surface is a dead end — every illuminated surface becomes a secondary area light source that illuminates its neighbors!">
+          在 Lesson 14 的 Whitted-Style 光线追踪中，光线只在完美镜面或玻璃上继续弹射；一旦击中粗糙的漫反射表面（如粉刷墙壁、木桌、织物），算法立刻停止弹射，只向点光源连一条硬阴影射线，再用一个虚假的常数环境光 $k_a I_a$ 强行填亮背光面！但在真实物理世界中：**没有任何物体是光线的终点，每一个受光表面本身都变成了照亮周围物体的“次级面光源”**！
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="text-xs font-bold text-rose-400">1. 色彩溢色 (Color Bleeding)</div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              康奈尔盒子 (Cornell Box) 顶部的白光打在左侧红墙上，红墙吸收蓝绿光子、向整个半球散射红光子，把旁边纯白球体的背光面染上一层温暖的红晕。
+            </p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="text-xs font-bold text-amber-400">2. 软阴影 (Soft Shadows: Umbra & Penumbra)</div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              真实光源都有面积。地板上某点如果被球体遮挡了面光源的 60%，它仍能接收到其余 40% 光源面积发出的光子，从而自然形成从本影 (Umbra) 到半影 (Penumbra) 的柔滑过渡。
+            </p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="text-xs font-bold text-cyan-400">3. 焦散与环境遮蔽 (Caustics & Contact GI)</div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              墙角与球体接触缝隙处之所以深邃，是因为那里的上半球立体角被邻近几何体遮蔽，多跳间接光子难以钻入——无需任何 SSAO 屏幕空间造假，物理积分自然涌现！
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 1: Radiometry & Kajiya's Rendering Equation + Nusselt 1/pi Proof -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <h3 class="text-lg sm:text-xl font-bold text-indigo-300" data-zh="1. 辐射度量学与 Kajiya 渲染方程：为什么漫反射 BRDF 等于 ρ/π 而不是 ρ/(2π)？" data-en="1. Radiometry & Kajiya's Rendering Equation: Why is Lambertian BRDF ρ/π Instead of ρ/(2π)?">
+          1. 辐射度量学与 Kajiya 渲染方程：为什么漫反射 BRDF 等于 $\frac{\rho}{\pi}$ 而不是 $\frac{\rho}{2\pi}$？
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="space-y-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p>
+              为什么光线追踪器沿着射线传输的物理量不是功率 $\Phi$（瓦特），也不是照度 $E = \frac{d\Phi}{dA}$，而是**辐射亮度 (Radiance $L$)**？
+            </p>
+            <div class="math-box">
+              $$L(\mathbf{x}, \vec{\omega}) \equiv \frac{d^2 \Phi(\mathbf{x}, \vec{\omega})}{dA_\perp \, d\omega} = \frac{d^2 \Phi(\mathbf{x}, \vec{\omega})}{(dA \cos\theta) \, d\omega} \qquad [\text{W}\cdot\text{sr}^{-1}\cdot\text{m}^{-2}]$$
+            </div>
+            <p>
+              <strong>3Blue1Brown 几何直觉</strong>：一束立体角为 $d\omega$ 的光束以倾角 $\theta$ 照在面积为 $dA$ 的斜面上，它真正拦截到的垂直横截面积只有 **$dA_\perp = dA \cos\theta$**（这就是兰伯特余弦定律 $\cos\theta = \mathbf{n} \cdot \vec{\omega}_i$ 的纯粹几何起源！）。更妙的是，在真空中沿着一条光线走，距离 $r$ 翻倍导致的能量密度 $1/r^2$ 衰减，恰好被传感器立体角 $d\omega = dA/r^2$ 的 $1/r^2$ 缩小**完美抵消**——因此 **Radiance $L$ 沿着整条光线是严格守恒的常数**！
+            </p>
+            <p>
+              1986 年 James Kajiya 写下了统治整个现代离线与实时渲染的 **渲染方程 (The Rendering Equation)**：点 $\mathbf{x}$ 朝出射方向 $\vec{\omega}_o$ 射出的总辐射亮度 $L_o$，等于它自身的发光 $L_e$，加上上半球 $\Omega^+$ 所有入射方向 $\vec{\omega}_i$ 照进来的光经材质 **BRDF（双向反射分布函数 $f_r$）** 散射后的积分：
+            </p>
+            <div class="math-box">
+              $$L_o(\mathbf{x}, \vec{\omega}_o) = L_e(\mathbf{x}, \vec{\omega}_o) + \int_{\Omega^+} f_r(\mathbf{x}, \vec{\omega}_i, \vec{\omega}_o) \, L_i(\mathbf{x}, \vec{\omega}_i) \, \underbrace{(\mathbf{n} \cdot \vec{\omega}_i)}_{\cos\theta_i} \, d\omega_i$$
+            </div>
+            <p>
+              <strong>经典灵魂拷问：一个反照率为 $\rho \in [0,1]$ 的理想漫反射面（向所有方向均匀散射相同 Radiance），它的常数 BRDF $f_r$ 为什么等于 $\frac{\rho}{\pi}$，分母为什么是 $\pi$ 而不是半球面积 $2\pi$？</strong>
+            </p>
+            <p>
+              让我们用 **努塞尔类比 (Nusselt's Analog)** 给出最直观的几何证明：立体角微元 $d\omega = \sin\theta\,d\theta\,d\phi$ 是单位半球面上的小面元；而乘上倾斜因子 $\cos\theta$ 后，$d\omega_\perp = \cos\theta \, d\omega$ 恰好等于**把这个球面小面元垂直往下拍扁、正交投影到底部单位圆盘上的面积微元 $dx\,dy$**！
+              既然整个单位半球正交投影到底面的影子就是一个半径为 $1$ 的圆盘，它的总投影面积当然是 **$\pi \times 1^2 = \pi$**！
+            </p>
+            <div class="math-box">
+              $$\int_{\Omega^+} \cos\theta \, d\omega = \int_0^{2\pi}\! d\phi \int_0^{\pi/2}\! \cos\theta \sin\theta \, d\theta = \mathbf{\pi} \;\;\implies\;\; f_r = \frac{\rho}{\pi}$$
+            </div>
+          </div>
+
+          <!-- Interactive Visualizer 1A: Nusselt Hemisphere Projection & Cosine vs Uniform Monte Carlo -->
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="text-xs font-bold text-cyan-300">🔬 交互实验 1A：努塞尔半球投影 (Malley 法) 与蒙特卡洛收敛对比</div>
+              <div class="flex gap-1.5">
+                <button onclick="setHemisphereMode('uniform')" id="hemi-btn-uniform" class="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 text-slate-300">
+                  均匀半球 p=1/(2π)
+                </button>
+                <button onclick="setHemisphereMode('cosine')" id="hemi-btn-cosine" class="px-2.5 py-1 rounded text-[11px] font-bold bg-indigo-600 text-white">
+                  余弦重要性采样 p=cosθ/π
+                </button>
+              </div>
+            </div>
+
+            <canvas id="canvas-hemisphere" width="560" height="305" class="w-full rounded-lg bg-slate-900 border border-slate-800"></canvas>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="flex justify-between mb-1">
+                  <span class="text-slate-300">半球采样光线数 $N$:</span>
+                  <span id="lbl-hemi-n" class="font-mono font-bold text-cyan-400">48 条</span>
+                </div>
+                <input id="slider-hemi-n" type="range" min="8" max="160" step="4" value="48" oninput="updateHemisphereLab()" class="w-full accent-cyan-400" />
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+                <div>
+                  <div class="text-slate-400 text-[11px]">当前估计方差 $\text{Var}[\hat{I}]$:</div>
+                  <div id="lbl-hemi-var" class="font-mono font-bold text-emerald-400 text-sm">0.0042</div>
+                </div>
+                <button onclick="reseedHemisphere()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold">
+                  🎲 重抽样本
+                </button>
+              </div>
+            </div>
+
+            <p class="text-[11px] text-slate-400 bg-slate-900/75 p-2.5 rounded-lg border border-slate-800 leading-relaxed">
+              💡 <strong>Malley 余弦采样秘诀</strong>：只需在底部二维单位圆盘上均匀随机撒点 $(x,y)$，再垂直向上投影到半球面 $z = \sqrt{1 - x^2 - y^2}$，球面上的方向就自动精确服从 $p(\vec{\omega}) = \frac{\cos\theta}{\pi}$！代入蒙特卡洛公式 $\frac{f_r L_i \cos\theta}{p(\vec{\omega})} = \frac{(\rho/\pi) L_i \cos\theta}{\cos\theta/\pi} = \rho L_i$，<strong>所有的 $\pi$ 和 $\cos\theta$ 瞬间完美约分抵消</strong>，不再向掠射角 $\theta \to 90^\circ$ 浪费任何一条接近零权重的废光线！
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Monte Carlo 1/sqrt(N) & Russian Roulette Unbiased Termination -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <h3 class="text-lg sm:text-xl font-bold text-emerald-300">
+          2. 为什么无限弹射的积分不会死循环？——俄罗斯轮盘赌 (Russian Roulette) 无偏终止法
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-7 space-y-3 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p>
+              渲染方程是一个递归积分方程（光子可以在红墙、白球、地板之间弹射 $1, 2, 3, \dots, \infty$ 次）。如果我们粗暴地规定“最多弹射 3 次就强制归零截断”，那么第 $4, 5, \dots$ 次弹射携带的真实能量就被永久丢弃了，渲染出的房间会系统性地偏暗（即<strong>有偏估计 Biased Estimator</strong>）。
+            </p>
+            <p>
+              怎样才能<strong>既在有限步内以 100% 概率停机，又让数学期望严格等于无穷级数真值（100% 无偏 Unbiased）</strong>？答案是冯·诺依曼与乌拉姆在曼哈顿计划中发明的 **俄罗斯轮盘赌 (Russian Roulette)**：
+            </p>
+            <div class="math-box">
+              $$\hat{L}_{\text{RR}} = \begin{cases} \dfrac{L_{\text{bounce}}}{q}, & \text{以存活概率 } q \in (0, 1] \text{ 继续追踪下一跳（能量补偿放大 } 1/q \text{ 倍！）} \\[8pt] 0, & \text{以终止概率 } 1 - q \text{ 立即停止弹射} \end{cases}$$
+            </div>
+            <p>
+              看看它的数学期望发生了什么奇迹：
+              $$\mathbb{E}[\hat{L}_{\text{RR}}] = q \cdot \left(\frac{\mathbb{E}[L_{\text{bounce}}]}{q}\right) + (1 - q) \cdot 0 = \mathbb{E}[L_{\text{bounce}}]$$
+              <strong>概率 $q$ 与分母 $q$ 精确相消！</strong>通常我们令存活概率 $q = \min(0.95,\; \max(\beta_R, \beta_G, \beta_B))$（当前路径累积透射率越暗，越容易被淘汰；一旦幸存，就除以 $q$ 补足全村的希望）！
+            </p>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
+            <div className="font-bold text-amber-300">🎰 交互实验 1B：俄罗斯轮盘赌无偏能量守恒验证器</div>
+            <div class="space-y-2">
+              <div class="flex justify-between">
+                <span class="text-slate-300">设定存活概率 $q$:</span>
+                <span id="lbl-rr-q" class="font-mono font-bold text-cyan-400">0.65 (65% 存活)</span>
+              </div>
+              <input id="slider-rr-q" type="range" min="0.1" max="0.95" step="0.05" value="0.65" oninput="updateRRLab()" class="w-full accent-cyan-400" />
+            </div>
+
+            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1.5">
+              <div class="flex justify-between">
+                <span class="text-slate-400">真实无限弹射能量 $L_{\text{true}}$:</span>
+                <span class="font-mono font-bold text-white">1.000 W/(sr·m²)</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">幸存路径能量放大倍率 $1/q$:</span>
+                <span id="lbl-rr-boost" class="font-mono font-bold text-amber-300">1.538x</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">10,000 次轮盘赌模拟均值 $\hat{L}_{\text{MC}}$:</span>
+                <span id="lbl-rr-avg" class="font-mono font-bold text-emerald-400">1.002 (无偏！)</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">节省的射线弹射算力 $(1 - q)$:</span>
+                <span id="lbl-rr-saved" class="font-mono font-bold text-indigo-300">35.0%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: CORNELL BOX PROGRESSIVE PATH TRACER ==================== -->
+    <section id="tab-2" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-extrabold text-white">
+              🏮 Cornell Box 实时渐进式蒙特卡洛路径追踪器 (Progressive Path Tracing Lab)
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">
+              观察像素随采样数 SPP 累积如何按 $O(1/\sqrt{N})$ 从颗粒噪点收敛为柔滑全局光照！点击画面中任意像素，右侧将实时还原该像素的 3D 多跳光子随机游走路径！
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="togglePTPause()" id="btn-pt-pause" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white transition">
+              ⏸ 暂停累积
+            </button>
+            <button onclick="resetPathTracer()" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition">
+              🔄 清零重采样 (Reset 0 SPP)
+            </button>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
+          <div>
+            <label class="block text-slate-400 font-semibold mb-1.5">最大弹射次数 (Max Bounces):</label>
+            <select id="pt-bounces" onchange="resetPathTracer()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-semibold">
+              <option value="0">0 Bounces (仅光源自身)</option>
+              <option value="1">1 Bounce (仅直接光照+软阴影，天花板全黑)</option>
+              <option value="2">2 Bounces (首次间接光，红绿溢色初现)</option>
+              <option value="4" selected>4 Bounces (完整多跳全局光照 GI + RR)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-slate-400 font-semibold mb-1.5">半球采样与重要性策略:</label>
+            <select id="pt-strategy" onchange="resetPathTracer()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-semibold">
+              <option value="uniform">Uniform 均匀半球 (p=1/2π，高噪点)</option>
+              <option value="cosine">Malley 余弦重要性采样 (p=cosθ/π)</option>
+              <option value="nee" selected>余弦采样 + NEE 直接面光源采样 (极速收敛)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-slate-400 font-semibold mb-1.5">顶部面光源宽度 (决定软阴影半影):</label>
+            <input id="pt-light-size" type="range" min="0.2" max="1.3" step="0.1" value="0.7" oninput="resetPathTracer()" class="w-full accent-amber-400 mt-1" />
+            <div class="flex justify-between text-[11px] text-slate-400 mt-0.5">
+              <span>小=硬阴影 / 大=宽半影</span>
+              <span id="lbl-pt-light" class="font-mono text-amber-300">W = 0.70</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-slate-400 font-semibold mb-1.5">左球材质 (Left Sphere BRDF):</label>
+            <select id="pt-left-mat" onchange="resetPathTracer()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-semibold">
+              <option value="mirror" selected>完美铬镜面 (Mirror Specular)</option>
+              <option value="diffuse">纯白漫反射 (Matte Lambertian)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Dual Display: Cornell Box Render + Path & Convergence Inspector -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-slate-200">🖼️ Cornell Box 实时渐进式积分画布 (点击像素追踪光子路径)</span>
+              <span id="lbl-pt-spp" class="px-2.5 py-0.5 rounded-full bg-indigo-950 border border-indigo-700 font-mono font-bold text-indigo-300">
+                SPP: 0
+              </span>
+            </div>
+
+            <div class="relative">
+              <canvas id="canvas-cornell" width="360" height="360" class="w-full aspect-square rounded-lg bg-black border border-slate-800 cursor-crosshair" style="image-rendering: pixelated;"></canvas>
+              <canvas id="canvas-cornell-overlay" width="360" height="360" class="w-full aspect-square rounded-lg pointer-events-none absolute inset-0"></canvas>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 text-center text-xs">
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[11px]">累计采样数 (SPP)</div>
+                <div id="metric-pt-spp" class="text-base font-mono font-extrabold text-cyan-400 mt-0.5">0</div>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[11px]">理论噪点衰减因子 $1/\sqrt{N}$</div>
+                <div id="metric-pt-noise" class="text-base font-mono font-extrabold text-emerald-400 mt-0.5">1.000</div>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[11px]">选中像素估算 Radiance</div>
+                <div id="metric-pt-rad" class="text-base font-mono font-extrabold text-amber-300 mt-0.5">(0.0, 0.0, 0.0)</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Path Bounce Breakdown & 1/sqrt(N) Convergence Chart -->
+          <div class="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-indigo-300">📈 蒙特卡洛 $O(1/\sqrt{N})$ 收敛曲线与单路径拆解</span>
+              <button onclick="traceSingleInspectPath()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold">
+                ⚡ 发射新光子路径
+              </button>
+            </div>
+
+            <canvas id="canvas-pt-chart" width="380" height="210" class="w-full rounded-lg bg-slate-900 border border-slate-800"></canvas>
+
+            <div id="path-log-box" class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2 text-xs font-mono text-slate-300">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: MIT 6.837 L16 & REFERENCE CODE ==================== -->
+    <section id="tab-3" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <div class="text-xs font-bold text-amber-400">🎥 配套名校公开课精要 • MIT 6.837 Lecture 16</div>
+            <h2 class="text-xl font-extrabold text-white mt-1">
+              MIT 6.837 Lecture 16: Global Illumination (Radiometry, The Rendering Equation & Path Tracing)
+            </h2>
+          </div>
+          <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 transition">
+            ▶ 观看 MIT 6.837 Lecture 16 视频 ↗
+          </a>
+        </div>
+
+        <div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+          <div class="text-xs font-bold text-indigo-300">💻 工业级无偏蒙特卡洛路径追踪器核心实现 (含 Malley 余弦采样 + 俄罗斯轮盘赌)</div>
+          <pre class="text-xs font-mono text-slate-200 overflow-x-auto leading-relaxed"><code>// 1. Malley 圆盘投影法生成余弦加权半球方向 p(ω) = cos(θ) / π
+Vec3 sampleCosineHemisphere(const Vec3& normal) {
+  float r1 = randomFloat(), r2 = randomFloat();
+  float r = sqrt(r1), phi = 2.0f * PI * r2;
+  float x = r * cos(phi), y = r * sin(phi);
+  float z = sqrt(max(0.0f, 1.0f - r1)); // 垂直投影到单位半球面
+  return localToWorld(Vec3(x, y, z), normal);
+}
+
+// 2. 迭代式无偏路径追踪 (Iterative Unbiased Path Tracer)
+Vec3 tracePath(Ray ray, const Scene& scene) {
+  Vec3 L_accum(0, 0, 0);
+  Vec3 beta(1, 1, 1); // 路径累积吞吐量 (Path Throughput)
+
+  for (int bounce = 0; bounce < MAX_BOUNCES; ++bounce) {
+    HitInfo hit = scene.intersect(ray);
+    if (!hit.happened) break;
+
+    // 累加光源自发光项 L_e
+    L_accum += beta * hit.material.emission;
+
+    // 俄罗斯轮盘赌 (Russian Roulette)：从第 3 跳起按最大分量概率存活
+    if (bounce >= 2) {
+      float q = min(0.95f, max({beta.x, beta.y, beta.z}));
+      if (randomFloat() > q) break;
+      beta /= q; // 幸存路径无偏能量补偿！
+    }
+
+    // 余弦重要性采样：f_r * cos(θ) / p(ω) = (albedo / π) * cos(θ) / (cos(θ) / π) = albedo！
+    Vec3 wi = sampleCosineHemisphere(hit.normal);
+    beta *= hit.material.albedo;
+    ray = Ray(hit.pos + hit.normal * EPS, wi);
+  }
+  return L_accum;
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-4" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="text-xs font-bold text-emerald-400">🎮 交互式通关挑战 • Global Illumination & Monte Carlo Chief Architect</div>
+            <h2 class="text-xl font-extrabold text-white mt-0.5">
+              3 关全局光照与蒙特卡洛总架构师挑战赛
+            </h2>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-bold">
+            <span id="gi-badge-1" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 1: 待通关</span>
+            <span id="gi-badge-2" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 2: 待通关</span>
+            <span id="gi-badge-3" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 3: 待通关</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <!-- Mission 1 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-cyan-400">关卡 1：兰伯特 BRDF 能量守恒校准师</div>
+            <p class="text-slate-300 leading-relaxed">
+              一块反照率为 $\rho = 0.78$ 的理想漫反射白墙，受均匀半球辐射照射。为了保证反射总能量恰好等于入射能量的 $78\%$（不凭空造能），请选出正确的常数 BRDF $f_r$ 表达式：
+            </p>
+            <select id="gi-m1-sel" onchange="evalGIMission1()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              <option value="raw">f_r = ρ = 0.780 (未除以投影立体角积分 π，能量暴涨 3.14 倍！)</option>
+              <option value="twopi">f_r = ρ / (2π) = 0.124 (误除以球面积 2π，画面丢失一半亮度！)</option>
+              <option value="pi">f_r = ρ / π = 0.248 (努塞尔圆盘投影面积 π，严格能量守恒！)</option>
+            </select>
+            <div id="gi-m1-fb" class="text-[11px] text-rose-400">
+              当前状态：未满足能量守恒定律！
+            </div>
+          </div>
+
+          <!-- Mission 2 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-indigo-400">关卡 2：康奈尔盒色彩溢色与软阴影导演</div>
+            <p class="text-slate-300 leading-relaxed">
+              导演要求画面同时呈现<strong>宽广柔和的半影软阴影 ($W_{\text{light}} \ge 0.80$)</strong> 以及<strong>红绿墙壁照亮天花板与白球背光面的多跳色彩溢色 ($\text{Bounces} \ge 3$)</strong>。请配置下方参数：
+            </p>
+            <div class="space-y-2">
+              <div class="flex justify-between">
+                <span>弹射次数 Bounces: <strong id="gi-m2-b-lbl" class="text-indigo-300">1</strong></span>
+                <span>面光源宽度 W: <strong id="gi-m2-w-lbl" class="text-amber-300">0.30</strong></span>
+              </div>
+              <input id="gi-m2-b" type="range" min="0" max="5" step="1" value="1" oninput="evalGIMission2()" class="w-full accent-indigo-400" />
+              <input id="gi-m2-w" type="range" min="0.2" max="1.2" step="0.1" value="0.3" oninput="evalGIMission2()" class="w-full accent-amber-400" />
+            </div>
+            <div id="gi-m2-fb" class="text-[11px] text-amber-300">
+              当前仅 1 次弹射（只有直接光，无色彩溢色且天花板全黑）！
+            </div>
+          </div>
+
+          <!-- Mission 3 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-emerald-400">关卡 3：俄罗斯轮盘赌无偏补偿精算师</div>
+            <p class="text-slate-300 leading-relaxed">
+              一条光子路径经过 3 次漫反射后，我们将俄罗斯轮盘赌存活概率设为 $q = 0.50$（即淘汰一半路径）。为了使估计量保持 <strong>100% 数学无偏 ($\mathbb{E}[\hat{L}] = L$)</strong>，幸存路径的能量放大系数 $w = 1/q$ 应设为多少？
+            </p>
+            <div class="space-y-1">
+              <div class="flex justify-between">
+                <span>幸存路径补偿倍率 $w$:</span>
+                <span id="gi-m3-w-lbl" class="font-mono font-bold text-emerald-400">1.00x</span>
+              </div>
+              <input id="gi-m3-w" type="range" min="1.0" max="3.0" step="0.1" value="1.0" oninput="evalGIMission3()" class="w-full accent-emerald-400" />
+            </div>
+            <div id="gi-m3-fb" class="text-[11px] text-rose-400">
+              当前期望值 E[L] = 0.50 × 1.00 = 0.50 L (丢失了 50% 能量，严重偏暗！)
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== LANGUAGE & TABS ====================
+    let currentLang = 'zh';
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.querySelectorAll('[data-zh]').forEach(el => {
+        el.textContent = currentLang === 'zh' ? el.getAttribute('data-zh') : el.getAttribute('data-en');
+      });
+      updateHemisphereLab();
+      updateRRLab();
+    }
+
+    let activeTab = 1;
+    function switchTab(idx) {
+      activeTab = idx;
+      for (let i = 1; i <= 4; i++) {
+        const sec = document.getElementById('tab-' + i);
+        const btn = document.getElementById('tab-btn-' + i);
+        if (i === idx) {
+          sec.classList.remove('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800';
+        }
+      }
+      if (idx === 1) { updateHemisphereLab(); updateRRLab(); }
+      if (idx === 2) { ensurePTLoop(); }
+    }
+
+    // ==================== TAB 1A: NUSSELT HEMISPHERE & IMPORTANCE SAMPLING ====================
+    let hemiMode = 'cosine';
+    let hemiSeed = 42;
+    function setHemisphereMode(m) {
+      hemiMode = m;
+      document.getElementById('hemi-btn-uniform').className = m === 'uniform'
+        ? 'px-2.5 py-1 rounded text-[11px] font-bold bg-indigo-600 text-white'
+        : 'px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 text-slate-300';
+      document.getElementById('hemi-btn-cosine').className = m === 'cosine'
+        ? 'px-2.5 py-1 rounded text-[11px] font-bold bg-indigo-600 text-white'
+        : 'px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 text-slate-300';
+      updateHemisphereLab();
+    }
+
+    function reseedHemisphere() {
+      hemiSeed = (hemiSeed * 1664525 + 1013904223) >>> 0;
+      updateHemisphereLab();
+    }
+
+    function hashRand(i, ch) {
+      let h = (i * 374761393 + ch * 668265263 + hemiSeed) >>> 0;
+      h = ((h ^ (h >> 13)) * 1274126177) >>> 0;
+      return ((h ^ (h >> 16)) >>> 0) / 4294967296.0;
+    }
+
+    function updateHemisphereLab() {
+      const N = parseInt(document.getElementById('slider-hemi-n').value, 10);
+      document.getElementById('lbl-hemi-n').textContent = N + ' 条';
+
+      const canvas = document.getElementById('canvas-hemisphere');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const cx = W * 0.5, cy = 205, R = 145;
+
+      // Draw base disk (Nusselt projection plane)
+      ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + 52, R, 28, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('底部单位圆盘 (面积 = π)：垂直向上投影即得余弦半球分布 p(ω)=cosθ/π', 24, H - 10);
+
+      // Draw Upper Hemisphere Arc
+      ctx.strokeStyle = '#6366f1';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, Math.PI, 0, false);
+      ctx.lineTo(cx + R, cy);
+      ctx.lineTo(cx - R, cy);
+      ctx.stroke();
+
+      // Normal vector
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx, cy - R - 18);
+      ctx.stroke();
+      ctx.fillStyle = '#10b981';
+      ctx.fillText('法线 N (θ=0°, cosθ=1)', cx - 48, cy - R - 23);
+
+      // Sample rays and compute variance for incident light L_i(θ) = 1 + 0.6*cos(2θ)
+      let estSum = 0, estSqSum = 0;
+      for (let i = 0; i < N; i++) {
+        const u1 = hashRand(i, 1);
+        const u2 = hashRand(i, 2) * 2.0 - 1.0; // sign for 2D slice
+        let cosTheta, sinTheta;
+        if (hemiMode === 'uniform') {
+          cosTheta = Math.max(0.02, u1);
+          sinTheta = Math.sqrt(Math.max(0, 1 - cosTheta * cosTheta));
+        } else {
+          // Malley's disk method: uniform on disk -> sinTheta = sqrt(u1), cosTheta = sqrt(1 - u1)
+          sinTheta = Math.sqrt(u1);
+          cosTheta = Math.sqrt(Math.max(0.01, 1 - u1));
+        }
+        const dirSign = u2 >= 0 ? 1 : -1;
+        const x = dirSign * sinTheta;
+        const z = cosTheta;
+
+        const hx = cx + x * R;
+        const hy = cy - z * R;
+
+        // Ray from center to hemisphere
+        ctx.strokeStyle = hemiMode === 'cosine'
+          ? `rgba(56, 189, 248, ${0.25 + 0.65 * z})`
+          : 'rgba(251, 191, 36, 0.55)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(hx, hy);
+        ctx.stroke();
+
+        // Vertical projection line down to Nusselt disk
+        const dx = cx + x * R;
+        const dy = cy + 52 + (hashRand(i, 3) - 0.5) * 26 * Math.sqrt(Math.max(0, 1 - x * x));
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(hx, hy);
+        ctx.lineTo(dx, dy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Point on hemisphere
+        ctx.fillStyle = hemiMode === 'cosine' ? '#38bdf8' : '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(hx, hy, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Point on base disk
+        ctx.fillStyle = '#a855f7';
+        ctx.beginPath();
+        ctx.arc(dx, dy, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        const Li = 0.8 + 0.4 * z;
+        const brdf = 0.8 / Math.PI;
+        const sampleEst = hemiMode === 'uniform'
+          ? (brdf * Li * z) / (1.0 / (2.0 * Math.PI))
+          : (brdf * Li * z) / (z / Math.PI);
+        estSum += sampleEst;
+        estSqSum += sampleEst * sampleEst;
+      }
+
+      const mean = estSum / N;
+      const variance = Math.max(0, estSqSum / N - mean * mean) / N;
+      document.getElementById('lbl-hemi-var').textContent = variance.toFixed(5);
+    }
+
+    // ==================== TAB 1B: RUSSIAN ROULETTE LAB ====================
+    function updateRRLab() {
+      const q = parseFloat(document.getElementById('slider-rr-q').value);
+      document.getElementById('lbl-rr-q').textContent = `${q.toFixed(2)} (${Math.round(q * 100)}% 存活)`;
+      const boost = 1.0 / q;
+      document.getElementById('lbl-rr-boost').textContent = boost.toFixed(3) + 'x';
+      document.getElementById('lbl-rr-saved').textContent = ((1.0 - q) * 100).toFixed(1) + '%';
+
+      let sum = 0;
+      const trials = 10000;
+      for (let i = 0; i < trials; i++) {
+        const r = hashRand(i, 7);
+        if (r <= q) sum += 1.0 / q;
+      }
+      const avg = sum / trials;
+      document.getElementById('lbl-rr-avg').textContent = `${avg.toFixed(3)} (无偏期望 = 1.000)`;
+    }
+
+    // ==================== TAB 2: PROGRESSIVE CORNELL BOX PATH TRACER ====================
+    const PT_RES = 90;
+    let ptAccum = new Float32Array(PT_RES * PT_RES * 3);
+    let ptSpp = 0;
+    let ptPaused = false;
+    let ptAnimId = null;
+    let ptInspectPx = { x: 62, y: 56 };
+    let ptHistoryErr = [];
+    let ptInspectPath = [];
+
+    function resetPathTracer() {
+      ptAccum.fill(0);
+      ptSpp = 0;
+      ptHistoryErr = [];
+      const wLight = parseFloat(document.getElementById('pt-light-size').value);
+      document.getElementById('lbl-pt-light').textContent = 'W = ' + wLight.toFixed(2);
+      traceSingleInspectPath();
+      ensurePTLoop();
+    }
+
+    function togglePTPause() {
+      ptPaused = !ptPaused;
+      const btn = document.getElementById('btn-pt-pause');
+      btn.textContent = ptPaused ? '▶ 继续累积' : '⏸ 暂停累积';
+    }
+
+    // Cornell Box Scene in [-1, 1]^3, Camera at (0, 0, 2.65) looking at -Z
+    function intersectCornellScene(ox, oy, oz, dx, dy, dz, wLight, leftMat) {
+      let bestT = 1e9;
+      let hit = null;
+
+      // Spheres: Left (-0.42, -0.52, -0.25, r=0.45), Right (0.44, -0.55, 0.22, r=0.42)
+      const spheres = [
+        { cx: -0.42, cy: -0.55, cz: -0.28, r: 0.44, col: [0.92, 0.92, 0.95], type: leftMat, name: 'Left Sphere' },
+        { cx: 0.44, cy: -0.58, cz: 0.18, r: 0.41, col: [0.92, 0.90, 0.86], type: 'diffuse', name: 'Right White Sphere' }
+      ];
+
+      for (const sp of spheres) {
+        const lox = ox - sp.cx, loy = oy - sp.cy, loz = oz - sp.cz;
+        const b = lox * dx + loy * dy + loz * dz;
+        const c = lox * lox + loy * loy + loz * loz - sp.r * sp.r;
+        const disc = b * b - c;
+        if (disc > 0) {
+          const s = Math.sqrt(disc);
+          const t = (-b - s > 1e-3) ? (-b - s) : (-b + s);
+          if (t > 1e-3 && t < bestT) {
+            bestT = t;
+            const hx = ox + t * dx, hy = oy + t * dy, hz = oz + t * dz;
+            bestHit = {
+              t, x: hx, y: hy, z: hz,
+              nx: (hx - sp.cx) / sp.r, ny: (hy - sp.cy) / sp.r, nz: (hz - sp.cz) / sp.r,
+              albedo: sp.col, emission: [0, 0, 0], type: sp.type, name: sp.name
+            };
+            hit = bestHit;
+          }
+        }
+      }
+
+      // 5 Box Walls: x = -1 (Red), x = +1 (Green), y = -1 (Floor), y = +1 (Ceiling + Light), z = -1 (Back Wall)
+      // Left Red Wall x = -1
+      if (Math.abs(dx) > 1e-5) {
+        const t = (-1.0 - ox) / dx;
+        const y = oy + t * dy, z = oz + t * dz;
+        if (t > 1e-3 && t < bestT && Math.abs(y) <= 1.0 && Math.abs(z) <= 1.0) {
+          bestT = t;
+          hit = { t, x: -1, y, z, nx: 1, ny: 0, nz: 0, albedo: [0.86, 0.14, 0.14], emission: [0, 0, 0], type: 'diffuse', name: 'Red Left Wall' };
+        }
+      }
+      // Right Green Wall x = +1
+      if (Math.abs(dx) > 1e-5) {
+        const t = (1.0 - ox) / dx;
+        const y = oy + t * dy, z = oz + t * dz;
+        if (t > 1e-3 && t < bestT && Math.abs(y) <= 1.0 && Math.abs(z) <= 1.0) {
+          bestT = t;
+          hit = { t, x: 1, y, z, nx: -1, ny: 0, nz: 0, albedo: [0.14, 0.80, 0.20], emission: [0, 0, 0], type: 'diffuse', name: 'Green Right Wall' };
+        }
+      }
+      // Floor y = -1
+      if (Math.abs(dy) > 1e-5) {
+        const t = (-1.0 - oy) / dy;
+        const x = ox + t * dx, z = oz + t * dz;
+        if (t > 1e-3 && t < bestT && Math.abs(x) <= 1.0 && Math.abs(z) <= 1.0) {
+          bestT = t;
+          hit = { t, x, y: -1, z, nx: 0, ny: 1, nz: 0, albedo: [0.82, 0.82, 0.82], emission: [0, 0, 0], type: 'diffuse', name: 'White Floor' };
+        }
+      }
+      // Ceiling y = +1 (with Area Light of width wLight)
+      if (Math.abs(dy) > 1e-5) {
+        const t = (1.0 - oy) / dy;
+        const x = ox + t * dx, z = oz + t * dz;
+        if (t > 1e-3 && t < bestT && Math.abs(x) <= 1.0 && Math.abs(z) <= 1.0) {
+          bestT = t;
+          const halfW = wLight * 0.5;
+          const onLight = Math.abs(x) <= halfW && Math.abs(z) <= halfW;
+          const emitScale = 5.2 / Math.max(0.25, wLight * wLight);
+          hit = {
+            t, x, y: 1, z, nx: 0, ny: -1, nz: 0,
+            albedo: [0.82, 0.82, 0.82],
+            emission: onLight ? [emitScale, emitScale * 0.96, emitScale * 0.88] : [0, 0, 0],
+            type: onLight ? 'light' : 'diffuse',
+            name: onLight ? 'Ceiling Area Light' : 'White Ceiling'
+          };
+        }
+      }
+      // Back Wall z = -1
+      if (Math.abs(dz) > 1e-5) {
+        const t = (-1.0 - oz) / dz;
+        const x = ox + t * dx, y = oy + t * dy;
+        if (t > 1e-3 && t < bestT && Math.abs(x) <= 1.0 && Math.abs(y) <= 1.0) {
+          bestT = t;
+          hit = { t, x, y, z: -1, nx: 0, ny: 0, nz: 1, albedo: [0.82, 0.82, 0.82], emission: [0, 0, 0], type: 'diffuse', name: 'Back White Wall' };
+        }
+      }
+
+      return hit;
+    }
+
+    function buildOrthonormalBasis(nx, ny, nz) {
+      let ux, uy, uz;
+      if (Math.abs(nx) > 0.9) {
+        ux = 0; uy = 1; uz = 0;
+      } else {
+        ux = 1; uy = 0; uz = 0;
+      }
+      // t = normalize(u x n)
+      let tx = uy * nz - uz * ny;
+      let ty = uz * nx - ux * nz;
+      let tz = ux * ny - uy * nx;
+      const tLen = Math.hypot(tx, ty, tz);
+      tx /= tLen; ty /= tLen; tz /= tLen;
+      // b = n x t
+      const bx = ny * tz - nz * ty;
+      const by = nz * tx - nx * tz;
+      const bz = nx * ty - ny * tx;
+      return { tx, ty, tz, bx, by, bz };
+    }
+
+    function traceCornellPath(px, py, maxBounces, strategy, wLight, leftMat, recordVertices) {
+      const u = ((px + Math.random()) / PT_RES) * 2.0 - 1.0;
+      const v = 1.0 - ((py + Math.random()) / PT_RES) * 2.0;
+      let ox = 0, oy = 0, oz = 2.65;
+      let dx = u * 0.44, dy = v * 0.44, dz = -1.0;
+      const dLen = Math.hypot(dx, dy, dz);
+      dx /= dLen; dy /= dLen; dz /= dLen;
+
+      let Lr = 0, Lg = 0, Lb = 0;
+      let br = 1, bg = 1, bb = 1;
+      const verts = [{ x: ox, y: oy, z: oz, name: 'Camera' }];
+
+      for (let bounce = 0; bounce <= maxBounces; bounce++) {
+        const hit = intersectCornellScene(ox, oy, oz, dx, dy, dz, wLight, leftMat);
+        if (!hit) break;
+        if (recordVertices) verts.push({ x: hit.x, y: hit.y, z: hit.z, name: hit.name });
+
+        if (hit.type === 'light') {
+          if (bounce === 0 || strategy !== 'nee') {
+            Lr += br * hit.emission[0];
+            Lg += bg * hit.emission[1];
+            Lb += bb * hit.emission[2];
+          }
+          break;
+        }
+
+        if (bounce === maxBounces) break;
+
+        if (hit.type === 'mirror') {
+          const dot = dx * hit.nx + dy * hit.ny + dz * hit.nz;
+          dx = dx - 2 * dot * hit.nx;
+          dy = dy - 2 * dot * hit.ny;
+          dz = dz - 2 * dot * hit.nz;
+          ox = hit.x + hit.nx * 1e-3;
+          oy = hit.y + hit.ny * 1e-3;
+          oz = hit.z + hit.nz * 1e-3;
+          br *= hit.albedo[0]; bg *= hit.albedo[1]; bb *= hit.albedo[2];
+          continue;
+        }
+
+        // Next Event Estimation (Direct Area Light Sampling)
+        if (strategy === 'nee') {
+          const lx = (Math.random() - 0.5) * wLight;
+          const lz = (Math.random() - 0.5) * wLight;
+          const ly = 0.998;
+          let toLx = lx - hit.x, toLy = ly - hit.y, toLz = lz - hit.z;
+          const dist2 = toLx * toLx + toLy * toLy + toLz * toLz;
+          const dist = Math.sqrt(dist2);
+          toLx /= dist; toLy /= dist; toLz /= dist;
+
+          const cosSurf = Math.max(0, hit.nx * toLx + hit.ny * toLy + hit.nz * toLz);
+          const cosLight = Math.max(0, -toLy);
+          if (cosSurf > 0 && cosLight > 0) {
+            const shadowHit = intersectCornellScene(
+              hit.x + hit.nx * 1e-3, hit.y + hit.ny * 1e-3, hit.z + hit.nz * 1e-3,
+              toLx, toLy, toLz, wLight, leftMat
+            );
+            if (shadowHit && shadowHit.type === 'light') {
+              const area = wLight * wLight;
+              const emitScale = 5.2 / Math.max(0.25, area);
+              const geom = (cosSurf * cosLight * area) / (dist2 * Math.PI);
+              Lr += br * hit.albedo[0] * emitScale * geom;
+              Lg += bg * hit.albedo[1] * (emitScale * 0.96) * geom;
+              Lb += bb * hit.albedo[2] * (emitScale * 0.88) * geom;
+            }
+          }
+        }
+
+        // Sample indirect bounce direction
+        const basis = buildOrthonormalBasis(hit.nx, hit.ny, hit.nz);
+        const r1 = Math.random(), r2 = Math.random();
+        let lx, ly, lz;
+        if (strategy === 'uniform') {
+          lz = r1;
+          const sinT = Math.sqrt(Math.max(0, 1 - lz * lz));
+          const phi = 2 * Math.PI * r2;
+          lx = sinT * Math.cos(phi);
+          ly = sinT * Math.sin(phi);
+          // weight = (albedo/pi) * cos / (1/2pi) = 2 * albedo * cos
+          const w = 2.0 * lz;
+          br *= hit.albedo[0] * w;
+          bg *= hit.albedo[1] * w;
+          bb *= hit.albedo[2] * w;
+        } else {
+          // Malley Cosine-Weighted
+          const r = Math.sqrt(r1);
+          const phi = 2 * Math.PI * r2;
+          lx = r * Math.cos(phi);
+          ly = r * Math.sin(phi);
+          lz = Math.sqrt(Math.max(0, 1 - r1));
+          br *= hit.albedo[0];
+          bg *= hit.albedo[1];
+          bb *= hit.albedo[2];
+        }
+
+        dx = lx * basis.tx + ly * basis.bx + lz * hit.nx;
+        dy = lx * basis.ty + ly * basis.by + lz * hit.ny;
+        dz = lx * basis.tz + ly * basis.bz + lz * hit.nz;
+        ox = hit.x + hit.nx * 1e-3;
+        oy = hit.y + hit.ny * 1e-3;
+        oz = hit.z + hit.nz * 1e-3;
+      }
+
+      return { r: Lr, g: Lg, b: Lb, verts };
+    }
+
+    function traceSingleInspectPath() {
+      const maxBounces = parseInt(document.getElementById('pt-bounces').value, 10);
+      const strategy = document.getElementById('pt-strategy').value;
+      const wLight = parseFloat(document.getElementById('pt-light-size').value);
+      const leftMat = document.getElementById('pt-left-mat').value;
+      const res = traceCornellPath(ptInspectPx.x, ptInspectPx.y, maxBounces, strategy, wLight, leftMat, true);
+      ptInspectPath = res.verts;
+      drawCornellOverlay();
+    }
+
+    function project3DToScreen(x, y, z, W, H) {
+      const dz = 2.65 - z;
+      const u = (x / (dz * 0.44)) * 0.5 + 0.5;
+      const v = 0.5 - (y / (dz * 0.44)) * 0.5;
+      return { sx: u * W, sy: v * H };
+    }
+
+    function drawCornellOverlay() {
+      const ov = document.getElementById('canvas-cornell-overlay');
+      const ctx = ov.getContext('2d');
+      const W = ov.width, H = ov.height;
+      ctx.clearRect(0, 0, W, H);
+
+      if (ptInspectPath.length > 1) {
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        for (let i = 1; i < ptInspectPath.length; i++) {
+          const p = project3DToScreen(ptInspectPath[i].x, ptInspectPath[i].y, ptInspectPath[i].z, W, H);
+          if (i === 1) ctx.moveTo(p.sx, p.sy);
+          else ctx.lineTo(p.sx, p.sy);
+        }
+        ctx.stroke();
+
+        for (let i = 1; i < ptInspectPath.length; i++) {
+          const p = project3DToScreen(ptInspectPath[i].x, ptInspectPath[i].y, ptInspectPath[i].z, W, H);
+          ctx.fillStyle = i === 1 ? '#38bdf8' : '#fbbf24';
+          ctx.beginPath();
+          ctx.arc(p.sx, p.sy, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Update path log box
+      const logBox = document.getElementById('path-log-box');
+      let html = `<div class="font-bold text-amber-300">📍 像素 (${ptInspectPx.x}, ${ptInspectPx.y}) 随机游走路径顶点：</div>`;
+      for (let i = 0; i < ptInspectPath.length; i++) {
+        const v = ptInspectPath[i];
+        html += `<div class="text-[11px] text-slate-300">Bounce ${i}: <span class="text-cyan-300">${v.name}</span> (${v.x.toFixed(2)}, ${v.y.toFixed(2)}, ${v.z.toFixed(2)})</div>`;
+      }
+      logBox.innerHTML = html;
+    }
+
+    function drawPTChart() {
+      const canvas = document.getElementById('canvas-pt-chart');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const padL = 34, padR = 14, padT = 24, padB = 24;
+      const pW = W - padL - padR, pH = H - padT - padB;
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('理论标准差 σ/√N (绿) vs 当前采样收敛轨迹 (青)', padL, 16);
+
+      ctx.strokeStyle = '#334155';
+      ctx.beginPath();
+      ctx.moveTo(padL, padT + pH);
+      ctx.lineTo(W - padR, padT + pH);
+      ctx.moveTo(padL, padT);
+      ctx.lineTo(padL, padT + pH);
+      ctx.stroke();
+
+      // 1/sqrt(N) curve
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 1; i <= 120; i++) {
+        const val = 1.0 / Math.sqrt(i);
+        const x = padL + (i / 120) * pW;
+        const y = padT + pH - val * pH;
+        if (i === 1) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Current progress marker
+      const clampedSpp = Math.min(120, Math.max(1, ptSpp));
+      const mx = padL + (clampedSpp / 120) * pW;
+      const my = padT + pH - (1.0 / Math.sqrt(clampedSpp)) * pH;
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(mx, my, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function stepProgressivePathTracer() {
+      if (activeTab === 2 && !ptPaused && ptSpp < 256) {
+        const maxBounces = parseInt(document.getElementById('pt-bounces').value, 10);
+        const strategy = document.getElementById('pt-strategy').value;
+        const wLight = parseFloat(document.getElementById('pt-light-size').value);
+        const leftMat = document.getElementById('pt-left-mat').value;
+
+        for (let py = 0; py < PT_RES; py++) {
+          for (let px = 0; px < PT_RES; px++) {
+            const sample = traceCornellPath(px, py, maxBounces, strategy, wLight, leftMat, false);
+            const idx = (py * PT_RES + px) * 3;
+            ptAccum[idx] += Math.min(4.0, sample.r);
+            ptAccum[idx + 1] += Math.min(4.0, sample.g);
+            ptAccum[idx + 2] += Math.min(4.0, sample.b);
+          }
+        }
+        ptSpp++;
+
+        const canvas = document.getElementById('canvas-cornell');
+        const ctx = canvas.getContext('2d');
+        const cell = canvas.width / PT_RES;
+        const invSpp = 1.0 / ptSpp;
+
+        for (let py = 0; py < PT_RES; py++) {
+          for (let px = 0; px < PT_RES; px++) {
+            const idx = (py * PT_RES + px) * 3;
+            // Reinhard tone map + gamma 2.2
+            const r = Math.pow(ptAccum[idx] * invSpp / (1 + ptAccum[idx] * invSpp * 0.35), 1 / 2.2);
+            const g = Math.pow(ptAccum[idx + 1] * invSpp / (1 + ptAccum[idx + 1] * invSpp * 0.35), 1 / 2.2);
+            const b = Math.pow(ptAccum[idx + 2] * invSpp / (1 + ptAccum[idx + 2] * invSpp * 0.35), 1 / 2.2);
+            ctx.fillStyle = `rgb(${Math.min(255, Math.round(r * 255))}, ${Math.min(255, Math.round(g * 255))}, ${Math.min(255, Math.round(b * 255))})`;
+            ctx.fillRect(px * cell, py * cell, cell + 0.5, cell + 0.5);
+          }
+        }
+
+        document.getElementById('lbl-pt-spp').textContent = 'SPP: ' + ptSpp;
+        document.getElementById('metric-pt-spp').textContent = ptSpp;
+        document.getElementById('metric-pt-noise').textContent = (1.0 / Math.sqrt(ptSpp)).toFixed(3);
+
+        const selIdx = (ptInspectPx.y * PT_RES + ptInspectPx.x) * 3;
+        document.getElementById('metric-pt-rad').textContent = `(${(ptAccum[selIdx] * invSpp).toFixed(2)}, ${(ptAccum[selIdx + 1] * invSpp).toFixed(2)}, ${(ptAccum[selIdx + 2] * invSpp).toFixed(2)})`;
+        drawPTChart();
+      }
+      ptAnimId = requestAnimationFrame(stepProgressivePathTracer);
+    }
+
+    function ensurePTLoop() {
+      if (!ptAnimId) {
+        traceSingleInspectPath();
+        ptAnimId = requestAnimationFrame(stepProgressivePathTracer);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const cornellCanvas = document.getElementById('canvas-cornell');
+      cornellCanvas.addEventListener('pointerdown', (e) => {
+        const rect = cornellCanvas.getBoundingClientRect();
+        const x = Math.floor(((e.clientX - rect.left) / rect.width) * PT_RES);
+        const y = Math.floor(((e.clientY - rect.top) / rect.height) * PT_RES);
+        ptInspectPx = {
+          x: Math.max(0, Math.min(PT_RES - 1, x)),
+          y: Math.max(0, Math.min(PT_RES - 1, y))
+        };
+        traceSingleInspectPath();
+      });
+
+      updateHemisphereLab();
+      updateRRLab();
+
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+    });
+
+    // ==================== TAB 4: MINI-GAME MISSIONS ====================
+    function evalGIMission1() {
+      const val = document.getElementById('gi-m1-sel').value;
+      const fb = document.getElementById('gi-m1-fb');
+      const badge = document.getElementById('gi-badge-1');
+      if (val === 'pi') {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = '✓ 通关成功！余弦加权半球积分等于底圆盘面积 π，因此 f_r = ρ / π 严格满足能量守恒！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 1: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = '能量不守恒！请回想努塞尔半球正交投影到底部单位圆盘的面积是 π。';
+      }
+    }
+
+    function evalGIMission2() {
+      const b = parseInt(document.getElementById('gi-m2-b').value, 10);
+      const w = parseFloat(document.getElementById('gi-m2-w').value);
+      document.getElementById('gi-m2-b-lbl').textContent = b;
+      document.getElementById('gi-m2-w-lbl').textContent = w.toFixed(2);
+      const fb = document.getElementById('gi-m2-fb');
+      const badge = document.getElementById('gi-badge-2');
+      if (b >= 3 && w >= 0.8) {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = `✓ 通关成功！Bounces=${b} 激活了多跳红绿色彩溢色，面光源宽度 W=${w.toFixed(2)} 生成了柔滑半影软阴影！`;
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 2: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-amber-300';
+        fb.textContent = `需同时满足 Bounces ≥ 3 且面光源宽度 W ≥ 0.80！`;
+      }
+    }
+
+    function evalGIMission3() {
+      const w = parseFloat(document.getElementById('gi-m3-w').value);
+      document.getElementById('gi-m3-w-lbl').textContent = w.toFixed(2) + 'x';
+      const expVal = 0.5 * w;
+      const fb = document.getElementById('gi-m3-fb');
+      const badge = document.getElementById('gi-badge-3');
+      if (Math.abs(w - 2.0) < 0.05) {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = '✓ 通关成功！当存活率 q=0.50 时，幸存者乘上 1/q = 2.00x，数学期望 E[L] = 0.5 × 2.0 = 1.00 L (100% 无偏)！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 3: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = `当前期望值 E[L] = 0.50 × ${w.toFixed(2)} = ${expVal.toFixed(2)} L (不等于 1.00 L，属于有偏估计！)`;
+      }
+    }
+  </script>
+</body>
+</html>

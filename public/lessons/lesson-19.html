@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 19: 扫描转换与三角形光栅化 | Scan Conversion, Bresenham & GPU Edge Functions</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body { background: #020617; color: #f1f5f9; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    canvas { touch-action: none; }
+    .math-box { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 0.75rem; padding: 1rem; }
+  </style>
+</head>
+<body class="min-h-screen selection:bg-indigo-500 selection:text-white">
+  <!-- Top Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 transition">
+          ← Course Index
+        </a>
+        <div>
+          <div class="flex items-center gap-2 text-xs font-bold text-indigo-400">
+            <span>Stage 4 • Rasterization Pipeline, Projection & Shaders</span>
+            <span>•</span>
+            <span>Lesson 19 / 32</span>
+          </div>
+          <h1 class="text-base sm:text-lg font-extrabold text-white">
+            L19: 扫描转换 (Scan Conversion) 与 GPU 三角形光栅化 (Edge Functions & Top-Left Rule)
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button onclick="toggleLang()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition">
+          <span>🌐</span>
+          <span>EN / 中文</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap gap-2 pb-3">
+      <button onclick="switchTab(1)" id="tab-btn-1" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow">
+        1. 📐 3B1B 整数画线法、边缘函数与 Top-Left 规则
+      </button>
+      <button onclick="switchTab(2)" id="tab-btn-2" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        2. 🖥️ GPU 并行边缘函数与 2×2 Quad 光栅化模拟器
+      </button>
+      <button onclick="switchTab(3)" id="tab-btn-3" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        3. 🎥 UCD L12 / MIT L18 & 透视校正插值 (u/w)
+      </button>
+      <button onclick="switchTab(4)" id="tab-btn-4" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        4. 🎮 3 关 GPU 光栅化首席架构师挑战
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-8">
+    <!-- ==================== TAB 1: 3B1B INTUITION ==================== -->
+    <section id="tab-1" class="space-y-8">
+      <!-- Part 1: Bresenham Midpoint Integer Line Drawing -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-700/60 text-xs font-bold text-indigo-300">
+          <span>⚡ Jack Bresenham (1965) & Juan Pineda (1988)</span>
+        </div>
+        <h2 class="text-xl sm:text-2xl font-extrabold text-white" data-zh="1. 为什么不用任何浮点数和除法，仅靠整数加减就能画出任意斜率的直线？(Bresenham 中点判别法)" data-en="1. How Can Integer-Only Addition Draw Any Line Without Floats or Division? (Bresenham Midpoint Algorithm)">
+          1. 为什么不用任何浮点数和除法，仅靠整数加减就能画出任意斜率的直线？(Bresenham 中点判别法)
+        </h2>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-6 space-y-3.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p>
+              经过 Lesson 18 的透视除法与视口变换后，几何顶点落在了屏幕像素网格上。最笨的画线法（DDA）每走一列 $x$ 就要计算一次浮点斜率累加 `y += dy/dx` 并调用 `round(y)` 取整。1965 年，IBM 工程师 Jack Bresenham 问了一个极具 3Blue1Brown 几何美感的问题：
+            </p>
+            <p>
+              假设我们在第一卦限（$0 \le \Delta y \le \Delta x$）刚刚点亮了像素 $(x_k, y_k)$。往右走一格到 $x_k + 1$ 时，候选像素其实只有两个：**正东 East $(x_k+1, y_k)$** 或 **东北 North-East $(x_k+1, y_k+1)$**！
+              怎么判断真实直线离谁更近？**只需看这两个像素正中间的“中点 $M = (x_k + 1,\; y_k + 0.5)$”位于直线的上方还是下方！**
+            </p>
+            <div class="math-box">
+              $$F(x, y) = \Delta y \cdot (x - x_0) - \Delta x \cdot (y - y_0) = 0$$
+            </div>
+            <p>
+              为了消灭中点坐标里的 $0.5$ 小数，我们把中点代入隐函数并**整体乘以 $2$**，定义纯整数判别式 $d_k = 2 F(x_k + 1, y_k + 0.5)$：
+            </p>
+            <div class="math-box">
+              $$d_0 = 2\Delta y - \Delta x, \qquad d_{k+1} = \begin{cases} d_k + 2\Delta y & (\text{若 } d_k < 0 \implies \text{选正东 East } y_{k+1}=y_k) \\[6pt] d_k + 2\Delta y - 2\Delta x & (\text{若 } d_k \ge 0 \implies \text{选东北 NE } y_{k+1}=y_k+1) \end{cases}$$
+            </div>
+            <p class="text-emerald-300 font-semibold">
+              ✨ <strong>零浮点、零除法奇迹</strong>：整个循环里只有整数加法（$+2\Delta y$ 或 $+2\Delta y - 2\Delta x$）和一次符号位判断（$d_k \ge 0$），在几十年前的早期绘图仪和现代嵌入式芯片上快如闪电！
+            </p>
+          </div>
+
+          <!-- Interactive Visualizer 1A: Bresenham Midpoint Microscope -->
+          <div class="lg:col-span-6 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="font-bold text-cyan-300">🔬 交互实验 1A：Bresenham 中点判别式 $d_k$ 步进显微镜</span>
+              <span id="bres-formula-badge" class="font-mono text-amber-300 font-bold">Δx=9, Δy=4, d₀=-1</span>
+            </div>
+
+            <canvas id="canvas-bresenham" width="520" height="260" class="w-full rounded-lg bg-slate-900 border border-slate-800"></canvas>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="flex justify-between mb-1">
+                  <span>终点高度 $y_1$ ($\Delta y$):</span>
+                  <span id="lbl-bres-dy" class="font-mono font-bold text-cyan-400">4</span>
+                </div>
+                <input id="slider-bres-dy" type="range" min="0" max="9" step="1" value="4" oninput="updateBresenhamLab()" class="w-full accent-cyan-400" />
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="flex justify-between mb-1">
+                  <span>检视列步进 $k$:</span>
+                  <span id="lbl-bres-step" class="font-mono font-bold text-emerald-400">Step 3</span>
+                </div>
+                <input id="slider-bres-step" type="range" min="0" max="8" step="1" value="3" oninput="updateBresenhamLab()" class="w-full accent-emerald-400" />
+              </div>
+            </div>
+
+            <div id="bres-step-detail" class="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 font-mono text-[11px] text-slate-300">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Parallel GPU Edge Functions & Top-Left Rule -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <h3 class="text-lg sm:text-xl font-bold text-emerald-300">
+          2. 现代 GPU 并行边缘函数 (Pineda Edge Functions) 与 Top-Left 共享边裁决法则
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-6 space-y-3 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p>
+              早期 CPU 用<strong>扫描线活性边表 (Scanline AET)</strong> 一行接一行地填涂多边形，但这需要维护复杂的边链表且难以大规模并行。1988 年 Juan Pineda 提出了一个彻底解放 GPU 算力的洞察：
+              <strong>一个逆时针 (CCW) 三角形 $\triangle V_0 V_1 V_2$，本质上就是三个有向半平面的交集！</strong>
+            </p>
+            <div class="math-box">
+              $$E_{ij}(x, y) = (x - x_i)(y_j - y_i) - (y - y_i)(x_j - x_i)$$
+              $$P \in \triangle V_0 V_1 V_2 \iff E_{01}(P) \ge 0 \;\land\; E_{12}(P) \ge 0 \;\land\; E_{20}(P) \ge 0$$
+            </div>
+            <p>
+              因为 $E_{ij}(x, y) = A x + B y + C$ 是关于屏幕坐标的<strong>线性函数</strong>，往右走 1 个像素只需加上常数 $A = \Delta y$，往下走 1 行只需加上 $B = -\Delta x$！成千上万个 GPU 线程可以同时对包邮盒内的任意像素独立求值！
+            </p>
+            <p>
+              <strong>棘手的边界死局：如果一个像素中心恰好踩在两个相邻三角形的公共边上 ($E_{ij}(P) = 0$)，它到底归谁？</strong>
+            </p>
+            <ul class="list-disc pl-5 space-y-1 text-xs">
+              <li>若两边都按 $E \ge 0$ 录取：公共边上的像素被<strong>重复绘制 2 次 (Double Overdraw)</strong>，半透明玻璃会留下一道刺眼的亮缝！</li>
+              <li>若两边都按 $E > 0$ 严格录取：公共边上的像素<strong>两边都不管</strong>，模型接缝处直接漏出背景黑洞（<strong>漏点裂缝 Cracks</strong>）！</li>
+              <li><strong class="text-amber-300">GPU 黄金标准——Top-Left 填充规则</strong>：规定压线像素（$E=0$）仅当该有向边是三角形的 <strong>上边 (Top Edge，水平且朝左)</strong> 或 <strong>左边 (Left Edge，严格朝下倾斜)</strong> 时才予以点亮！因为相邻两个逆时针三角形经过同一条公共边时的行进方向必定相反（一个朝下 Left，另一个必定朝上 Right），从而保证<strong>不重不漏、100% 互斥划分</strong>！</li>
+            </ul>
+          </div>
+
+          <!-- Interactive Visualizer 1B: Top-Left Rule Seam Inspector -->
+          <div class="lg:col-span-6 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="font-bold text-indigo-300">⚖️ 交互实验 1B：相邻双三角形共享边压线仲裁显微镜</span>
+              <div class="flex gap-1.5">
+                <button onclick="setTieRule('inclusive')" id="rule-btn-inclusive" class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 font-bold text-[11px]">包容 (E ≥ 0 重绘!)</button>
+                <button onclick="setTieRule('strict')" id="rule-btn-strict" class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 font-bold text-[11px]">严格 (E > 0 漏缝!)</button>
+                <button onclick="setTieRule('topleft')" id="rule-btn-topleft" class="px-2.5 py-1 rounded bg-indigo-600 text-white font-bold text-[11px]">Top-Left 黄金规则</button>
+              </div>
+            </div>
+
+            <canvas id="canvas-topleft" width="520" height="255" class="w-full rounded-lg bg-slate-900 border border-slate-800"></canvas>
+
+            <div id="topleft-summary" class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] leading-relaxed">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: GPU PIXEL RASTERIZER SIMULATOR ==================== -->
+    <section id="tab-2" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-extrabold text-white">
+              🖥️ GPU 像素级三角形光栅化与 2×2 Quad 辅助线程模拟器
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">
+              直接用鼠标拖动像素网格上的三角形顶点 $V_0, V_1, V_2$，或点击任意像素中心 $(x+0.5, y+0.5)$，右侧实时检视三个有向边缘函数符号 $(E_{12}, E_{20}, E_{01})$、重心坐标以及 GPU $2\times 2$ Quad 辅助线程 (Helper Lanes) 利用率！
+            </p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <label class="inline-flex items-center gap-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl cursor-pointer">
+              <input type="checkbox" id="chk-show-quads" checked onchange="updateGPURasterLab()" class="accent-indigo-500" />
+              <span class="font-semibold text-slate-200">显示 GPU 2×2 Quad 偏导块与辅助线程</span>
+            </label>
+            <button onclick="setSliverTriangle()" class="px-3 py-1.5 rounded-xl font-bold bg-rose-950/80 hover:bg-rose-900 border border-rose-700 text-rose-200">
+              🗡️ 测试狭长刀锋三角形 (Quad 浪费警告!)
+            </button>
+            <button onclick="setBalancedTriangle()" class="px-3 py-1.5 rounded-xl font-bold bg-slate-800 hover:bg-slate-700 text-slate-200">
+              📐 均衡大三角形
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- Left: 16x16 Pixel Rasterization Grid -->
+          <div class="lg:col-span-7 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <canvas id="canvas-gpu-raster" width="480" height="480" class="w-full aspect-square rounded-lg bg-slate-900 border border-slate-800 cursor-crosshair"></canvas>
+
+            <div class="grid grid-cols-3 gap-3 text-center text-xs">
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[11px]">有效覆盖像素 (Active Pixels)</div>
+                <div id="metric-active-px" class="text-base font-mono font-extrabold text-emerald-400 mt-0.5">42</div>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[11px]">触发 2×2 Quad 总线程数</div>
+                <div id="metric-quad-lanes" class="text-base font-mono font-extrabold text-amber-300 mt-0.5">64</div>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[11px]">Quad 有效算力利用率</div>
+                <div id="metric-quad-eff" class="text-base font-mono font-extrabold text-cyan-400 mt-0.5">65.6%</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Single Pixel Edge Function & Barycentric Inspector -->
+          <div class="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4 text-xs">
+            <div class="font-bold text-indigo-300" id="insp-title">
+              🔍 选中像素中心 P = (7.5, 7.5) 边缘函数诊断
+            </div>
+
+            <div id="insp-edge-cards" class="space-y-2.5 font-mono">
+              <!-- Populated by JS -->
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+              <div class="font-bold text-amber-300">💡 为什么狭长微小三角形 (Sliver Triangles) 是现代 GPU 的性能杀手？</div>
+              <p class="text-[11px] text-slate-300 leading-relaxed">
+                为了计算纹理 Mipmap 层级所需的屏幕空间偏导数 <code>ddx(uv)</code> 与 <code>ddy(uv)</code>，GPU 光栅化器永远以 <strong>$2 \times 2$ 像素块 (Quad)</strong> 为最小调度单位！哪怕一个三角形只擦过了 $2\times 2$ 块里的 <strong>1 个像素</strong>，其余 3 个界外像素也必须作为“幽灵辅助线程 (Helper Lanes)”陪跑执行整段 Fragment Shader！
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: UCD L12 & MIT L18 + PERSPECTIVE CORRECT INTERP ==================== -->
+    <section id="tab-3" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <div class="text-xs font-bold text-amber-400">🎥 配套名校公开课精要 • UC Davis ECS 175 L12 & MIT 6.837 L18</div>
+            <h2 class="text-xl font-extrabold text-white mt-1">
+              Scan Conversion, Edge Equations & Perspective-Correct Interpolation ($u/w$)
+            </h2>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+12" target="_blank" rel="noreferrer" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-500/20 border border-indigo-500/50 text-indigo-300">
+              ▶ UC Davis Lecture 12 (Scan Conversion) ↗
+            </a>
+            <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500/20 border border-amber-500/50 text-amber-300">
+              ▶ MIT 6.837 Lecture 18 (Rasterization II) ↗
+            </a>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-300 leading-relaxed">
+          <div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <h3 class="text-sm font-bold text-cyan-300">⚠️ 为什么不能直接用屏幕 2D 重心坐标线性插值纹理 $(u, v)$？</h3>
+            <p>
+              初代 PlayStation (PS1) 游戏里的地面纹理之所以会沿着对角线接缝剧烈扭曲跳动，正是因为它直接用屏幕二维重心坐标 $(\alpha_{\text{2D}}, \beta_{\text{2D}}, \gamma_{\text{2D}})$ 做了仿射插值！
+              由于透视除法除以了非线性深度 $w_c = -z_e$，三维空间中均匀变化的属性 $u$ 在屏幕二维空间中并不是线性的，而是<strong>$u / w_c$ 和 $1 / w_c$ 在屏幕二维空间中呈严格线性</strong>！
+            </p>
+            <div class="math-box">
+              $$u_{\text{correct}}(P) = \frac{\alpha_{\text{2D}} \frac{u_0}{w_0} + \beta_{\text{2D}} \frac{u_1}{w_1} + \gamma_{\text{2D}} \frac{u_2}{w_2}}{\alpha_{\text{2D}} \frac{1}{w_0} + \beta_{\text{2D}} \frac{1}{w_1} + \gamma_{\text{2D}} \frac{1}{w_2}}$$
+            </div>
+          </div>
+
+          <div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <div class="text-sm font-bold text-indigo-300">💻 GPU 边缘函数 + Top-Left 规则核心实现</div>
+            <pre class="text-xs font-mono text-slate-200 overflow-x-auto leading-relaxed"><code>// Pineda 有向边函数与 Top-Left 判定偏置
+bool isTopOrLeftEdge(Vec2i v0, Vec2i v1) {
+  Vec2i e = v1 - v0;
+  bool isTop = (e.y == 0 && e.x < 0); // 水平朝左
+  bool isLeft = (e.y < 0);            // 严格朝下 (Y轴向上坐标系)
+  return isTop || isLeft;
+}
+
+int edgeFunc(Vec2i a, Vec2i b, Vec2i p) {
+  return (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x);
+}
+
+// 若不是 Top-Left 边，初始偏置设为 -1，使 E >= 0 等价于 E > 0
+int bias01 = isTopOrLeftEdge(v0, v1) ? 0 : -1;
+int bias12 = isTopOrLeftEdge(v1, v2) ? 0 : -1;
+int bias20 = isTopOrLeftEdge(v2, v0) ? 0 : -1;
+
+if ((E01 + bias01 | E12 + bias12 | E20 + bias20) >= 0) {
+  shadeFragment(px, py); // 符号位全为正，点亮像素！
+}</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-4" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="text-xs font-bold text-emerald-400">🎮 交互式通关挑战 • GPU Rasterizer Chief Architect</div>
+            <h2 class="text-xl font-extrabold text-white mt-0.5">
+              3 关 GPU 光栅化首席架构师挑战赛
+            </h2>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-bold">
+            <span id="r-badge-1" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 1: 待通关</span>
+            <span id="r-badge-2" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 2: 待通关</span>
+            <span id="r-badge-3" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 3: 待通关</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <!-- Mission 1 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-cyan-400">关卡 1：Bresenham 整数判别式校准师</div>
+            <p class="text-slate-300 leading-relaxed">
+              需要从 $(0, 0)$ 到 $(7, 3)$ 绘制一条线段（即 $\Delta x = 7, \Delta y = 3$）。请计算初始整数中点判别式 $d_0 = 2\Delta y - \Delta x$ 的值以及第 1 步应当选择的像素方向：
+            </p>
+            <select id="r-m1-sel" onchange="evalRMission1()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              <option value="none">请选择 d₀ 与首步方向...</option>
+              <option value="east">d₀ = 2(3) - 7 = -1 < 0 ⇒ 选正东 East (1, 0)，下一步加 2Δy = +6</option>
+              <option value="ne">d₀ = +1 ≥ 0 ⇒ 选东北 North-East (1, 1)</option>
+              <option value="float">d₀ = 3 / 7 = 0.42857 (使用浮点除法)</option>
+            </select>
+            <div id="r-m1-fb" class="text-[11px] text-amber-300">
+              提示：代入公式 d₀ = 2Δy - Δx = 6 - 7 = -1。
+            </div>
+          </div>
+
+          <!-- Mission 2 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-indigo-400">关卡 2：半透明网格公共边除缝仲裁官</div>
+            <p class="text-slate-300 leading-relaxed">
+              半透明玻璃护盾由两个共边三角形拼成，当前画面接缝处出现了一条刺眼的双倍叠加亮线（Overdraw）。请为硬件光栅化器配置正确的压线归属规则：
+            </p>
+            <select id="r-m2-sel" onchange="evalRMission2()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              <option value="inc">包容规则 (E ≥ 0：两边同时绘制压线像素，造成重绘亮线)</option>
+              <option value="strict">严格内点规则 (E > 0：两边同时丢弃压线像素，造成漏点黑缝)</option>
+              <option value="topleft">Top-Left 填充规则 (仅当边为 Top 或 Left 时点亮 E=0，零重绘零裂缝！)</option>
+            </select>
+            <div id="r-m2-fb" class="text-[11px] text-rose-400">
+              当前状态：接缝处发生双倍 Alpha 混合重绘！
+            </div>
+          </div>
+
+          <!-- Mission 3 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-emerald-400">关卡 3：透视校正纹理插值修复师</div>
+            <p class="text-slate-300 leading-relaxed">
+              一面斜向远方的长方形棋盘格墙壁由两个三角形拼成，若在屏幕空间直接对纹理坐标 $u$ 做 2D 线性插值，对角线会出现严重折痕。正确的硬件透视校正插值应当对哪组量做屏幕线性插值？
+            </p>
+            <select id="r-m3-sel" onchange="evalRMission3()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              <option value="affine">直接插值 (u, v) (仿射纹理扭曲，PS1 抖动伪影)</option>
+              <option value="persp">线性插值 (u / w_c, v / w_c, 1 / w_c)，再逐像素相除还原 u, v！</option>
+              <option value="z2">线性插值 (u · z_e², v · z_e²)</option>
+            </select>
+            <div id="r-m3-fb" class="text-[11px] text-slate-400">
+              提示：屏幕空间中只有除以齐次分量 w_c = -z_e 后的量才满足线性关系！
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== LANGUAGE & TABS ====================
+    let currentLang = 'zh';
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.querySelectorAll('[data-zh]').forEach(el => {
+        el.textContent = currentLang === 'zh' ? el.getAttribute('data-zh') : el.getAttribute('data-en');
+      });
+      updateBresenhamLab();
+      updateTopLeftLab();
+      updateGPURasterLab();
+    }
+
+    function switchTab(idx) {
+      for (let i = 1; i <= 4; i++) {
+        const sec = document.getElementById('tab-' + i);
+        const btn = document.getElementById('tab-btn-' + i);
+        if (i === idx) {
+          sec.classList.remove('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800';
+        }
+      }
+      if (idx === 1) { updateBresenhamLab(); updateTopLeftLab(); }
+      if (idx === 2) { updateGPURasterLab(); }
+    }
+
+    // ==================== TAB 1A: BRESENHAM MIDPOINT LAB ====================
+    function updateBresenhamLab() {
+      const dx = 9;
+      const dy = parseInt(document.getElementById('slider-bres-dy').value, 10);
+      const stepIdx = parseInt(document.getElementById('slider-bres-step').value, 10);
+      document.getElementById('lbl-bres-dy').textContent = dy;
+      document.getElementById('lbl-bres-step').textContent = 'Step ' + stepIdx;
+
+      // Run Bresenham from (0,0) to (dx, dy)
+      let d = 2 * dy - dx;
+      let y = 0;
+      const pts = [{ x: 0, y: 0, dBefore: d, choseNE: false }];
+      for (let x = 0; x < dx; x++) {
+        const dCurr = d;
+        let choseNE = false;
+        if (d < 0) {
+          d += 2 * dy;
+        } else {
+          y += 1;
+          d += 2 * dy - 2 * dx;
+          choseNE = true;
+        }
+        pts.push({ x: x + 1, y, dBefore: dCurr, dAfter: d, choseNE });
+      }
+
+      document.getElementById('bres-formula-badge').textContent = `Δx=${dx}, Δy=${dy}, d₀=${2 * dy - dx}`;
+
+      const canvas = document.getElementById('canvas-bresenham');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const cols = 10, rows = 10;
+      const cell = 23;
+      const ox = 36, oy = H - 28;
+      const toScreen = (gx, gy) => ({ sx: ox + gx * cell, sy: oy - gy * cell });
+
+      // Grid lines
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < cols; i++) {
+        const p0 = toScreen(i, 0), p1 = toScreen(i, rows - 1);
+        ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy); ctx.stroke();
+      }
+      for (let j = 0; j < rows; j++) {
+        const p0 = toScreen(0, j), p1 = toScreen(cols - 1, j);
+        ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy); ctx.stroke();
+      }
+
+      // Ideal continuous line
+      const startSc = toScreen(0, 0), endSc = toScreen(dx, dy);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(startSc.sx, startSc.sy);
+      ctx.lineTo(endSc.sx, endSc.sy);
+      ctx.stroke();
+
+      // Plotted Bresenham pixels
+      pts.forEach((p, idx) => {
+        const sc = toScreen(p.x, p.y);
+        ctx.fillStyle = idx === stepIdx ? '#fbbf24' : 'rgba(16, 185, 129, 0.35)';
+        ctx.strokeStyle = idx === stepIdx ? '#fbbf24' : '#10b981';
+        ctx.lineWidth = 1.6;
+        ctx.fillRect(sc.sx - cell * 0.42, sc.sy - cell * 0.42, cell * 0.84, cell * 0.84);
+        ctx.strokeRect(sc.sx - cell * 0.42, sc.sy - cell * 0.42, cell * 0.84, cell * 0.84);
+      });
+
+      // Highlight midpoint M at stepIdx -> stepIdx+1
+      const currP = pts[stepIdx];
+      const nextP = pts[stepIdx + 1];
+      const midSc = toScreen(currP.x + 1, currP.y + 0.5);
+      ctx.fillStyle = '#f43f5e';
+      ctx.beginPath();
+      ctx.arc(midSc.sx, midSc.sy, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Right side magnified zoom of (x_k, y_k) -> East vs NE + Midpoint M
+      const zx = 290, zy = 25, zw = 205, zh = 205;
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#334155';
+      ctx.fillRect(zx, zy, zw, zh);
+      ctx.strokeRect(zx, zy, zw, zh);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(`第 ${stepIdx} 步中点放大镜: x=${currP.x}→${currP.x + 1}`, zx + 10, zy + 18);
+
+      const eSc = { x: zx + 145, y: zy + 155 };
+      const neSc = { x: zx + 145, y: zy + 65 };
+      const mSc = { x: zx + 145, y: zy + 110 };
+      const curZoom = { x: zx + 50, y: zy + 155 };
+
+      // True line segment inside zoom box
+      const yTrueCur = (dy / dx) * currP.x - currP.y;
+      const yTrueNext = (dy / dx) * (currP.x + 1) - currP.y;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(curZoom.x, curZoom.y - yTrueCur * 90);
+      ctx.lineTo(eSc.x, eSc.y - yTrueNext * 90);
+      ctx.stroke();
+
+      // East, NE, and Midpoint M dots
+      ctx.fillStyle = !nextP.choseNE ? '#10b981' : '#475569';
+      ctx.beginPath(); ctx.arc(eSc.x, eSc.y, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillText('East (y_k)', eSc.x - 52, eSc.y + 18);
+
+      ctx.fillStyle = nextP.choseNE ? '#10b981' : '#475569';
+      ctx.beginPath(); ctx.arc(neSc.x, neSc.y, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillText('NE (y_k+1)', neSc.x - 52, neSc.y - 12);
+
+      ctx.fillStyle = '#f43f5e';
+      ctx.beginPath(); ctx.arc(mSc.x, mSc.y, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillText('中点 M (+0.5)', mSc.x - 78, mSc.y + 4);
+
+      const detail = document.getElementById('bres-step-detail');
+      detail.innerHTML = nextP.choseNE
+        ? `当前判别式 <span class="text-emerald-400 font-bold">d_${stepIdx} = ${nextP.dBefore} ≥ 0</span>（理想直线穿过中点 M 上方）⇒ 选中 <span class="text-cyan-300 font-bold">东北 NE (${nextP.x}, ${nextP.y})</span>，更新 d_${stepIdx + 1} = ${nextP.dBefore} + 2(${dy}) - 2(${dx}) = <span class="text-amber-300">${nextP.dAfter}</span>`
+        : `当前判别式 <span class="text-rose-400 font-bold">d_${stepIdx} = ${nextP.dBefore} < 0</span>（理想直线穿过中点 M 下方）⇒ 选中 <span class="text-cyan-300 font-bold">正东 East (${nextP.x}, ${nextP.y})</span>，更新 d_${stepIdx + 1} = ${nextP.dBefore} + 2(${dy}) = <span class="text-amber-300">${nextP.dAfter}</span>`;
+    }
+
+    // ==================== TAB 1B: TOP-LEFT RULE SEAM INSPECTOR ====================
+    let currentTieRule = 'topleft';
+    function setTieRule(rule) {
+      currentTieRule = rule;
+      ['inclusive', 'strict', 'topleft'].forEach(r => {
+        const btn = document.getElementById('rule-btn-' + r);
+        btn.className = (r === rule)
+          ? 'px-2.5 py-1 rounded bg-indigo-600 text-white font-bold text-[11px]'
+          : 'px-2.5 py-1 rounded bg-slate-800 text-slate-300 font-bold text-[11px]';
+      });
+      updateTopLeftLab();
+    }
+
+    function updateTopLeftLab() {
+      const canvas = document.getElementById('canvas-topleft');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const N = 8;
+      const cell = 28;
+      const ox = 145, oy = 15;
+      let overdrawCount = 0, crackCount = 0;
+
+      // Two triangles sharing the main diagonal x = y on an 8x8 pixel grid
+      for (let py = 0; py < N; py++) {
+        for (let px = 0; px < N; px++) {
+          const sx = ox + px * cell, sy = oy + py * cell;
+          const onDiag = (px === py);
+          let hitT1 = false, hitT2 = false;
+          if (px < py) hitT1 = true;
+          else if (px > py) hitT2 = true;
+          else {
+            if (currentTieRule === 'inclusive') { hitT1 = true; hitT2 = true; }
+            else if (currentTieRule === 'strict') { hitT1 = false; hitT2 = false; }
+            else { hitT2 = true; hitT1 = false; } // Top-Left assigns diagonal exclusively to upper-right T2
+          }
+
+          if (hitT1 && hitT2) {
+            overdrawCount++;
+            ctx.fillStyle = 'rgba(244, 63, 94, 0.85)'; // Red Overdraw!
+          } else if (!hitT1 && !hitT2) {
+            crackCount++;
+            ctx.fillStyle = '#020617'; // Black Crack!
+          } else if (hitT1) {
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+          } else {
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.45)';
+          }
+
+          ctx.fillRect(sx + 1, sy + 1, cell - 2, cell - 2);
+          ctx.strokeStyle = '#334155';
+          ctx.strokeRect(sx, sy, cell, cell);
+
+          // Pixel center dot
+          ctx.fillStyle = onDiag ? '#fbbf24' : '#94a3b8';
+          ctx.beginPath();
+          ctx.arc(sx + cell * 0.5, sy + cell * 0.5, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Draw shared diagonal line
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(ox + cell * 0.5, oy + cell * 0.5);
+      ctx.lineTo(ox + (N - 0.5) * cell, oy + (N - 0.5) * cell);
+      ctx.stroke();
+
+      const sumEl = document.getElementById('topleft-summary');
+      if (currentTieRule === 'inclusive') {
+        sumEl.innerHTML = `<span class="text-rose-400 font-bold">⚠️ 包容规则 (E ≥ 0)：</span>对角线上的 ${overdrawCount} 个压线像素被左右两个三角形<strong>重复绘制了 2 次（红色高亮）</strong>！开启半透明混合时会产生明显的接缝亮条。`;
+      } else if (currentTieRule === 'strict') {
+        sumEl.innerHTML = `<span class="text-amber-300 font-bold">⚠️ 严格内点规则 (E > 0)：</span>对角线上的 ${crackCount} 个压线像素被两个三角形<strong>同时抛弃（黑色裂缝）</strong>！网格表面出现漏光破洞。`;
+      } else {
+        sumEl.innerHTML = `<span class="text-emerald-400 font-bold">✓ Top-Left 黄金填充规则：</span>公共边对右上方三角形是 <strong>Left 边（包含）</strong>，对左下方三角形是 <strong>Right 边（排除）</strong>——重绘数 = 0，漏缝数 = 0，完美无缝拼接！`;
+      }
+    }
+
+    // ==================== TAB 2: GPU EDGE FUNCTION RASTERIZER ====================
+    const R_GRID = 16;
+    let triVerts = [
+      { x: 2.5, y: 13.2 },
+      { x: 13.8, y: 11.4 },
+      { x: 6.4, y: 2.2 }
+    ];
+    let inspectPx = { x: 7, y: 8 };
+    let draggingTriIdx = -1;
+
+    function setSliverTriangle() {
+      triVerts = [
+        { x: 1.8, y: 14.2 },
+        { x: 14.4, y: 2.4 },
+        { x: 13.2, y: 1.5 }
+      ];
+      inspectPx = { x: 8, y: 8 };
+      updateGPURasterLab();
+    }
+
+    function setBalancedTriangle() {
+      triVerts = [
+        { x: 2.5, y: 13.2 },
+        { x: 13.8, y: 11.4 },
+        { x: 6.4, y: 2.2 }
+      ];
+      inspectPx = { x: 7, y: 8 };
+      updateGPURasterLab();
+    }
+
+    // Screen Y-down: CCW on screen or signed area normalization
+    function evalEdge2D(a, b, p) {
+      return (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x);
+    }
+
+    function updateGPURasterLab() {
+      const canvas = document.getElementById('canvas-gpu-raster');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const cell = W / R_GRID;
+      const showQuads = document.getElementById('chk-show-quads').checked;
+
+      // Ensure consistent winding sign
+      const areaSign = evalEdge2D(triVerts[0], triVerts[1], triVerts[2]) >= 0 ? 1 : -1;
+      const totalArea = Math.max(1e-4, Math.abs(evalEdge2D(triVerts[0], triVerts[1], triVerts[2])));
+
+      const insideAt = (px, py) => {
+        const p = { x: px + 0.5, y: py + 0.5 };
+        const e01 = evalEdge2D(triVerts[0], triVerts[1], p) * areaSign;
+        const e12 = evalEdge2D(triVerts[1], triVerts[2], p) * areaSign;
+        const e20 = evalEdge2D(triVerts[2], triVerts[0], p) * areaSign;
+        return e01 >= 0 && e12 >= 0 && e20 >= 0;
+      };
+
+      let activeCount = 0;
+      let quadLanes = 0;
+
+      // Evaluate 2x2 Quads
+      for (let qy = 0; qy < R_GRID; qy += 2) {
+        for (let qx = 0; qx < R_GRID; qx += 2) {
+          const h00 = insideAt(qx, qy);
+          const h10 = insideAt(qx + 1, qy);
+          const h01 = insideAt(qx, qy + 1);
+          const h11 = insideAt(qx + 1, qy + 1);
+          const quadActive = h00 || h10 || h01 || h11;
+          if (quadActive) quadLanes += 4;
+
+          for (let dy = 0; dy < 2; dy++) {
+            for (let dx = 0; dx < 2; dx++) {
+              const px = qx + dx, py = qy + dy;
+              const hit = insideAt(px, py);
+              if (hit) activeCount++;
+
+              const sx = px * cell, sy = py * cell;
+              if (hit) {
+                const p = { x: px + 0.5, y: py + 0.5 };
+                const a = (evalEdge2D(triVerts[1], triVerts[2], p) * areaSign) / totalArea;
+                const b = (evalEdge2D(triVerts[2], triVerts[0], p) * areaSign) / totalArea;
+                const c = (evalEdge2D(triVerts[0], triVerts[1], p) * areaSign) / totalArea;
+                ctx.fillStyle = `rgba(${Math.round(a * 230 + 25)}, ${Math.round(b * 230 + 25)}, ${Math.round(c * 230 + 25)}, 0.65)`;
+              } else if (quadActive && showQuads) {
+                ctx.fillStyle = 'rgba(244, 63, 94, 0.22)'; // Helper lane waste!
+              } else {
+                ctx.fillStyle = '#0f172a';
+              }
+              ctx.fillRect(sx + 1, sy + 1, cell - 2, cell - 2);
+              ctx.strokeStyle = '#1e293b';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(sx, sy, cell, cell);
+
+              // Pixel center dot
+              ctx.fillStyle = hit ? '#ffffff' : '#475569';
+              ctx.beginPath();
+              ctx.arc(sx + cell * 0.5, sy + cell * 0.5, 2.2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+
+          if (quadActive && showQuads) {
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.65)';
+            ctx.lineWidth = 1.6;
+            ctx.strokeRect(qx * cell + 1, qy * cell + 1, cell * 2 - 2, cell * 2 - 2);
+          }
+        }
+      }
+
+      // Highlight inspected pixel
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.8;
+      ctx.strokeRect(inspectPx.x * cell + 2, inspectPx.y * cell + 2, cell - 4, cell - 4);
+
+      // Draw continuous triangle edges
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      triVerts.forEach((v, i) => {
+        if (i === 0) ctx.moveTo(v.x * cell, v.y * cell);
+        else ctx.lineTo(v.x * cell, v.y * cell);
+      });
+      ctx.closePath();
+      ctx.stroke();
+
+      // Draw draggable vertices V0, V1, V2
+      const vCols = ['#f43f5e', '#10b981', '#38bdf8'];
+      triVerts.forEach((v, i) => {
+        ctx.fillStyle = vCols[i];
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(v.x * cell, v.y * cell, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText('V' + i, v.x * cell + 9, v.y * cell - 7);
+      });
+
+      const eff = quadLanes > 0 ? (activeCount / quadLanes) * 100 : 0;
+      document.getElementById('metric-active-px').textContent = activeCount;
+      document.getElementById('metric-quad-lanes').textContent = quadLanes;
+      document.getElementById('metric-quad-eff').textContent = eff.toFixed(1) + '%';
+
+      // Update Inspector Panel for inspectPx
+      const p = { x: inspectPx.x + 0.5, y: inspectPx.y + 0.5 };
+      const e12 = evalEdge2D(triVerts[1], triVerts[2], p) * areaSign;
+      const e20 = evalEdge2D(triVerts[2], triVerts[0], p) * areaSign;
+      const e01 = evalEdge2D(triVerts[0], triVerts[1], p) * areaSign;
+      const allIn = e12 >= 0 && e20 >= 0 && e01 >= 0;
+
+      document.getElementById('insp-title').textContent =
+        `🔍 选中像素中心 P = (${p.x.toFixed(1)}, ${p.y.toFixed(1)}) — ` + (allIn ? '✓ 点亮 (INSIDE)' : '✗ 剔除 (OUTSIDE)');
+
+      const fmtEdge = (name, val, bName) => {
+        const ok = val >= 0;
+        const bary = val / totalArea;
+        return `
+          <div class="p-2.5 rounded-lg bg-slate-900 border ${ok ? 'border-emerald-700/60' : 'border-rose-700/60'} flex justify-between items-center">
+            <span>${name}(P) = <strong class="${ok ? 'text-emerald-400' : 'text-rose-400'}">${val.toFixed(2)}</strong> (${ok ? '≥ 0 ✓' : '< 0 ✗'})</span>
+            <span class="text-slate-400">${bName} = ${bary.toFixed(3)}</span>
+          </div>
+        `;
+      };
+
+      document.getElementById('insp-edge-cards').innerHTML =
+        fmtEdge('E₁₂', e12, 'α') +
+        fmtEdge('E₂₀', e20, 'β') +
+        fmtEdge('E₀₁', e01, 'γ');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const rCanvas = document.getElementById('canvas-gpu-raster');
+      rCanvas.addEventListener('pointerdown', (e) => {
+        const rect = rCanvas.getBoundingClientRect();
+        const gx = ((e.clientX - rect.left) / rect.width) * R_GRID;
+        const gy = ((e.clientY - rect.top) / rect.height) * R_GRID;
+        let hitVert = -1;
+        triVerts.forEach((v, i) => {
+          if (Math.hypot(gx - v.x, gy - v.y) < 0.9) hitVert = i;
+        });
+        if (hitVert >= 0) {
+          draggingTriIdx = hitVert;
+        } else {
+          inspectPx = {
+            x: Math.max(0, Math.min(R_GRID - 1, Math.floor(gx))),
+            y: Math.max(0, Math.min(R_GRID - 1, Math.floor(gy)))
+          };
+          updateGPURasterLab();
+        }
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        if (draggingTriIdx >= 0) {
+          const rect = rCanvas.getBoundingClientRect();
+          const gx = Math.max(0.5, Math.min(R_GRID - 0.5, ((e.clientX - rect.left) / rect.width) * R_GRID));
+          const gy = Math.max(0.5, Math.min(R_GRID - 0.5, ((e.clientY - rect.top) / rect.height) * R_GRID));
+          triVerts[draggingTriIdx] = { x: gx, y: gy };
+          updateGPURasterLab();
+        }
+      });
+
+      window.addEventListener('pointerup', () => {
+        draggingTriIdx = -1;
+      });
+
+      updateBresenhamLab();
+      updateTopLeftLab();
+      updateGPURasterLab();
+
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+    });
+
+    // ==================== TAB 4: MINI-GAME MISSIONS ====================
+    function evalRMission1() {
+      const val = document.getElementById('r-m1-sel').value;
+      const fb = document.getElementById('r-m1-fb');
+      const badge = document.getElementById('r-badge-1');
+      if (val === 'east') {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = '✓ 通关成功！d₀ = 2(3) - 7 = -1 < 0，说明中点高于直线，首步应走正东 East (1,0) 并累加 2Δy = +6！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 1: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = '计算有误！请核对 d₀ = 2Δy - Δx = 2×3 - 7 = -1 < 0。';
+      }
+    }
+
+    function evalRMission2() {
+      const val = document.getElementById('r-m2-sel').value;
+      const fb = document.getElementById('r-m2-fb');
+      const badge = document.getElementById('r-badge-2');
+      if (val === 'topleft') {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = '✓ 通关成功！Top-Left 填充规则利用共边方向相反实现 100% 互斥归属，彻底消灭重绘亮线与漏点黑缝！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 2: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = '该规则仍会导致重绘或漏缝，请选择 GPU 硬件标准的 Top-Left 填充规则！';
+      }
+    }
+
+    function evalRMission3() {
+      const val = document.getElementById('r-m3-sel').value;
+      const fb = document.getElementById('r-m3-fb');
+      const badge = document.getElementById('r-badge-3');
+      if (val === 'persp') {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = '✓ 通关成功！对 (u/w_c, v/w_c, 1/w_c) 做屏幕空间线性插值后再逐像素相除，完美消除透视纹理扭曲！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 3: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = '不对！直接插值 (u,v) 会产生仿射折痕，必须对除以齐次坐标 w_c 后的量做线性插值。';
+      }
+    }
+  </script>
+</body>
+</html>

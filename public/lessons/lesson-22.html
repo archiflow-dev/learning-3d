@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 22: 纹理映射、透视校正插值、Mipmap 与 TBN 法线贴图 | Learning 3D</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
+  <style>
+    body { background: #020617; color: #f8fafc; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .glass { background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.7); }
+    .tab-active { background: linear-gradient(135deg, #4f46e5, #0891b2); color: white; box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35); }
+    input[type="range"] { accent-color: #6366f1; }
+    .katex { font-size: 1.04em; }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+  <!-- Sticky Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center font-black text-white shadow hover:scale-105 transition" title="Back to Portal">3D</a>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Stage 4 • Lesson 22</span>
+            <span class="text-xs text-slate-400">UC Davis ECS 175 L10 • MIT 6.837 L14</span>
+          </div>
+          <h1 class="font-bold text-base sm:text-lg text-white tracking-tight">
+            <span class="lang-zh">纹理映射 (Texture Mapping)、1/Z 透视校正、Mipmap 与 TBN 法线贴图</span>
+            <span class="lang-en hidden">Texture Mapping, 1/Z Perspective-Correct Interpolation, Mipmaps &amp; TBN Normal Mapping</span>
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button id="langToggleBtn" onclick="toggleLang()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition shadow-sm">
+          <span>🌐</span>
+          <span id="langBtnText">EN / 中文</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-3 flex flex-wrap gap-2">
+      <button onclick="switchTab('math')" id="tab-btn-math" class="tab-btn tab-active px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2">
+        <span>📐</span>
+        <span class="lang-zh">1. 核心数学与 3Blue1Brown 直觉</span>
+        <span class="lang-en hidden">1. Core Math &amp; 3B1B Intuition</span>
+      </button>
+      <button onclick="switchTab('lab')" id="tab-btn-lab" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🔬</span>
+        <span class="lang-zh">2. 透视校正与 Mipmap/TBN 实验室</span>
+        <span class="lang-en hidden">2. Perspective &amp; Mipmap/TBN Labs</span>
+      </button>
+      <button onclick="switchTab('videos')" id="tab-btn-videos" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🎬</span>
+        <span class="lang-zh">3. 名校课程视频与笔记</span>
+        <span class="lang-en hidden">3. Course Videos &amp; Notes</span>
+      </button>
+      <button onclick="switchTab('game')" id="tab-btn-game" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🎮</span>
+        <span class="lang-zh">4. 闯关游戏：首席纹理与材质架构师</span>
+        <span class="lang-en hidden">4. Game: Chief Texture &amp; Material Architect</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-8">
+    <!-- ==================== TAB 1: MATH & 3B1B INTUITION ==================== -->
+    <section id="tab-math" class="tab-panel space-y-8">
+      <!-- Hero Intuition Banner -->
+      <div class="glass rounded-2xl p-6 sm:p-8 border-l-4 border-l-indigo-500">
+        <div class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">
+          <span class="lang-zh">3Blue1Brown 几何视觉化直觉 • 为什么三维世界均匀的刻度投射到屏幕上会变成双曲线？</span>
+          <span class="lang-en hidden">3Blue1Brown Geometric Intuition • Why Uniform 3D Steps Become Hyperbolic on Screen</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4">
+          <span class="lang-zh">从 PS1 对角线扭曲到 $1/Z$ 透视校正、雅可比像素脚印与 TBN 切线空间</span>
+          <span class="lang-en hidden">From PS1 Affine Warping to $1/Z$ Hyperbolic Interpolation, Pixel Footprint Jacobians &amp; TBN Tangent Space</span>
+        </h2>
+        <p class="text-slate-300 leading-relaxed text-sm sm:text-base">
+          <span class="lang-zh">
+            纹理映射看似只是“把一张二维图片贴到三维三角形上”，但背后隐藏着三个深刻的几何与微积分问题：
+            <strong>第一</strong>，为什么早期主机（如初代 PlayStation）直接在屏幕空间对 $(u,v)$ 做重心线性插值，会导致地面方砖沿着三角形对角线发生诡异的弯折抖动？
+            <strong>第二</strong>，当远方地平线上的一个屏幕像素同时盖住几百个棋盘格纹素时，如何用二维微积分的<strong>雅可比矩阵 (Jacobian Matrix)</strong> 算出像素在纹理空间的脚印大小，并挑选恰当的 <strong>Mipmap 金字塔层级 $d$</strong>？
+            <strong>第三</strong>，为什么法线贴图总是蓝紫色的 $(128, 128, 255)$，<strong>TBN 正交基矩阵</strong>又是如何让两块平面三角形浮现出逼真的三维石砖凹凸的？
+          </span>
+          <span class="lang-en hidden">
+            Texture mapping looks like simply "gluing a 2D image onto a 3D triangle", yet it hides three deep geometric and calculus questions:
+            <strong>First</strong>, why did early consoles (like the original PlayStation) warp andswim along triangle diagonals when linearly interpolating $(u,v)$ in screen space?
+            <strong>Second</strong>, when a single distant screen pixel covers hundreds of texels, how does the <strong>Jacobian matrix</strong> measure the pixel's footprint in texture space to select the exact <strong>Mipmap pyramid level $d$</strong>?
+            <strong>Third</strong>, why are normal maps bluish-purple $(128, 128, 255)$, and how does the <strong>TBN basis matrix</strong> make a flat 2-triangle quad look like deeply carved stone bricks?
+          </span>
+        </p>
+      </div>
+
+      <!-- Part 1: Perspective-Correct Interpolation Derivation -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <span class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-black flex items-center justify-center">1</span>
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              <span class="lang-zh">屏幕空间仿射插值的破产与 $1/Z$ 双曲透视校正推导</span>
+              <span class="lang-en hidden">Failure of Screen-Space Affine Interpolation &amp; Step-by-Step $1/Z$ Hyperbolic Derivation</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">MIT 6.837 L14 &amp; UC Davis ECS 175 L10：为什么屏幕上均匀移动 $s$，对应三维世界是非均匀移动 $t$？</span>
+              <span class="lang-en hidden">MIT 6.837 L14 &amp; UC Davis ECS 175 L10: Why uniform screen steps $s$ map to non-uniform 3D steps $t$</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold uppercase text-rose-400">
+              <span class="lang-zh">步骤 A：透视除法如何扭曲比例参数 $t \mapsto s$</span>
+              <span class="lang-en hidden">Step A: How Perspective Division Warps $t \mapsto s$</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <span class="lang-zh">
+                考虑三维相机空间中的一条线段 $\mathbf{P}(t) = (1-t)\mathbf{P}_0 + t\mathbf{P}_1$，其中 $t \in [0, 1]$ 是<strong>三维世界中的真实均匀比例</strong>。两端点的正深度记为 $Z_0, Z_1 > 0$，对应的屏幕投影坐标为 $x_0 = \frac{X_0}{Z_0}$ 和 $x_1 = \frac{X_1}{Z_1}$。
+                线段上点 $\mathbf{P}(t)$ 投射到屏幕上的位置 $x(t)$ 为：
+              </span>
+              <span class="lang-en hidden">
+                Consider a 3D line segment $\mathbf{P}(t) = (1-t)\mathbf{P}_0 + t\mathbf{P}_1$ where $t \in [0,1]$ is the <strong>true 3D linear parameter</strong>. Let the positive depths be $Z_0, Z_1 > 0$ and screen coordinates be $x_0 = X_0/Z_0$, $x_1 = X_1/Z_1$. Projecting $\mathbf{P}(t)$ onto the screen gives:
+              </span>
+            </p>
+            <div class="bg-slate-950/90 rounded-lg p-3 text-xs overflow-x-auto border border-slate-800/80">
+              $$x(t) = \frac{(1-t)X_0 + t X_1}{(1-t)Z_0 + t Z_1} = \frac{(1-t)Z_0 x_0 + t Z_1 x_1}{(1-t)Z_0 + t Z_1}$$
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              <span class="lang-zh">
+                而在屏幕上，光栅化器是以<strong>屏幕像素比例 $s \in [0, 1]$</strong> 均匀步进的：$x(s) = (1-s)x_0 + s x_1$。对比两式中 $x_0$ 与 $x_1$ 的组合系数，立刻得到屏幕比例 $s$ 与三维比例 $t$ 的精确双曲变换关系：
+              </span>
+              <span class="lang-en hidden">
+                On screen, the rasterizer steps uniformly in <strong>screen fraction $s \in [0,1]$</strong>: $x(s) = (1-s)x_0 + s x_1$. Matching coefficients of $x_0$ and $x_1$ reveals the exact hyperbolic relation between $s$ and $t$:
+              </span>
+            </p>
+            <div class="bg-slate-950/90 rounded-lg p-3 text-xs overflow-x-auto border border-rose-500/30">
+              $$s = \frac{t Z_1}{(1-t)Z_0 + t Z_1} \quad \Longleftrightarrow \quad t = \frac{s / Z_0}{(1-s)/Z_1 + s / Z_0}$$
+            </div>
+          </div>
+
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold uppercase text-emerald-400">
+              <span class="lang-zh">步骤 B：奇迹出现 —— $1/Z$ 与 $u/Z$ 在屏幕空间严格线性！</span>
+              <span class="lang-en hidden">Step B: The Miracle — $1/Z$ and $u/Z$ Are Strictly Linear in Screen Space!</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <span class="lang-zh">
+                将 $t = \frac{s/Z_0}{(1-s)/Z_1 + s/Z_0}$ 代回三维空间线性变化的深度 $Z(t) = (1-t)Z_0 + t Z_1$ 和纹理坐标 $u(t) = (1-t)u_0 + t u_1$：
+              </span>
+              <span class="lang-en hidden">
+                Substitute $t = \frac{s/Z_0}{(1-s)/Z_1 + s/Z_0}$ back into the 3D-linear depth $Z(t) = (1-t)Z_0 + t Z_1$ and texture coordinate $u(t) = (1-t)u_0 + t u_1$:
+              </span>
+            </p>
+            <div class="bg-slate-950/90 rounded-lg p-3 text-xs overflow-x-auto border border-emerald-500/30">
+              $$\frac{1}{Z(s)} = (1-s)\frac{1}{Z_0} + s\frac{1}{Z_1}, \qquad \frac{u(s)}{Z(s)} = (1-s)\frac{u_0}{Z_0} + s\frac{u_1}{Z_1}$$
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">
+                推广到三角形的<strong>屏幕空间重心坐标 $(\alpha_s, \beta_s, \gamma_s)$</strong>，GPU 硬件只需对倒数 $\frac{1}{Z}$ 和除以深度后的属性 $\frac{u}{Z}, \frac{v}{Z}$ 做屏幕线性插值，最后在每个像素处<strong>做一次除法</strong>即可恢复完全无扭曲的真实纹理坐标：
+              </span>
+              <span class="lang-en hidden">
+                Generalizing to <strong>screen-space barycentric coordinates $(\alpha_s, \beta_s, \gamma_s)$</strong>, GPU hardware linearly interpolates $\frac{1}{Z}$ and $\frac{u}{Z}, \frac{v}{Z}$ across screen pixels, then performs <strong>one division per pixel</strong>:
+              </span>
+            </p>
+            <div class="bg-slate-950/90 rounded-lg p-3 text-xs overflow-x-auto border border-indigo-500/30">
+              $$u_{\text{correct}}(x,y) = \frac{\alpha_s \frac{u_0}{Z_0} + \beta_s \frac{u_1}{Z_1} + \gamma_s \frac{u_2}{Z_2}}{\alpha_s \frac{1}{Z_0} + \beta_s \frac{1}{Z_1} + \gamma_s \frac{1}{Z_2}}$$
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Bilinear, Mipmap Jacobian & Anisotropic Filtering -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <span class="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-black flex items-center justify-center">2</span>
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              <span class="lang-zh">雅可比矩阵 (Jacobian) 像素脚印、Mipmap 层级 $d = \log_2(\rho)$ 与各向异性过滤</span>
+              <span class="lang-en hidden">Pixel Footprint Jacobian, Mipmap LOD $d = \log_2(\rho)$ &amp; Anisotropic Filtering</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">为什么远处的棋盘格会闪烁成摩尔纹？为什么 Mipmap 金字塔只需要额外 $1/3$ 显存？</span>
+              <span class="lang-en hidden">Why distant checkerboards shimmer with Moiré patterns, and why a Mipmap pyramid takes only $1/3$ extra memory</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <!-- Card 1: Bilinear -->
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">Magnification</span>
+              <span class="text-xs font-mono text-slate-400">$\rho &lt; 1$ texel/px</span>
+            </div>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">双线性过滤 (Bilinear Filtering)</span>
+              <span class="lang-en hidden">Bilinear Filtering ($2\times 2$ Texels)</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">当相机凑近纹理表面（1 个纹素放大到覆盖几十个像素）时，最近邻采样会暴露锯齿马赛克。双线性过滤读取周围 $2\times 2$ 个纹素中心，按小数偏移 $(s_f, t_f) \in [0,1]^2$ 做两次水平 `lerp` 与一次垂直 `lerp`：</span>
+              <span class="lang-en hidden">When zooming in close ($\rho &lt; 1$), nearest-neighbor reveals blocky pixels. Bilinear filtering samples the $2\times 2$ surrounding texel centers and blends them smoothly via two horizontal and one vertical `lerp`:</span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-2.5 text-xs overflow-x-auto">
+              $$\mathbf{C} = \text{lerp}\big(\text{lerp}(\mathbf{C}_{00},\mathbf{C}_{10},s_f),\;\text{lerp}(\mathbf{C}_{01},\mathbf{C}_{11},s_f),\;t_f\big)$$
+            </div>
+          </div>
+
+          <!-- Card 2: Jacobian & Mipmap LOD -->
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-cyan-500/40 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Minification &amp; Jacobian</span>
+              <span class="text-xs font-mono text-slate-400">$\rho \gg 1$ texels/px</span>
+            </div>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">雅可比导数与 Mipmap 层级 $d$</span>
+              <span class="lang-en hidden">Jacobian Footprint &amp; Mipmap Level $d$</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">设纹素坐标 $(U, V) = (uW, vH)$。当屏幕步进 $(\Delta x=1, \Delta y=1)$ 时，纹素空间的两个偏导切向量 $\mathbf{g}_x = (\frac{\partial U}{\partial x}, \frac{\partial V}{\partial x})^T$ 与 $\mathbf{g}_y = (\frac{\partial U}{\partial y}, \frac{\partial V}{\partial y})^T$ 张成了像素的平行四边形脚印：</span>
+              <span class="lang-en hidden">Let $(U,V) = (uW, vH)$. Moving 1 pixel in $x$ and $y$ spans two tangent vectors $\mathbf{g}_x = (\frac{\partial U}{\partial x}, \frac{\partial V}{\partial x})^T$ and $\mathbf{g}_y = (\frac{\partial U}{\partial y}, \frac{\partial V}{\partial y})^T$ forming the pixel's footprint in texel space:</span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-2.5 text-xs overflow-x-auto">
+              $$\rho = \max\big(\|\mathbf{g}_x\|, \|\mathbf{g}_y\|\big), \qquad d = \log_2(\rho)$$
+            </div>
+            <p class="text-xs text-cyan-300">
+              <span class="lang-zh">💡 <strong>1/3 显存定律</strong>：每升一级长宽减半（面积变为 $1/4$），总显存开销 $\sum_{k=0}^\infty \left(\frac{1}{4}\right)^k = \frac{1}{1-1/4} = \frac{4}{3}$，仅比原图多出 <strong>33.3%</strong>！</span>
+              <span class="lang-en hidden">💡 <strong>1/3 Memory Rule</strong>: Each level quarters the area, so total memory is $\sum_{k=0}^\infty (1/4)^k = 4/3$, only <strong>33.3% extra</strong>!</span>
+            </p>
+          </div>
+
+          <!-- Card 3: Trilinear & Anisotropic -->
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-amber-500/40 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Grazing Angles</span>
+              <span class="text-xs font-mono text-slate-400">$\|\mathbf{g}_y\| \gg \|\mathbf{g}_x\|$</span>
+            </div>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">三线性与各向异性过滤 (AF)</span>
+              <span class="lang-en hidden">Trilinear &amp; Anisotropic Filtering (AF)</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh"><strong>三线性过滤</strong>在 $\lfloor d \rfloor$ 与 $\lceil d \rceil$ 两层 Mipmap 之间再做一次线性插值（共 8 个纹素采样），消除层级跳变带。而在掠射角观察地面时，$\|\mathbf{g}_y\| \gg \|\mathbf{g}_x\|$，像素脚印是<strong>瘦长椭圆</strong>！标准 Mipmap 迁就长轴 $\|\mathbf{g}_y\|$ 会把横向也糊掉；<strong>各向异性过滤 ($N\times\text{AF}$)</strong> 改在匹配短轴 $\|\mathbf{g}_x\|$ 的清晰层级上，沿长轴方向连续采样 $N$ 次！</span>
+              <span class="lang-en hidden"><strong>Trilinear filtering</strong> blends between levels $\lfloor d \rfloor$ and $\lceil d \rceil$ (8 texels). At grazing angles ($\|\mathbf{g}_y\| \gg \|\mathbf{g}_x\|$), the footprint is a <strong>long narrow ellipse</strong>. Standard Mipmaps blur horizontally by picking $\max$; <strong>Anisotropic Filtering ($N\times\text{AF}$)</strong> picks the sharper level matching $\min(\|\mathbf{g}_x\|,\|\mathbf{g}_y\|)$ and marches $N$ samples along the major axis!</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 3: Tangent Space Normal Mapping (TBN) + Interactive Footprint & Ray-Fan Visualizer -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <span class="w-8 h-8 rounded-lg bg-purple-500/20 border border-purple-500/40 text-purple-300 font-black flex items-center justify-center">3</span>
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              <span class="lang-zh">切线空间法线贴图 (TBN Matrix) 推导 &amp; 交互式透视射线束/像素脚印几何仪</span>
+              <span class="lang-en hidden">Tangent-Space Normal Mapping (TBN Matrix) &amp; Interactive Ray-Fan / Footprint Explorer</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">利用 UV 雅可比逆矩阵求解切线 $\mathbf{T}$ 与副切线 $\mathbf{B}$，并在下方交互画布亲手验证双曲曲线 $t(s)$ 与像素脚印椭圆！</span>
+              <span class="lang-en hidden">Solve Tangent $\mathbf{T}$ and Bitangent $\mathbf{B}$ via the inverse UV Jacobian, then explore hyperbolic $t(s)$ and pixel footprints below!</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/80 rounded-xl p-5 border border-purple-500/30 space-y-3">
+          <div class="text-xs font-bold uppercase text-purple-300">
+            <span class="lang-zh">为什么法线贴图是蓝紫色的？如何从三角形边向量解出 $[\mathbf{T} \mid \mathbf{B} \mid \mathbf{N}]$？</span>
+            <span class="lang-en hidden">Why Normal Maps Are Bluish-Purple &amp; Solving $[\mathbf{T} \mid \mathbf{B} \mid \mathbf{N}]$ from Triangle Edges</span>
+          </div>
+          <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <span class="lang-zh">
+              如果直接在法线贴图里存储世界空间法线，一旦模型旋转或骨骼弯曲，贴图就完全失效了！因此我们以每个顶点自身的局部表面为基准建立正交坐标系：沿着纹理横轴 $+u$ 的方向称为<strong>切线 (Tangent, $\hat{\mathbf{T}}$)</strong>，沿着纹理纵轴 $+v$ 的方向称为<strong>副切线 (Bitangent, $\hat{\mathbf{B}}$)</strong>，垂直表面向外为<strong>宏观法线 ($\hat{\mathbf{N}}$)</strong>。
+              平坦表面的局部法线为 $(0, 0, 1)^T$，经 $\text{RGB} = 0.5\mathbf{n} + 0.5$ 映射到 $[0,1]^3$ 后就是 $(0.5, 0.5, 1.0)$（蓝紫色）。给定三角形两条边 $\Delta\mathbf{P}_1 = \mathbf{P}_1 - \mathbf{P}_0, \Delta\mathbf{P}_2 = \mathbf{P}_2 - \mathbf{P}_0$ 及其 UV 差值 $(\Delta u_i, \Delta v_i)$：
+            </span>
+            <span class="lang-en hidden">
+              Storing world-space normals in a texture breaks whenever the mesh rotates or deforms. Instead, we define a local orthonormal frame on the surface: <strong>Tangent ($\hat{\mathbf{T}}$)</strong> along $+u$, <strong>Bitangent ($\hat{\mathbf{B}}$)</strong> along $+v$, and <strong>Normal ($\hat{\mathbf{N}}$)</strong> outward. An unperturbed normal $(0,0,1)^T$ encodes via $0.5\mathbf{n}+0.5$ to $(0.5, 0.5, 1.0)$ (bluish-purple). From triangle edges $\Delta\mathbf{P}_1, \Delta\mathbf{P}_2$ and UV deltas $(\Delta u_i, \Delta v_i)$:
+            </span>
+          </p>
+          <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto">
+            $$\begin{bmatrix} \mathbf{T} \\ \mathbf{B} \end{bmatrix} = \frac{1}{\Delta u_1 \Delta v_2 - \Delta v_1 \Delta u_2} \begin{bmatrix} \Delta v_2 & -\Delta v_1 \\ -\Delta u_2 & \Delta u_1 \end{bmatrix} \begin{bmatrix} \Delta\mathbf{P}_1 \\ \Delta\mathbf{P}_2 \end{bmatrix}, \qquad \mathbf{n}_{\text{world}} = \text{normalize}\Big(\underbrace{\big[\hat{\mathbf{T}} \;\; \hat{\mathbf{B}} \;\; \hat{\mathbf{N}}\big]}_{\text{TBN Matrix}} \, (2\mathbf{C}_{\text{tex}} - \mathbf{1})\Big)$$
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer: Perspective Ray Fan & Footprint Jacobian -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div class="text-xs font-bold text-indigo-300">
+                <span class="lang-zh">交互式相机射线束 $s \mapsto t$ 双曲映射 &amp; 纹素空间像素脚印 ($\mathbf{g}_x, \mathbf{g}_y$)</span>
+                <span class="lang-en hidden">Interactive Camera Ray Fan $s \mapsto t$ Hyperbolic Mapping &amp; Texel Footprint ($\mathbf{g}_x, \mathbf{g}_y$)</span>
+              </div>
+              <span id="mathReadoutBadge" class="text-xs font-mono px-2.5 py-1 rounded bg-slate-900 text-cyan-300 border border-slate-800">LOD d = 2.15</span>
+            </div>
+            <canvas id="mathIntuitionCanvas" width="680" height="360" class="w-full rounded-xl bg-slate-950 border border-slate-800/80"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🎛️ 调节透视深度比与视线倾角</span>
+              <span class="lang-en hidden">🎛️ Adjust Depth Ratio &amp; Grazing Angle</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">远端/近端深度比 $Z_1 / Z_0$</span><span class="lang-en hidden">Depth Ratio $Z_1 / Z_0$</span></span>
+                <span id="valDepthRatio" class="font-mono text-indigo-400 font-bold">5.0x</span>
+              </div>
+              <input id="sliderDepthRatio" type="range" min="1.0" max="12.0" step="0.2" value="5.0" oninput="drawMathIntuition()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">屏幕插值进度 $s \in [0, 1]$</span><span class="lang-en hidden">Screen Fraction $s \in [0, 1]$</span></span>
+                <span id="valScreenS" class="font-mono text-emerald-400 font-bold">0.50</span>
+              </div>
+              <input id="sliderScreenS" type="range" min="0.05" max="0.95" step="0.01" value="0.50" oninput="drawMathIntuition()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">视线掠射倾角 $\theta_{\text{tilt}}$ (影响各向异性比)</span><span class="lang-en hidden">Surface Tilt $\theta_{\text{tilt}}$ (Anisotropy)</span></span>
+                <span id="valTilt" class="font-mono text-amber-400 font-bold">65°</span>
+              </div>
+              <input id="sliderTilt" type="range" min="0" max="82" step="1" value="65" oninput="drawMathIntuition()" class="w-full" />
+            </div>
+
+            <div class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 space-y-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400"><span class="lang-zh">错误仿射插值 $u_{\text{affine}} = s$:</span><span class="lang-en hidden">Wrong Affine $u_{\text{affine}} = s$:</span></span>
+                <span id="statAffineU" class="font-mono font-bold text-rose-400">0.500</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400"><span class="lang-zh">真实透视校正 $u_{\text{correct}} = t(s)$:</span><span class="lang-en hidden">True Perspective $u_{\text{correct}} = t(s)$:</span></span>
+                <span id="statCorrectU" class="font-mono font-bold text-emerald-400">0.833</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400"><span class="lang-zh">雅可比脚印轴长 $(\|\mathbf{g}_x\|, \|\mathbf{g}_y\|)$:</span><span class="lang-en hidden">Footprint Axes $(\|\mathbf{g}_x\|, \|\mathbf{g}_y\|)$:</span></span>
+                <span id="statFootprintAxes" class="font-mono font-bold text-cyan-300">(1.8, 4.4) texels</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400"><span class="lang-zh">各向异性纵横比 $A = \|\mathbf{g}_y\|/\|\mathbf{g}_x\|$:</span><span class="lang-en hidden">Anisotropy Ratio $A = \|\mathbf{g}_y\|/\|\mathbf{g}_x\|$:</span></span>
+                <span id="statAnisoRatio" class="font-mono font-bold text-amber-300">2.4x</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: DUAL INTERACTIVE LABS ==================== -->
+    <section id="tab-lab" class="tab-panel hidden space-y-8">
+      <!-- Lab 1: Affine vs Perspective-Correct Interpolation -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Laboratory 01 • Screen-Space Affine Warping vs. 1/Z Hyperbolic Correction</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">实验台 1：PS1 屏幕仿射扭曲 vs. $1/Z$ 透视校正插值双三角形竞技场</span>
+              <span class="lang-en hidden">Lab 1: PS1 Screen-Space Affine Warping vs. $1/Z$ Perspective-Correct Quad Arena</span>
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setLab1Mode('affine')" id="btnLab1Affine" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              ❌ <span class="lang-zh">错误仿射插值 (PS1 Affine)</span><span class="lang-en hidden">Wrong Affine (PS1)</span>
+            </button>
+            <button onclick="setLab1Mode('split')" id="btnLab1Split" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow transition">
+              ⚡ <span class="lang-zh">同屏对角线对比 (Split Compare)</span><span class="lang-en hidden">Diagonal Split Compare</span>
+            </button>
+            <button onclick="setLab1Mode('correct')" id="btnLab1Correct" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              ✅ <span class="lang-zh">$1/Z$ 透视校正 (Perspective-Correct)</span><span class="lang-en hidden">$1/Z$ Perspective-Correct</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <canvas id="lab1Canvas" width="720" height="420" class="w-full rounded-xl bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">📐 3D 四边形姿态与深度跨度控制</span>
+              <span class="lang-en hidden">📐 3D Quad Pose &amp; Depth Span Controls</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">远近深度跨度 $Z_{\text{far}} / Z_{\text{near}}$</span><span class="lang-en hidden">Depth Span $Z_{\text{far}} / Z_{\text{near}}$</span></span>
+                <span id="lab1ValDepth" class="font-mono text-indigo-400 font-bold">6.5x</span>
+              </div>
+              <input id="lab1SliderDepth" type="range" min="1.0" max="12.0" step="0.5" value="6.5" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">旋转偏航角 Yaw</span><span class="lang-en hidden">Rotation Yaw</span></span>
+                <span id="lab1ValYaw" class="font-mono text-cyan-400 font-bold">18°</span>
+              </div>
+              <input id="lab1SliderYaw" type="range" min="-45" max="45" step="1" value="18" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">棋盘格纹素密度 (Tiles)</span><span class="lang-en hidden">Checkerboard Tile Count</span></span>
+                <span id="lab1ValTiles" class="font-mono text-emerald-400 font-bold">8x8</span>
+              </div>
+              <input id="lab1SliderTiles" type="range" min="4" max="16" step="2" value="8" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer pt-1">
+              <input id="lab1ShowDiag" type="checkbox" checked onchange="renderLab1()" class="rounded border-slate-700" />
+              <span><span class="lang-zh">高亮显示两个三角形的公共对角线接缝</span><span class="lang-en hidden">Highlight shared triangle diagonal seam</span></span>
+            </label>
+
+            <div class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 text-xs text-slate-300 space-y-1.5 leading-relaxed">
+              <div class="font-bold text-amber-300">
+                <span class="lang-zh">🔍 观察指南：为什么对角线会折断？</span>
+                <span class="lang-en hidden">🔍 Why Does the Diagonal Kink?</span>
+              </div>
+              <p>
+                <span class="lang-zh">
+                  一个矩形由两个三角形 $(\mathbf{V}_0, \mathbf{V}_1, \mathbf{V}_2)$ 和 $(\mathbf{V}_0, \mathbf{V}_2, \mathbf{V}_3)$ 拼成。每个三角形在屏幕内部各自按平面重心坐标线性插值 $(u,v)$，但两个三角形的三个顶点深度组合不同，导致它们的错误仿射平面在公共对角线 $\mathbf{V}_0\mathbf{V}_2$ 处斜率突变！切换到 <strong>$1/Z$ 透视校正</strong> 后，折断瞬间消失。
+                </span>
+                <span class="lang-en hidden">
+                  A quad is split into two triangles $(\mathbf{V}_0,\mathbf{V}_1,\mathbf{V}_2)$ and $(\mathbf{V}_0,\mathbf{V}_2,\mathbf{V}_3)$. Affine interpolation fits a different screen-linear plane to each triangle's 3 vertices, creating a sharp slope discontinuity across the shared diagonal $\mathbf{V}_0\mathbf{V}_2$. Switching to <strong>$1/Z$ Perspective-Correct</strong> eliminates the kink completely!
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lab 2: Mipmap Pyramid, Anisotropic Filtering & TBN Normal Mapping Studio -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Laboratory 02 • Mipmap LOD Pyramid, Anisotropic Filtering &amp; TBN Normal Mapping</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">实验台 2：Mipmap 彩色层级视图、各向异性过滤与 TBN 法线贴图工作台</span>
+              <span class="lang-en hidden">Lab 2: Mipmap Rainbow LOD Inspector, Anisotropic Filtering &amp; TBN Normal Mapping Studio</span>
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setLab2Filter('nearest')" id="btnFilterNearest" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              <span class="lang-zh">无 Mipmap (摩尔纹)</span><span class="lang-en hidden">No Mipmap (Moiré)</span>
+            </button>
+            <button onclick="setLab2Filter('trilinear')" id="btnFilterTrilinear" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              <span class="lang-zh">三线性 Mipmap (远方糊)</span><span class="lang-en hidden">Trilinear Mipmap</span>
+            </button>
+            <button onclick="setLab2Filter('aniso')" id="btnFilterAniso" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 text-white shadow transition">
+              ✨ <span class="lang-zh">各向异性 8x AF + TBN</span><span class="lang-en hidden">Anisotropic 8x AF + TBN</span>
+            </button>
+            <button onclick="setLab2Filter('rainbow')" id="btnFilterRainbow" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              🌈 <span class="lang-zh">Mipmap 彩色层级视图</span><span class="lang-en hidden">Mipmap Rainbow LOD</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <canvas id="lab2Canvas" width="720" height="420" class="w-full rounded-xl bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🎛️ 地面掠射倾角与 TBN 法线凹凸控制</span>
+              <span class="lang-en hidden">🎛️ Horizon Pitch &amp; TBN Normal Map Controls</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">相机俯仰掠射角 Pitch</span><span class="lang-en hidden">Camera Grazing Pitch</span></span>
+                <span id="lab2ValPitch" class="font-mono text-cyan-400 font-bold">74°</span>
+              </div>
+              <input id="lab2SliderPitch" type="range" min="35" max="82" step="1" value="74" oninput="renderLab2()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">TBN 法线贴图凹凸强度 (Bump)</span><span class="lang-en hidden">TBN Normal Bump Strength</span></span>
+                <span id="lab2ValBump" class="font-mono text-purple-400 font-bold">0.90</span>
+              </div>
+              <input id="lab2SliderBump" type="range" min="0.0" max="1.5" step="0.05" value="0.90" oninput="renderLab2()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">点光源水平方位角 $\phi_L$</span><span class="lang-en hidden">Light Azimuth $\phi_L$</span></span>
+                <span id="lab2ValLight" class="font-mono text-amber-400 font-bold">35°</span>
+              </div>
+              <input id="lab2SliderLight" type="range" min="-80" max="80" step="2" value="35" oninput="renderLab2()" class="w-full" />
+            </div>
+
+            <div class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 space-y-2 text-xs">
+              <div class="font-bold text-slate-200 mb-1">
+                <span class="lang-zh">🌈 Mipmap 层级颜色图例 (LOD 0 → 5)</span>
+                <span class="lang-en hidden">🌈 Mipmap LOD Rainbow Legend (LOD 0 → 5)</span>
+              </div>
+              <div class="grid grid-cols-3 gap-1.5 text-[11px] font-mono">
+                <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">L0: 512² Red</span>
+                <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">L1: 256² Org</span>
+                <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">L2: 128² Grn</span>
+                <span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">L3: 64² Cyn</span>
+                <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">L4: 32² Blu</span>
+                <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">L5: 16² Pur</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: COURSE VIDEOS & NOTES ==================== -->
+    <section id="tab-videos" class="tab-panel hidden space-y-8">
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Course References • UC Davis ECS 175 &amp; MIT 6.837</span>
+          <h3 class="text-2xl font-extrabold text-white mt-1">
+            <span class="lang-zh">名校公开课视频索引与同步精读笔记</span>
+            <span class="lang-en hidden">University Lecture Video Index &amp; Study Guide</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">UC Davis ECS 175 • Lecture 10</span>
+              <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+10" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">YouTube ↗</a>
+            </div>
+            <h4 class="text-lg font-bold text-white">Shading and Texturing (Prof. Kenneth Joy)</h4>
+            <ul class="text-xs sm:text-sm text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+              <li>
+                <span class="lang-zh"><strong>参数化映射 $(u,v) \in [0,1]^2$</strong>：球面经纬度映射、柱面映射与平面投影映射的极点奇异点问题。</span>
+                <span class="lang-en hidden"><strong>Parametric Mapping $(u,v) \in [0,1]^2$</strong>: Spherical, cylindrical, and planar projections and pole singularities.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>纹理放大与双线性插值</strong>：当纹素密度低于屏幕像素密度时，如何用二次线性混合消除锯齿。</span>
+                <span class="lang-en hidden"><strong>Texture Magnification &amp; Bilinear Interpolation</strong>: Blending $2\times 2$ texels smoothly when zooming in.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>凹凸贴图 (Bump Mapping) vs. 法线贴图 (Normal Mapping)</strong>：如何在不改变几何顶点位置的前提下扰动法线 $\mathbf{n}$ 欺骗人眼。</span>
+                <span class="lang-en hidden"><strong>Bump vs. Normal Mapping</strong>: Perturbing surface normals $\mathbf{n}$ to fake fine geometric relief without adding polygons.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">MIT 6.837 • Lecture 14</span>
+              <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">MIT Playlist ↗</a>
+            </div>
+            <h4 class="text-lg font-bold text-white">Texture Mapping (Prof. Justin Solomon)</h4>
+            <ul class="text-xs sm:text-sm text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+              <li>
+                <span class="lang-zh"><strong>透视投影下的仿射破产</strong>：严格推导为什么线性插值必须作用在 $\frac{1}{w}$ 和 $\frac{u}{w}, \frac{v}{w}$ 上。</span>
+                <span class="lang-en hidden"><strong>Failure of Screen Affine Interpolation</strong>: Rigorous proof of why $\frac{1}{w}$ and $\frac{u}{w}, \frac{v}{w}$ are linearly interpolated in screen space.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>Mipmap 金字塔与三线性插值</strong>：Lance Williams (1983) 提出的 <em>"Multum in Parvo"</em> 预滤波金字塔与 $\log_2(\rho)$ 层级选择。</span>
+                <span class="lang-en hidden"><strong>Mipmap Pyramid &amp; Trilinear Interpolation</strong>: Lance Williams's (1983) <em>"Multum in Parvo"</em> pre-filtered pyramid and $\log_2(\rho)$ selection.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>Ripmaps 与各向异性过滤</strong>：解决倾斜表面像素脚印长宽比悬殊导致的远景过度模糊。</span>
+                <span class="lang-en hidden"><strong>Ripmaps &amp; Anisotropic Filtering</strong>: Preserving crispness at grazing angles when the pixel footprint is elongated.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION PLAYABLE GAME ==================== -->
+    <section id="tab-game" class="tab-panel hidden space-y-8">
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Interactive 3-Mission Challenge • Chief Texture &amp; Material Architect</span>
+            <h3 class="text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">🎮 闯关游戏：首席图形管线纹理与材质架构师 (3 大实战任务)</span>
+              <span class="lang-en hidden">🎮 Playable Game: Chief Texture &amp; Material Pipeline Architect (3 Missions)</span>
+            </h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="gameScoreBadge" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              Completed: 0 / 3
+            </span>
+          </div>
+        </div>
+
+        <!-- Mission Selector Buttons -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <button onclick="selectMission(1)" id="missionTab1" class="p-4 rounded-xl text-left border transition bg-indigo-600/20 border-indigo-500 text-white">
+            <div class="flex items-center justify-between text-xs font-bold text-indigo-300 mb-1">
+              <span>MISSION 01</span>
+              <span id="missionStatus1">⏳ In Progress</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">修复 PS1 对角线纹理折断</span>
+              <span class="lang-en hidden">Fix PS1 Diagonal Affine Warping</span>
+            </div>
+          </button>
+
+          <button onclick="selectMission(2)" id="missionTab2" class="p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70">
+            <div class="flex items-center justify-between text-xs font-bold text-cyan-300 mb-1">
+              <span>MISSION 02</span>
+              <span id="missionStatus2">🔒 Pending</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">驯服掠射角地平线摩尔纹与模糊</span>
+              <span class="lang-en hidden">Tame Grazing Horizon Moiré &amp; Blur</span>
+            </div>
+          </button>
+
+          <button onclick="selectMission(3)" id="missionTab3" class="p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70">
+            <div class="flex items-center justify-between text-xs font-bold text-purple-300 mb-1">
+              <span>MISSION 03</span>
+              <span id="missionStatus3">🔒 Pending</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">零多边形预算雕刻 TBN 浮雕石墙</span>
+              <span class="lang-en hidden">Zero-Polygon TBN Relief Carving</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span id="gameMissionTitle" class="font-bold text-indigo-300">Mission 1: Fix PS1 Diagonal Affine Warping</span>
+              <span id="gameLiveMetric" class="font-mono text-emerald-300">Seam Error: 0.38 rad</span>
+            </div>
+            <canvas id="gameCanvas" width="660" height="380" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <div id="gameBriefBox" class="bg-slate-950/90 rounded-xl p-4 border border-indigo-500/30 text-xs text-slate-300 leading-relaxed">
+              <!-- Populated by JS -->
+            </div>
+
+            <!-- Controls for Game -->
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">
+                  <span class="lang-zh">1. 屏幕插值模式 (Interpolation Mode)</span>
+                  <span class="lang-en hidden">1. Screen Interpolation Mode</span>
+                </label>
+                <select id="gameSelectInterp" onchange="updateGame()" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-xs text-white">
+                  <option value="affine">Affine Linear (u, v) — PS1 Style</option>
+                  <option value="perspective">Hyperbolic 1/Z Perspective-Correct (u/Z, v/Z)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">
+                  <span class="lang-zh">2. 纹理过滤与 Mipmap 模式 (Filtering Mode)</span>
+                  <span class="lang-en hidden">2. Texture Filtering &amp; Mipmap Mode</span>
+                </label>
+                <select id="gameSelectFilter" onchange="updateGame()" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-xs text-white">
+                  <option value="none">Nearest / No Mipmap (Aliasing Moiré)</option>
+                  <option value="trilinear">Trilinear Isotropic Mipmap (Over-blur at grazing)</option>
+                  <option value="aniso8x">Anisotropic 8x AF + Trilinear Mipmap</option>
+                </select>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-300"><span class="lang-zh">3. 深度比 / 掠射角强度 (Depth / Grazing Pitch)</span><span class="lang-en hidden">3. Depth Ratio / Grazing Pitch</span></span>
+                  <span id="gameValPitch" class="font-mono text-cyan-400 font-bold">7.0</span>
+                </div>
+                <input id="gameSliderPitch" type="range" min="2.0" max="10.0" step="0.5" value="7.0" oninput="updateGame()" class="w-full" />
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-300"><span class="lang-zh">4. TBN 切线空间法线凹凸强度 (TBN Bump)</span><span class="lang-en hidden">4. TBN Tangent-Space Normal Bump</span></span>
+                  <span id="gameValBump" class="font-mono text-purple-400 font-bold">0.20</span>
+                </div>
+                <input id="gameSliderBump" type="range" min="0.0" max="1.2" step="0.05" value="0.20" oninput="updateGame()" class="w-full" />
+              </div>
+            </div>
+
+            <button onclick="verifyMission()" class="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg transition">
+              🚀 <span class="lang-zh">验证当前管线配置 (Verify Pipeline)</span><span class="lang-en hidden">Verify Current Pipeline Configuration</span>
+            </button>
+
+            <div id="gameFeedbackBox" class="hidden rounded-xl p-3.5 text-xs font-semibold"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentLang = 'zh';
+    let lab1Mode = 'split';
+    let lab2Filter = 'aniso';
+    let currentMission = 1;
+    const completedMissions = { 1: false, 2: false, 3: false };
+
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.querySelectorAll('.lang-zh').forEach(el => el.classList.toggle('hidden', currentLang !== 'zh'));
+      document.querySelectorAll('.lang-en').forEach(el => el.classList.toggle('hidden', currentLang !== 'en'));
+      drawMathIntuition();
+      renderLab1();
+      renderLab2();
+      updateGameBrief();
+      updateGame();
+    }
+
+    function switchTab(tabId) {
+      ['math', 'lab', 'videos', 'game'].forEach(id => {
+        document.getElementById('tab-' + id).classList.toggle('hidden', id !== tabId);
+        const btn = document.getElementById('tab-btn-' + id);
+        if (id === tabId) {
+          btn.classList.add('tab-active');
+          btn.classList.remove('bg-slate-900', 'text-slate-300');
+        } else {
+          btn.classList.remove('tab-active');
+          btn.classList.add('bg-slate-900', 'text-slate-300');
+        }
+      });
+      if (tabId === 'math') drawMathIntuition();
+      if (tabId === 'lab') { renderLab1(); renderLab2(); }
+      if (tabId === 'game') { updateGameBrief(); updateGame(); }
+    }
+
+    // ==================== TAB 1 VISUALIZER ====================
+    function drawMathIntuition() {
+      const canvas = document.getElementById('mathIntuitionCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const ratio = parseFloat(document.getElementById('sliderDepthRatio').value);
+      const sSel = parseFloat(document.getElementById('sliderScreenS').value);
+      const tiltDeg = parseFloat(document.getElementById('sliderTilt').value);
+
+      document.getElementById('valDepthRatio').textContent = ratio.toFixed(1) + 'x';
+      document.getElementById('valScreenS').textContent = sSel.toFixed(2);
+      document.getElementById('valTilt').textContent = tiltDeg + '°';
+
+      const z0 = 1.0, z1 = ratio;
+      const tCorrect = (sSel / z0) / ((1 - sSel) / z1 + (sSel / z0));
+      document.getElementById('statAffineU').textContent = sSel.toFixed(3);
+      document.getElementById('statCorrectU').textContent = tCorrect.toFixed(3);
+
+      // Left Panel: Hyperbolic curve t(s) vs Affine line t = s
+      const padL = 48, padT = 36, plotW = 270, plotH = 270;
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(padL, padT, plotW, plotH);
+
+      // Grid lines
+      for (let i = 1; i < 4; i++) {
+        const gx = padL + (plotW * i) / 4;
+        const gy = padT + (plotH * i) / 4;
+        ctx.beginPath();
+        ctx.moveTo(gx, padT); ctx.lineTo(gx, padT + plotH);
+        ctx.moveTo(padL, gy); ctx.lineTo(padL + plotW, gy);
+        ctx.stroke();
+      }
+
+      // Affine diagonal (dashed rose)
+      ctx.save();
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(padL, padT + plotH);
+      ctx.lineTo(padL + plotW, padT);
+      ctx.stroke();
+      ctx.restore();
+
+      // Hyperbolic perspective-correct curve t(s)
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let i = 0; i <= 100; i++) {
+        const s = i / 100;
+        const t = (s / z0) / ((1 - s) / z1 + (s / z0));
+        const px = padL + s * plotW;
+        const py = padT + (1 - t) * plotH;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // Current s marker
+      const curX = padL + sSel * plotW;
+      const curYAff = padT + (1 - sSel) * plotH;
+      const curYCor = padT + (1 - tCorrect) * plotH;
+
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(curX, padT);
+      ctx.lineTo(curX, padT + plotH);
+      ctx.stroke();
+
+      ctx.fillStyle = '#f43f5e';
+      ctx.beginPath(); ctx.arc(curX, curYAff, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath(); ctx.arc(curX, curYCor, 6, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '双曲曲线 t(s) vs 仿射直线 u=s' : 'Hyperbolic t(s) vs Affine u=s', padL, padT - 10);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '11px monospace';
+      ctx.fillText('s=0', padL, padT + plotH + 16);
+      ctx.fillText('s=1 (Screen)', padL + plotW - 72, padT + plotH + 16);
+
+      // Right Panel: Texel Space Pixel Footprint Ellipse (g_x, g_y)
+      const cx = 505, cy = 180;
+      const boxR = 130;
+      ctx.strokeStyle = '#334155';
+      ctx.strokeRect(cx - boxR, cy - boxR, boxR * 2, boxR * 2);
+
+      // Draw checkerboard texel grid inside right panel
+      const cells = 8;
+      const cellSz = (boxR * 2) / cells;
+      for (let r = 0; r < cells; r++) {
+        for (let c = 0; c < cells; c++) {
+          ctx.fillStyle = (r + c) % 2 === 0 ? '#0f172a' : '#1e293b';
+          ctx.fillRect(cx - boxR + c * cellSz, cy - boxR + r * cellSz, cellSz, cellSz);
+        }
+      }
+
+      // Compute Jacobian footprint axes from depth & tilt
+      const tiltRad = (tiltDeg * Math.PI) / 180;
+      const gxLen = 1.2 + 0.25 * Math.sqrt(ratio);
+      const gyLen = gxLen / Math.max(0.14, Math.cos(tiltRad));
+      const rho = Math.max(gxLen, gyLen);
+      const lodD = Math.log2(Math.max(1, rho));
+      const aniso = gyLen / gxLen;
+
+      document.getElementById('statFootprintAxes').textContent = `(${gxLen.toFixed(1)}, ${gyLen.toFixed(1)}) texels`;
+      document.getElementById('statAnisoRatio').textContent = `${aniso.toFixed(1)}x`;
+      document.getElementById('mathReadoutBadge').textContent = `LOD d = ${lodD.toFixed(2)} | Aniso = ${aniso.toFixed(1)}x`;
+
+      const rx = Math.min(boxR - 10, gxLen * 12);
+      const ry = Math.min(boxR - 10, gyLen * 12);
+
+      // Standard isotropic Mipmap square (dashed amber)
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(cx - ry, cy - ry, ry * 2, ry * 2);
+      ctx.restore();
+
+      // True Anisotropic Pixel Footprint Ellipse (cyan)
+      ctx.fillStyle = 'rgba(6, 182, 212, 0.25)';
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Vectors g_x and g_y
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + rx, cy); ctx.stroke();
+      ctx.strokeStyle = '#f472b6';
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - ry); ctx.stroke();
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '纹素空间像素脚印 (Pixel Footprint)' : 'Texel-Space Pixel Footprint', cx - boxR, padT - 10);
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = '11px Inter, sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '橙色虚线框: 标准 Mipmap 正方形覆盖区域 (横向过度模糊)' : 'Dashed Box: Standard Isotropic Mipmap (Over-blurs X)', cx - boxR, cy + boxR + 18);
+    }
+
+    // ==================== TAB 2 LAB 1: AFFINE VS PERSPECTIVE-CORRECT ====================
+    function setLab1Mode(mode) {
+      lab1Mode = mode;
+      ['affine', 'split', 'correct'].forEach(m => {
+        const btn = document.getElementById('btnLab1' + m.charAt(0).toUpperCase() + m.slice(1));
+        if (m === mode) {
+          btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow transition';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition';
+        }
+      });
+      renderLab1();
+    }
+
+    function edgeFunc(ax, ay, bx, by, px, py) {
+      return (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+    }
+
+    function renderLab1() {
+      const canvas = document.getElementById('lab1Canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+
+      const depthRatio = parseFloat(document.getElementById('lab1SliderDepth').value);
+      const yawDeg = parseFloat(document.getElementById('lab1SliderYaw').value);
+      const tiles = parseInt(document.getElementById('lab1SliderTiles').value, 10);
+      const showDiag = document.getElementById('lab1ShowDiag').checked;
+
+      document.getElementById('lab1ValDepth').textContent = depthRatio.toFixed(1) + 'x';
+      document.getElementById('lab1ValYaw').textContent = yawDeg + '°';
+      document.getElementById('lab1ValTiles').textContent = tiles + 'x' + tiles;
+
+      const yaw = (yawDeg * Math.PI) / 180;
+      const cosY = Math.cos(yaw), sinY = Math.sin(yaw);
+
+      // Define 4 vertices of a 3D floor quad tilted into depth
+      const rawCorners = [
+        { x: -1.45, y: -0.95, zBase: 1.0, u: 0, v: 0 },
+        { x:  1.45, y: -0.95, zBase: 1.0, u: 1, v: 0 },
+        { x:  1.45, y:  0.85, zBase: depthRatio, u: 1, v: 1 },
+        { x: -1.45, y:  0.85, zBase: depthRatio, u: 0, v: 1 }
+      ];
+
+      const verts = rawCorners.map(c => {
+        const rx = c.x * cosY - (c.zBase - 1.0) * 0.12 * sinY;
+        const z = c.zBase + c.x * 0.18 * sinY;
+        const zClamped = Math.max(0.6, z);
+        const scale = 340 / Math.pow(zClamped, 0.55);
+        return {
+          sx: W * 0.5 + rx * scale,
+          sy: H * 0.56 - c.y * scale * 0.78,
+          z: zClamped,
+          u: c.u,
+          v: c.v
+        };
+      });
+
+      const img = ctx.createImageData(W, H);
+      const data = img.data;
+
+      // Background dark gradient
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const idx = (y * W + x) * 4;
+          data[idx] = 8; data[idx + 1] = 12; data[idx + 2] = 26; data[idx + 3] = 255;
+        }
+      }
+
+      const tris = [
+        [verts[0], verts[1], verts[2], 0],
+        [verts[0], verts[2], verts[3], 1]
+      ];
+
+      for (const [A, B, C, triId] of tris) {
+        const area = edgeFunc(A.sx, A.sy, B.sx, B.sy, C.sx, C.sy);
+        if (Math.abs(area) < 1e-5) continue;
+        const minX = Math.max(0, Math.floor(Math.min(A.sx, B.sx, C.sx)));
+        const maxX = Math.min(W - 1, Math.ceil(Math.max(A.sx, B.sx, C.sx)));
+        const minY = Math.max(0, Math.floor(Math.min(A.sy, B.sy, C.sy)));
+        const maxY = Math.min(H - 1, Math.ceil(Math.max(A.sy, B.sy, C.sy)));
+
+        for (let y = minY; y <= maxY; y++) {
+          for (let x = minX; x <= maxX; x++) {
+            const w0 = edgeFunc(B.sx, B.sy, C.sx, C.sy, x + 0.5, y + 0.5) / area;
+            const w1 = edgeFunc(C.sx, C.sy, A.sx, A.sy, x + 0.5, y + 0.5) / area;
+            const w2 = 1.0 - w0 - w1;
+            if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
+              const useCorrect =
+                lab1Mode === 'correct' ||
+                (lab1Mode === 'split' && triId === 1);
+
+              let u, v;
+              if (!useCorrect) {
+                u = w0 * A.u + w1 * B.u + w2 * C.u;
+                v = w0 * A.v + w1 * B.v + w2 * C.v;
+              } else {
+                const invZ = w0 / A.z + w1 / B.z + w2 / C.z;
+                u = (w0 * (A.u / A.z) + w1 * (B.u / B.z) + w2 * (C.u / C.z)) / invZ;
+                v = (w0 * (A.v / A.z) + w1 * (B.v / B.z) + w2 * (C.v / C.z)) / invZ;
+              }
+
+              const tx = Math.floor(u * tiles);
+              const ty = Math.floor(v * tiles);
+              const isDark = (tx + ty) % 2 === 0;
+
+              let r, g, b;
+              if (!useCorrect) {
+                r = isDark ? 42 : 244;
+                g = isDark ? 24 : 114;
+                b = isDark ? 48 : 140;
+              } else {
+                r = isDark ? 18 : 52;
+                g = isDark ? 45 : 211;
+                b = isDark ? 58 : 153;
+              }
+
+              // UV grid lines
+              const fu = (u * tiles) - Math.floor(u * tiles);
+              const fv = (v * tiles) - Math.floor(v * tiles);
+              if (fu < 0.06 || fv < 0.06) {
+                r = Math.min(255, r + 40);
+                g = Math.min(255, g + 40);
+                b = Math.min(255, b + 40);
+              }
+
+              const idx = (y * W + x) * 4;
+              data[idx] = r; data[idx + 1] = g; data[idx + 2] = b; data[idx + 3] = 255;
+            }
+          }
+        }
+      }
+
+      ctx.putImageData(img, 0, 0);
+
+      // Draw quad outline and optional diagonal seam
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(verts[0].sx, verts[0].sy);
+      ctx.lineTo(verts[1].sx, verts[1].sy);
+      ctx.lineTo(verts[2].sx, verts[2].sy);
+      ctx.lineTo(verts[3].sx, verts[3].sy);
+      ctx.closePath();
+      ctx.stroke();
+
+      if (showDiag) {
+        ctx.save();
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(verts[0].sx, verts[0].sy);
+        ctx.lineTo(verts[2].sx, verts[2].sy);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Labels
+      ctx.font = 'bold 13px Inter, sans-serif';
+      if (lab1Mode === 'split') {
+        ctx.fillStyle = '#fda4af';
+        ctx.fillText(currentLang === 'zh' ? '右下三角形：错误屏幕仿射插值 (Affine u,v)' : 'Lower-Right Tri: Wrong Screen-Space Affine (u,v)', 22, H - 22);
+        ctx.fillStyle = '#6ee7b7';
+        ctx.fillText(currentLang === 'zh' ? '左上三角形：1/Z 透视校正插值 (Perspective-Correct)' : 'Upper-Left Tri: 1/Z Perspective-Correct Interpolation', 22, 28);
+      } else if (lab1Mode === 'affine') {
+        ctx.fillStyle = '#fda4af';
+        ctx.fillText(currentLang === 'zh' ? '当前：全屏仿射插值 — 注意黄色对角线处的棋盘格严重折断！' : 'Mode: Full Screen-Space Affine — Notice the severe diagonal kink!', 22, 28);
+      } else {
+        ctx.fillStyle = '#6ee7b7';
+        ctx.fillText(currentLang === 'zh' ? '当前：1/Z 透视校正插值 — 跨越对角线的棋盘格直线严丝合缝！' : 'Mode: 1/Z Perspective-Correct — Straight lines cross the diagonal seamlessly!', 22, 28);
+      }
+    }
+
+    // ==================== TAB 2 LAB 2: MIPMAP, ANISOTROPIC & TBN STUDIO ====================
+    function setLab2Filter(mode) {
+      lab2Filter = mode;
+      const map = {
+        nearest: 'btnFilterNearest',
+        trilinear: 'btnFilterTrilinear',
+        aniso: 'btnFilterAniso',
+        rainbow: 'btnFilterRainbow'
+      };
+      Object.keys(map).forEach(k => {
+        const btn = document.getElementById(map[k]);
+        if (k === mode) {
+          btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 text-white shadow transition';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition';
+        }
+      });
+      renderLab2();
+    }
+
+    function renderLab2() {
+      const canvas = document.getElementById('lab2Canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+
+      const pitchDeg = parseFloat(document.getElementById('lab2SliderPitch').value);
+      const bumpStrength = parseFloat(document.getElementById('lab2SliderBump').value);
+      const lightPhiDeg = parseFloat(document.getElementById('lab2SliderLight').value);
+
+      document.getElementById('lab2ValPitch').textContent = pitchDeg + '°';
+      document.getElementById('lab2ValBump').textContent = bumpStrength.toFixed(2);
+      document.getElementById('lab2ValLight').textContent = lightPhiDeg + '°';
+
+      const img = ctx.createImageData(W, H);
+      const data = img.data;
+
+      const horizonY = Math.floor(H * (0.18 + (82 - pitchDeg) * 0.006));
+      const lightPhi = (lightPhiDeg * Math.PI) / 180;
+      const lx = Math.sin(lightPhi) * 0.75;
+      const ly = 0.55;
+      const lz = Math.cos(lightPhi) * 0.45;
+      const lLen = Math.hypot(lx, ly, lz);
+      const Lx = lx / lLen, Ly = ly / lLen, Lz = lz / lLen;
+
+      const lodColors = [
+        [244, 63, 94],   // L0 Red
+        [245, 158, 11],  // L1 Orange
+        [16, 185, 129],  // L2 Emerald
+        [6, 182, 212],   // L3 Cyan
+        [59, 130, 246],  // L4 Blue
+        [168, 85, 247]   // L5 Purple
+      ];
+
+      for (let y = 0; y < H; y++) {
+        if (y < horizonY) {
+          for (let x = 0; x < W; x++) {
+            const idx = (y * W + x) * 4;
+            const t = y / Math.max(1, horizonY);
+            data[idx] = Math.floor(10 + 18 * t);
+            data[idx + 1] = Math.floor(16 + 28 * t);
+            data[idx + 2] = Math.floor(35 + 48 * t);
+            data[idx + 3] = 255;
+          }
+          continue;
+        }
+
+        const dy = Math.max(1.5, y - horizonY);
+        const camH = 110 * Math.cos((pitchDeg * Math.PI) / 180) + 28;
+        const Z = (camH * 240) / dy;
+        const duDx = Z / 320;
+        const dvDy = (Z * Z) / (camH * 240 * 18);
+
+        const rhoIso = Math.max(duDx * 16, dvDy * 16);
+        const rhoMin = Math.min(duDx * 16, dvDy * 16);
+        const lodIso = Math.max(0, Math.min(5, Math.log2(Math.max(1, rhoIso))));
+        const lodAniso = Math.max(0, Math.min(5, Math.log2(Math.max(1, rhoMin * 1.4))));
+
+        for (let x = 0; x < W; x++) {
+          const u = ((x - W * 0.5) * Z) / (320 * 48);
+          const v = Z / 22;
+
+          // Checkerboard + stone brick pattern
+          const freq = 4.0;
+          const U = u * freq;
+          const V = v * freq;
+
+          const rawCheck = ((Math.floor(U) + Math.floor(V)) & 1) ? 1.0 : 0.18;
+
+          let baseVal = rawCheck;
+          if (lab2Filter === 'trilinear') {
+            const blurFactor = Math.min(1.0, lodIso / 3.2);
+            baseVal = rawCheck * (1 - blurFactor) + 0.58 * blurFactor;
+          } else if (lab2Filter === 'aniso') {
+            const blurFactor = Math.min(0.62, lodAniso / 4.5);
+            baseVal = rawCheck * (1 - blurFactor) + 0.58 * blurFactor;
+          }
+
+          // TBN Tangent-Space Normal Map perturbation from procedural brick bevels
+          const brickU = U - Math.floor(U);
+          const brickV = V - Math.floor(V);
+          let nx = 0, ny = 1, nz = 0;
+          if (bumpStrength > 0.01) {
+            const bevelX = Math.sin(brickU * Math.PI * 2) * bumpStrength;
+            const bevelZ = Math.sin(brickV * Math.PI * 2) * bumpStrength;
+            // Attenuate high-frequency bump in distant Mips to avoid normal aliasing
+            const mipAtten = 1.0 / (1.0 + 0.35 * lodAniso);
+            nx = -bevelX * mipAtten;
+            nz = -bevelZ * mipAtten;
+            const nLen = Math.hypot(nx, 1.0, nz);
+            nx /= nLen; ny = 1.0 / nLen; nz /= nLen;
+          }
+
+          const ndotl = Math.max(0.15, nx * Lx + ny * Ly + nz * Lz);
+          const spec = Math.pow(Math.max(0, ny * 0.85 + nx * Lx * 0.5), 24) * 0.45 * (bumpStrength > 0.1 ? 1 : 0.2);
+
+          let r, g, b;
+          if (lab2Filter === 'rainbow') {
+            const l0 = Math.floor(lodIso);
+            const l1 = Math.min(5, l0 + 1);
+            const f = lodIso - l0;
+            const c0 = lodColors[l0], c1 = lodColors[l1];
+            const cr = c0[0] * (1 - f) + c1[0] * f;
+            const cg = c0[1] * (1 - f) + c1[1] * f;
+            const cb = c0[2] * (1 - f) + c1[2] * f;
+            const shade = (0.55 + 0.45 * rawCheck) * ndotl;
+            r = Math.min(255, cr * shade);
+            g = Math.min(255, cg * shade);
+            b = Math.min(255, cb * shade);
+          } else {
+            r = Math.min(255, (baseVal * 195 * ndotl + spec * 255));
+            g = Math.min(255, (baseVal * 210 * ndotl + spec * 245));
+            b = Math.min(255, (baseVal * 235 * ndotl + spec * 220));
+          }
+
+          const idx = (y * W + x) * 4;
+          data[idx] = r; data[idx + 1] = g; data[idx + 2] = b; data[idx + 3] = 255;
+        }
+      }
+
+      ctx.putImageData(img, 0, 0);
+
+      // Draw HUD overlay
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+      ctx.fillRect(16, 16, 460, 34);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      const labelMap = {
+        nearest: currentLang === 'zh' ? '模式：无 Mipmap — 注意远方地平线处的剧烈高频摩尔纹锯齿！' : 'Mode: Nearest (No Mipmap) — Severe Moiré aliasing near horizon!',
+        trilinear: currentLang === 'zh' ? '模式：标准三线性 Mipmap — 摩尔纹消失，但远方横向线条被糊成灰色！' : 'Mode: Trilinear Isotropic Mipmap — Moiré gone, but distant tiles over-blur!',
+        aniso: currentLang === 'zh' ? '模式：8x 各向异性过滤 + TBN 法线凹凸 — 远景清晰且近景石砖立体！' : 'Mode: 8x Anisotropic + TBN Normal Map — Crisp horizon & 3D brick relief!',
+        rainbow: currentLang === 'zh' ? '模式：Mipmap LOD 彩虹层级视图 (红 L0 → 橙 L1 → 绿 L2 → 青 L3 → 蓝 L4)' : 'Mode: Mipmap Rainbow LOD View (Red L0 → Org L1 → Grn L2 → Cyn L3 → Blu L4)'
+      };
+      ctx.fillText(labelMap[lab2Filter], 26, 37);
+    }
+
+    // ==================== TAB 4: 3-MISSION GAME ====================
+    function selectMission(m) {
+      currentMission = m;
+      [1, 2, 3].forEach(id => {
+        const btn = document.getElementById('missionTab' + id);
+        if (id === m) {
+          btn.className = 'p-4 rounded-xl text-left border transition bg-indigo-600/20 border-indigo-500 text-white';
+        } else {
+          btn.className = 'p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70';
+        }
+      });
+
+      // Set initial challenge states
+      if (m === 1) {
+        document.getElementById('gameSelectInterp').value = 'affine';
+        document.getElementById('gameSelectFilter').value = 'trilinear';
+        document.getElementById('gameSliderPitch').value = '6.5';
+        document.getElementById('gameSliderBump').value = '0.25';
+      } else if (m === 2) {
+        document.getElementById('gameSelectInterp').value = 'perspective';
+        document.getElementById('gameSelectFilter').value = 'none';
+        document.getElementById('gameSliderPitch').value = '8.0';
+        document.getElementById('gameSliderBump').value = '0.30';
+      } else if (m === 3) {
+        document.getElementById('gameSelectInterp').value = 'perspective';
+        document.getElementById('gameSelectFilter').value = 'aniso8x';
+        document.getElementById('gameSliderPitch').value = '6.5';
+        document.getElementById('gameSliderBump').value = '0.15';
+      }
+
+      document.getElementById('gameFeedbackBox').classList.add('hidden');
+      updateGameBrief();
+      updateGame();
+    }
+
+    function updateGameBrief() {
+      const box = document.getElementById('gameBriefBox');
+      const title = document.getElementById('gameMissionTitle');
+      if (currentMission === 1) {
+        title.textContent = currentLang === 'zh'
+          ? '关卡 1：修复 PS1 风格对角线纹理折断伪影'
+          : 'Mission 1: Fix PS1 Diagonal Affine Texture Warping';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务目标：</strong>当前走廊地板在大深度比（$\\ge 6.0\\times$）下使用了屏幕空间仿射插值，导致两个三角形拼接对角线出现严重折断。请将插值模式切换为 <strong>Hyperbolic 1/Z Perspective-Correct</strong> 并保持深度比 $\\ge 6.0$！'
+          : '<strong>Objective:</strong> The corridor floor uses screen-space affine interpolation across a deep span ($\\ge 6.0\\times$), kinking along the diagonal. Switch interpolation to <strong>Hyperbolic 1/Z Perspective-Correct</strong> with depth ratio $\\ge 6.0$!';
+      } else if (currentMission === 2) {
+        title.textContent = currentLang === 'zh'
+          ? '关卡 2：驯服掠射角地平线摩尔纹与横向模糊'
+          : 'Mission 2: Tame Grazing-Angle Horizon Moiré & Blur';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务目标：</strong>在掠射倾角强度 $\\ge 7.5$ 的远景跑道上，开启 <strong>1/Z 透视校正</strong> + <strong>Anisotropic 8x AF + Trilinear Mipmap</strong>，同时消灭地平线摩尔纹与各向同性 Mipmap 的横向模糊！'
+          : '<strong>Objective:</strong> On a steep grazing runway (Pitch/Depth $\\ge 7.5$), enable <strong>1/Z Perspective-Correct</strong> + <strong>Anisotropic 8x AF + Trilinear Mipmap</strong> to eliminate both horizon Moiré and isotropic blur!';
+      } else {
+        title.textContent = currentLang === 'zh'
+          ? '关卡 3：零多边形预算雕刻 TBN 切线空间立体石砖'
+          : 'Mission 3: Zero-Polygon TBN Tangent-Space Relief Carving';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务目标：</strong>在不增加任何几何顶点的情况下，启用 <strong>1/Z 透视校正</strong> + <strong>Anisotropic 8x AF</strong>，并将 <strong>TBN 法线凹凸强度调至 $\\ge 0.85$</strong>，让平面石砖浮现出逼真的三维高光与立体凹槽！'
+          : '<strong>Objective:</strong> Without adding a single polygon vertex, enable <strong>1/Z Perspective-Correct</strong> + <strong>Anisotropic 8x AF</strong> and raise <strong>TBN Normal Bump to $\\ge 0.85$</strong> to carve 3D specular relief!';
+      }
+    }
+
+    function updateGame() {
+      const interp = document.getElementById('gameSelectInterp').value;
+      const filter = document.getElementById('gameSelectFilter').value;
+      const pitch = parseFloat(document.getElementById('gameSliderPitch').value);
+      const bump = parseFloat(document.getElementById('gameSliderBump').value);
+
+      document.getElementById('gameValPitch').textContent = pitch.toFixed(1);
+      document.getElementById('gameValBump').textContent = bump.toFixed(2);
+
+      const metricEl = document.getElementById('gameLiveMetric');
+      if (currentMission === 1) {
+        metricEl.textContent = interp === 'perspective' ? 'Seam Kink Error: 0.000 rad (PASS)' : 'Seam Kink Error: 0.412 rad (WARPED)';
+      } else if (currentMission === 2) {
+        metricEl.textContent = filter === 'aniso8x' && pitch >= 7.5 ? 'Horizon Clarity: 98.4% (PASS)' : 'Horizon Clarity: 44.0% (ALIASED/BLUR)';
+      } else {
+        metricEl.textContent = `TBN Specular Relief: ${(bump * 100).toFixed(0)}% (Target >= 85%)`;
+      }
+
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // Render interactive preview of the pipeline configuration
+      const horizonY = 75;
+      for (let y = horizonY; y < H; y += 3) {
+        const s = (y - horizonY) / (H - horizonY);
+        const z = interp === 'perspective'
+          ? 1.0 / ((1 - s) / pitch + s / 1.0)
+          : (1 - s) * pitch + s * 1.0;
+
+        for (let x = 0; x < W; x += 4) {
+          const nxScreen = (x - W * 0.5) / (W * 0.45);
+          // Introduce affine kink across diagonal x/W == y/H when in affine mode
+          const diagOffset = interp === 'affine' ? (x / W > s ? 0.28 * s * (1 - s) * pitch : -0.18 * s * (1 - s) * pitch) : 0;
+          const u = nxScreen * z * 1.8 + diagOffset;
+          const v = z * 1.6;
+
+          const check = ((Math.floor(u * 2) + Math.floor(v * 2)) & 1) ? 1.0 : 0.22;
+          let val = check;
+          if (filter === 'trilinear') {
+            const blur = Math.min(0.85, z / (pitch * 0.95));
+            val = check * (1 - blur) + 0.55 * blur;
+          } else if (filter === 'aniso8x') {
+            const blur = Math.min(0.32, z / (pitch * 2.2));
+            val = check * (1 - blur) + 0.55 * blur;
+          }
+
+          const bevel = Math.sin(u * Math.PI * 4) * Math.cos(v * Math.PI * 4) * bump;
+          const shade = Math.max(0.2, Math.min(1.35, 0.78 + bevel * 0.55));
+
+          const r = Math.floor(val * 70 * shade);
+          const g = Math.floor(val * 185 * shade);
+          const b = Math.floor(val * 225 * shade);
+          ctx.fillStyle = `rgb(${r},${g},${b})`;
+          ctx.fillRect(x, y, 4, 3);
+        }
+      }
+
+      // Sky header
+      ctx.fillStyle = '#090d1f';
+      ctx.fillRect(0, 0, W, horizonY);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '12px monospace';
+      ctx.fillText(`Pipeline: [${interp.toUpperCase()}] | Filter: [${filter.toUpperCase()}] | Depth/Pitch: ${pitch.toFixed(1)} | TBN Bump: ${bump.toFixed(2)}`, 18, 42);
+    }
+
+    function verifyMission() {
+      const interp = document.getElementById('gameSelectInterp').value;
+      const filter = document.getElementById('gameSelectFilter').value;
+      const pitch = parseFloat(document.getElementById('gameSliderPitch').value);
+      const bump = parseFloat(document.getElementById('gameSliderBump').value);
+      const fb = document.getElementById('gameFeedbackBox');
+      fb.classList.remove('hidden');
+
+      let ok = false;
+      if (currentMission === 1) {
+        ok = interp === 'perspective' && pitch >= 6.0;
+      } else if (currentMission === 2) {
+        ok = interp === 'perspective' && filter === 'aniso8x' && pitch >= 7.5;
+      } else if (currentMission === 3) {
+        ok = interp === 'perspective' && filter === 'aniso8x' && bump >= 0.85;
+      }
+
+      if (ok) {
+        completedMissions[currentMission] = true;
+        document.getElementById('missionStatus' + currentMission).textContent = '✅ Passed';
+        fb.className = 'rounded-xl p-3.5 text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+        fb.textContent = currentLang === 'zh'
+          ? `🎉 恭喜通过关卡 ${currentMission}！你的纹理与材质管线完全符合工业级图形学标准！`
+          : `🎉 Mission ${currentMission} Complete! Your texture and TBN pipeline meets production graphics standards!`;
+      } else {
+        fb.className = 'rounded-xl p-3.5 text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40';
+        fb.textContent = currentLang === 'zh'
+          ? '⚠️ 当前参数尚未满足关卡指标，请检查插值模式 (1/Z)、过滤模式 (Anisotropic 8x) 或 TBN 凹凸强度！'
+          : '⚠️ Parameters do not yet meet mission targets. Check 1/Z interpolation, Anisotropic 8x filtering, or TBN bump strength!';
+      }
+
+      const doneCount = Object.values(completedMissions).filter(Boolean).length;
+      document.getElementById('gameScoreBadge').textContent = `Completed: ${doneCount} / 3`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      drawMathIntuition();
+      renderLab1();
+      renderLab2();
+      updateGameBrief();
+      updateGame();
+    });
+  </script>
+</body>
+</html>
