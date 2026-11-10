@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 12: Visibility, Z-Buffer & Ray Casting | 可见性问题与光线投射</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body { background: #020617; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .math-box { background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(51, 65, 85, 0.85); border-radius: 0.85rem; padding: 1rem 1.25rem; overflow-x: auto; }
+    canvas { touch-action: none; user-select: none; }
+    .tab-btn.active { background: #0284c7; color: #ffffff; border-color: #38bdf8; box-shadow: 0 0 20px rgba(56, 189, 248, 0.35); }
+    .lang-en { display: none; }
+    body.en-mode .lang-zh { display: none; }
+    body.en-mode .lang-en { display: inline; }
+    body.en-mode div.lang-en, body.en-mode p.lang-en, body.en-mode ul.lang-en, body.en-mode h3.lang-en, body.en-mode h4.lang-en { display: block; }
+    body.en-mode div.lang-zh, body.en-mode p.lang-zh, body.en-mode ul.lang-zh, body.en-mode h3.lang-zh, body.en-mode h4.lang-zh { display: none; }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          <span class="lang-zh">← 课程总目录 (Index)</span>
+          <span class="lang-en">← Course Index</span>
+        </a>
+        <span class="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950">
+          Stage 3 • Lesson 12 / 32
+        </span>
+        <div>
+          <h1 class="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+            <span class="lang-zh">可见性问题、深度缓冲与光线投射 (Ray Casting &amp; Analytic Intersections)</span>
+            <span class="lang-en">Visibility, Z-Buffer &amp; Ray Casting (Ray Generation &amp; Sphere/Plane Intersections)</span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            3Blue1Brown Explicit-Implicit Marriage &amp; Chord Geometry • UC Davis Lec 07 • MIT 6.837 Lec 09
+          </p>
+        </div>
+      </div>
+
+      <button id="langToggleBtn" onclick="toggleLang()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition">
+        <span>🌐</span>
+        <span id="langBtnText">EN / 中文</span>
+      </button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-3 flex flex-wrap gap-2">
+      <button onclick="switchTab('concepts')" id="tab-btn-concepts" class="tab-btn active px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">1. 3Blue1Brown 精讲：显式射线×隐式曲面、弦长分解与判别式 Δ</span>
+        <span class="lang-en">1. 3Blue1Brown Deep Dive: Explicit Ray × Implicit Surface &amp; Δ</span>
+      </button>
+      <button onclick="switchTab('lab')" id="tab-btn-lab" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">2. 双视窗实验室：像素射线发射器 + 实时光线投射帧缓冲</span>
+        <span class="lang-en">2. Dual-View Lab: 3D Pixel Ray Shooter + Live Ray-Cast Buffer</span>
+      </button>
+      <button onclick="switchTab('videos')" id="tab-btn-videos" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">3. MIT 6.837 Lec 09 / UC Davis Lec 07 视频与求交公式全表</span>
+        <span class="lang-en">3. MIT 6.837 Lec 09 &amp; UC Davis Lec 07 + Intersection Cheat Sheet</span>
+      </button>
+      <button onclick="switchTab('game')" id="tab-btn-game" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-indigo-500/40 bg-indigo-950/40 text-indigo-300 transition">
+        <span class="lang-zh">🎮 4. 3关实战游戏：深空激光雷达与光线投射指挥官</span>
+        <span class="lang-en">🎮 4. 3-Mission Game: Deep-Space LiDAR &amp; Ray-Cast Commander</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <!-- ==================== TAB 1: 3BLUE1BROWN DEEP CONCEPTS ==================== -->
+    <section id="tab-concepts" class="space-y-8">
+      <!-- Intro Banner -->
+      <div class="rounded-3xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/40 p-6 sm:p-8 space-y-4">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+          <span>✨ Stage 3 Opening • Ray Tracing &amp; Physically Based Rendering</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white">
+          <span class="lang-zh">欢迎进入 Stage 3！为什么“显式参数射线”遇见“隐式代数曲面”是天作之合？</span>
+          <span class="lang-en">Welcome to Stage 3! Why "Explicit Parametric Ray" Meets "Implicit Surface" Is a Mathematical Marriage Made in Heaven</span>
+        </h2>
+        <p class="lang-zh text-sm sm:text-base text-slate-300 leading-relaxed">
+          在 Stage 1 和 Stage 2 中，我们学会了如何在 3D 世界里放置相机（Lesson 06）和雕刻几何模型（Lessons 07–11）。现在，我们要回答计算机图形学最核心的问题——<b>渲染 (Rendering) 与可见性 (Visibility)</b>：<b>当三维世界里有成千上万个物体相互遮挡时，屏幕上的每一个像素 $(i, j)$ 究竟应该显示哪个物体表面哪一点的颜色？</b>
+          <br/><br/>
+          解决可见性问题有两大截然相反的哲学流派（<b>双重循环的对调</b>）：
+          <br/>• <b>物体优先 (Object-Order / Rasterization + Z-Buffer)</b>：外层循环遍历<b>所有几何体</b>，内层循环把几何体投影到屏幕上更新像素深度缓冲；
+          <br/>• <b>图像优先 (Image-Order / Ray Casting &amp; Ray Tracing)</b>：外层循环遍历<b>屏幕上的每一个像素</b>，从相机眼睛穿过像素发射一条三维射线 $\mathbf{r}(t) = \mathbf{o} + t\mathbf{d}$，内层循环测试这条射线先撞上哪个物体（最小正交点 $t_{\min} > 0$）！
+        </p>
+        <p class="lang-en text-sm sm:text-base text-slate-300 leading-relaxed">
+          Rendering solves the <b>Visibility Problem</b>: which surface point is visible at each pixel $(i,j)$? Graphics splits into two dual paradigms by swapping the outer and inner loops: <b>Object-Order (Rasterization + Z-Buffer)</b> loops over all primitives and projects them onto pixels, whereas <b>Image-Order (Ray Casting / Ray Tracing)</b> loops over all pixels, shooting a 3D ray $\mathbf{r}(t) = \mathbf{o} + t\mathbf{d}$ into the scene to find the closest positive intersection $t_{\min} > 0$!
+        </p>
+      </div>
+
+      <!-- Part 1: Pinhole Camera Ray Generation & Explicit-Implicit Marriage -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-black flex items-center justify-center">01</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">从像素 $(i, j)$ 到 3D 射线 $\mathbf{r}(t) = \mathbf{o} + t\mathbf{d}$，以及“显式生成 × 隐式检验”黄金法则</span>
+            <span class="lang-en">From Pixel $(i, j)$ to 3D Ray $\mathbf{r}(t) = \mathbf{o} + t\mathbf{d}$ &amp; The "Explicit Generator × Implicit Tester" Rule</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm text-slate-300 leading-relaxed">
+          <div class="space-y-3">
+            <h4 class="font-bold text-cyan-300 text-base">
+              <span class="lang-zh">① 针孔相机射线生成方程 (Ray Generation)</span>
+              <span class="lang-en">1. Pinhole Camera Ray Generation</span>
+            </h4>
+            <p class="lang-zh">
+              回顾 <b>Lesson 06</b> 我们用两次叉积构造的相机正交右手标架 $(\mathbf{u}, \mathbf{v}, \mathbf{w})$：相机位于原点 $\mathbf{o} = \mathbf{e}$，镜头朝向 $-\mathbf{w}$ 方向。假设在距离眼睛 $d_{\text{focal}} = 1$ 处放一块虚拟成像平面，垂直视场角为 $\theta_y$（FOV），宽高比为 $a = W/H$。
+              对于分辨率 $W \times H$ 屏幕上的像素 $(i, j)$，先将其中心归一化到 $[-1, 1]^2$：
+            </p>
+            <p class="lang-en">
+              Using Lesson 06's orthonormal camera basis $(\mathbf{u}, \mathbf{v}, \mathbf{w})$ at eye $\mathbf{o}$, place a virtual image plane at distance $1$ along $-\mathbf{w}$ with vertical FOV $\theta_y$ and aspect ratio $a = W/H$:
+            </p>
+            <div class="math-box text-xs">
+              $$u_s = \left(\frac{2(i + 0.5)}{W} - 1\right) \cdot a \cdot \tan\frac{\theta_y}{2}, \qquad v_s = \left(1 - \frac{2(j + 0.5)}{H}\right) \cdot \tan\frac{\theta_y}{2}$$
+              $$\mathbf{d} = \text{normalize}\!\left(u_s\,\mathbf{u} + v_s\,\mathbf{v} - \mathbf{w}\right), \qquad \mathbf{r}(t) = \mathbf{o} + t\mathbf{d} \quad (t > 0)$$
+            </div>
+            <p class="lang-zh text-xs text-slate-400">
+              <b>为什么必须限制 $t > 0$？</b> 因为如果 $t$ 取任意实数，$\mathbf{o} + t\mathbf{d}$ 是一条双向无限延伸的直线；限制 $t > 0$ 才是一条从相机出发只向前看的<b>半直线 (Half-Line / Ray)</b>！$t < 0$ 的交点在摄影师后脑勺背后，绝不能画到屏幕上！
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="font-bold text-amber-300 text-base">
+              <span class="lang-zh">② 3Blue1Brown 洞见：为什么“显式参数射线”配“隐式曲面”最优雅？</span>
+              <span class="lang-en">2. 3Blue1Brown Insight: Why Explicit Ray + Implicit Surface Is Magic</span>
+            </h4>
+            <p class="lang-zh">
+              在 Lesson 07 我们对比过几何体的两种数学表示：
+              <br/>• <b>显式参数方程 $\mathbf{r}(t) = \mathbf{o} + t\mathbf{d}$</b>：是一个<b>“点生成器 (Point Generator)”</b>——给它一个时间 $t$，它就吐出一个 3D 坐标 $(x,y,z)$；
+              <br/>• <b>隐式方程 $f(\mathbf{p}) = 0$</b>：是一个<b>“点检验器 (Point Tester)”</b>——给它一个 3D 坐标 $\mathbf{p}$，如果算出 $0$ 说明在表面上，$<0$ 在内部，$>0$ 在外部。
+              <br/><br/>
+              当你把<b>显式点生成器 $\mathbf{r}(t)$ 直接塞进隐式检验器 $f(\cdot)$ 的肚子里</b>：
+            </p>
+            <div class="math-box text-xs">
+              $$f\big(\mathbf{r}(t)\big) = f(\mathbf{o} + t\mathbf{d}) = 0$$
+            </div>
+            <p class="lang-zh">
+              原本有 $(x, y, z)$ 三个未知数的三维空间求交问题，瞬间降维坍缩成<b>只含单一时间变量 $t$ 的一维方程</b>！
+              <br/>• <b>射线与平面求交</b>：平面隐式方程 $(\mathbf{p} - \mathbf{p}_0)\cdot\mathbf{n} = 0$。代入 $\mathbf{p} = \mathbf{o} + t\mathbf{d}$ 得 $(\mathbf{o} + t\mathbf{d} - \mathbf{p}_0)\cdot\mathbf{n} = 0$，一步移项即得：
+              $$t = \frac{(\mathbf{p}_0 - \mathbf{o})\cdot\mathbf{n}}{\mathbf{d}\cdot\mathbf{n}}$$
+              *(当分母 $\mathbf{d}\cdot\mathbf{n} = 0$ 时，射线方向与平面法线垂直，即射线平行于平面，无交点！)*
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Ray-Sphere Intersection — Algebraic vs 3Blue1Brown Geometric Chord Decomposition -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black flex items-center justify-center">02</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">射线与球体求交：二次方程判别式 $\Delta$ 的本质与“几何半弦长分解法”</span>
+            <span class="lang-en">Ray-Sphere Intersection: Discriminant $\Delta$ vs. Geometric Half-Chord Decomposition</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm text-slate-300 leading-relaxed">
+          <div class="math-box text-xs sm:text-sm space-y-2.5">
+            <div class="text-amber-300 font-bold">
+              <span class="lang-zh">方法 A：代数展开法（二次方程 $at^2 + bt + c = 0$）</span>
+              <span class="lang-en">Method A: Algebraic Quadratic Expansion ($at^2 + bt + c = 0$)</span>
+            </div>
+            <p class="lang-zh text-slate-300">
+              球心为 $\mathbf{c}$、半径为 $R$ 的球面隐式方程为 $\|\mathbf{p} - \mathbf{c}\|^2 - R^2 = 0$。将 $\mathbf{p} = \mathbf{o} + t\mathbf{d}$ 代入，利用点积分配律 $(\mathbf{m} + t\mathbf{d})\cdot(\mathbf{m} + t\mathbf{d}) = R^2$（记 $\mathbf{m} = \mathbf{o} - \mathbf{c}$）：
+            </p>
+            $$\underbrace{(\mathbf{d}\cdot\mathbf{d})}_{a}\,t^2 + \underbrace{2(\mathbf{m}\cdot\mathbf{d})}_{b}\,t + \underbrace{(\mathbf{m}\cdot\mathbf{m} - R^2)}_{c} = 0$$
+            $$\Delta = b^2 - 4ac, \qquad t_{1,2} = \frac{-b \mp \sqrt{\Delta}}{2a}$$
+          </div>
+
+          <div class="math-box text-xs sm:text-sm space-y-2.5 border-cyan-500/40">
+            <div class="text-cyan-300 font-bold">
+              <span class="lang-zh">方法 B：3Blue1Brown 几何投影弦长法（直观看透 $\Delta$！）</span>
+              <span class="lang-en">Method B: 3Blue1Brown Geometric Projection &amp; Half-Chord</span>
+            </div>
+            <p class="lang-zh text-slate-300">
+              为什么 $\Delta = b^2 - 4ac$ 能决定交点个数？假设 $\hat{\mathbf{d}}$ 已归一化（$a=1$），从起点 $\mathbf{o}$ 指向球心 $\mathbf{c}$ 的向量为 $\mathbf{L} = \mathbf{c} - \mathbf{o} = -\mathbf{m}$：
+            </p>
+            $$\begin{aligned}
+              \text{① 球心在射线上的最近投影点:} &\quad t_{ca} = \mathbf{L}\cdot\hat{\mathbf{d}} \\
+              \text{② 球心到射线的垂直距离平方 (勾股定理):} &\quad d_\perp^2 = \|\mathbf{L}\|^2 - t_{ca}^2 \\
+              \text{③ 球内半弦长 (Half-Chord):} &\quad t_{hc} = \sqrt{R^2 - d_\perp^2} \\
+              \text{④ 穿入点与穿出点:} &\quad t_1 = t_{ca} - t_{hc}, \quad t_2 = t_{ca} + t_{hc}
+            \end{aligned}$$
+            <p class="lang-zh text-emerald-300 text-xs">
+              <b>醍醐灌顶</b>：代数里的 $\frac{\Delta}{4} = (\mathbf{L}\cdot\hat{\mathbf{d}})^2 - (\|\mathbf{L}\|^2 - R^2) = R^2 - d_\perp^2$！原来<b>判别式 $\frac{\Delta}{4}$ 就是“球半径平方 $R^2$ 减去球心到射线的脱靶垂距平方 $d_\perp^2$”</b>，开根号出来的 $\frac{\sqrt{\Delta}}{2}$ 正好就是射线在球肚子里的<b>半弦长 $t_{hc}$</b>！
+            </p>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer 1: Geometric Chord & Discriminant Parabola Microscope -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-bold text-cyan-300">
+                <span class="lang-zh">🔬 交互透视镜 1：球体求交几何直角三角形 ($t_{ca}, d_\perp, t_{hc}$) 与二次抛物线 $f(t)=at^2+bt+c$ 同步显微镜</span>
+                <span class="lang-en">🔬 Interactive Visualizer 1: Ray-Sphere Chord Geometry ($t_{ca}, d_\perp, t_{hc}$) &amp; Quadratic Parabola $f(t)$</span>
+              </h4>
+              <p class="text-xs text-slate-400">
+                <span class="lang-zh">拖动射线仰角或球体位置，上半屏观察直角三角形 $(t_{ca}, d_\perp, t_{hc})$，下半屏同步观察抛物线 $f(t)$ 与零轴 $f(t)=0$ 的交点 $t_1, t_2$！</span>
+                <span class="lang-en">Adjust ray angle or sphere Y/Radius to see how the geometric triangle $(t_{ca}, d_\perp, t_{hc})$ maps 1-to-1 to the roots of the parabola $f(t) = 0$!</span>
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="setVis1Preset('two')" class="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white">Δ &gt; 0 (2 Hits: Enter &amp; Exit)</button>
+              <button onclick="setVis1Preset('tangent')" class="px-3 py-1 rounded-lg text-xs font-bold bg-amber-500 text-slate-950">Δ = 0 (Tangent Grazing)</button>
+              <button onclick="setVis1Preset('miss')" class="px-3 py-1 rounded-lg text-xs font-bold bg-rose-600 text-white">Δ &lt; 0 (Miss: d_⊥ &gt; R)</button>
+              <button onclick="setVis1Preset('behind')" class="px-3 py-1 rounded-lg text-xs font-bold bg-purple-600 text-white">t &lt; 0 (Behind Camera!)</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-8">
+              <canvas id="vis1Canvas" width="680" height="390" class="w-full rounded-xl border border-slate-800 bg-slate-900/80"></canvas>
+            </div>
+            <div class="lg:col-span-4 space-y-3 text-xs">
+              <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                <div>
+                  <div class="flex justify-between font-bold text-amber-300 mb-1">
+                    <span>Ray Angle θ (deg)</span>
+                    <span id="v1AngText">-6.0°</span>
+                  </div>
+                  <input id="v1AngSlider" type="range" min="-40" max="40" step="0.5" value="-6" oninput="drawVis1()" class="w-full accent-amber-400" />
+                </div>
+                <div>
+                  <div class="flex justify-between font-bold text-cyan-300 mb-1">
+                    <span>Sphere Center X</span>
+                    <span id="v1CxText">380</span>
+                  </div>
+                  <input id="v1CxSlider" type="range" min="60" max="540" step="2" value="380" oninput="drawVis1()" class="w-full accent-cyan-400" />
+                </div>
+                <div>
+                  <div class="flex justify-between font-bold text-emerald-300 mb-1">
+                    <span>Sphere Radius R</span>
+                    <span id="v1RadText">75</span>
+                  </div>
+                  <input id="v1RadSlider" type="range" min="30" max="115" step="1" value="75" oninput="drawVis1()" class="w-full accent-emerald-400" />
+                </div>
+              </div>
+
+              <div id="vis1Readout" class="p-4 rounded-xl bg-slate-900 border border-slate-800 font-mono space-y-1.5 text-slate-200"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: DUAL-VIEW 3D RAY CASTING LAB ==================== -->
+    <section id="tab-lab" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white">
+              <span class="lang-zh">🔦 双视窗光线投射实验室：3D 上帝视角射线束 + 实时像素光线投射渲染器</span>
+              <span class="lang-en">🔦 Dual-View Ray Casting Studio: 3D God-View Ray Probe + Live Ray-Cast Framebuffer</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              <span class="lang-zh">在右侧成像平面上点击或拖动任意像素 $(i, j)$，左侧 3D 视窗将实时发射该像素射线 $\mathbf{r}(t) = \mathbf{o} + t\hat{\mathbf{d}}$，标出所有交点与最近命中点 $t_{\min}$ 及法向量 $\mathbf{N}$！</span>
+              <span class="lang-en">Click or drag any pixel $(i, j)$ on the right image plane to fire its 3D ray in the left God-View and inspect $t_{\min}$, surface normal $\mathbf{N}$, and Z-depth!</span>
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setRenderMode('shaded')" id="rm-shaded" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 text-white">Lambertian Shaded</button>
+            <button onclick="setRenderMode('normal')" id="rm-normal" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">Surface Normal RGB</button>
+            <button onclick="setRenderMode('depth')" id="rm-depth" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">Z-Depth Buffer (t_min)</button>
+            <button onclick="setRenderMode('disc')" id="rm-disc" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">Discriminant Δ Heatmap</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- Left: 3D God View -->
+          <div class="lg:col-span-6 space-y-2">
+            <div class="flex justify-between text-xs font-bold text-cyan-300 px-1">
+              <span>1. 3D God View (Camera Origin o, Image Grid &amp; Ray r(t))</span>
+              <span>Drag to Orbit 3D View</span>
+            </div>
+            <canvas id="godCanvas" width="540" height="400" class="w-full rounded-2xl border border-slate-800 bg-slate-950 cursor-grab"></canvas>
+          </div>
+
+          <!-- Right: Interactive Ray-Cast Image Plane -->
+          <div class="lg:col-span-6 space-y-2">
+            <div class="flex justify-between text-xs font-bold text-amber-300 px-1">
+              <span>2. Ray-Cast Image Plane (Click/Drag Any Pixel to Shoot Ray!)</span>
+              <span id="pixelCoordLabel">Pixel (12, 10)</span>
+            </div>
+            <canvas id="imgCanvas" width="540" height="400" class="w-full rounded-2xl border border-slate-800 bg-slate-950 cursor-crosshair"></canvas>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center pt-2">
+          <div class="lg:col-span-5 p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+            <div class="flex justify-between font-bold text-amber-300">
+              <span>Camera Vertical FOV θ_y</span>
+              <span id="labFovText">55°</span>
+            </div>
+            <input id="labFovSlider" type="range" min="30" max="90" step="1" value="55" oninput="onLabParam()" class="w-full accent-amber-400" />
+
+            <div class="flex justify-between font-bold text-cyan-300">
+              <span>Front Cyan Sphere Z Depth</span>
+              <span id="labZText">-3.6</span>
+            </div>
+            <input id="labZSlider" type="range" min="-6.0" max="-2.0" step="0.1" value="-3.6" oninput="onLabParam()" class="w-full accent-cyan-400" />
+          </div>
+
+          <div id="labRayReadout" class="lg:col-span-7 p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono text-xs space-y-1.5 text-slate-200"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: LECTURE VIDEOS & INTERSECTION CHEAT SHEET ==================== -->
+    <section id="tab-videos" class="hidden space-y-8">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <h3 class="text-xl font-bold text-white">
+          <span class="lang-zh">🎥 MIT 6.837 Lecture 09 &amp; UC Davis ECS 175 Lecture 07 配套公开课</span>
+          <span class="lang-en">🎥 MIT 6.837 Lecture 09 &amp; UC Davis ECS 175 Lecture 07 Videos</span>
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 text-xs font-mono font-bold">MIT-09 • Prof. Justin Solomon</span>
+              <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">Playlist ↗</a>
+            </div>
+            <h4 class="font-bold text-white text-base">MIT 6.837 — Lecture 09: Introduction to Rendering and Ray Casting</h4>
+            <p class="lang-zh text-xs text-slate-400 leading-relaxed">
+              Justin Solomon 教授正式开启渲染篇：对比光栅化与光线追踪的循环结构，推导针孔相机与正交相机的射线生成方程，并详解射线与平面、射线与球体的代数求交与法向量计算。
+            </p>
+            <div class="aspect-video rounded-xl overflow-hidden border border-slate-800 bg-slate-900">
+              <iframe class="w-full h-full" src="https://www.youtube.com/embed/videoseries?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi&index=9" title="MIT 6.837 Lecture 09 Ray Casting" allowfullscreen></iframe>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 text-xs font-mono font-bold">UCD-07 • Prof. Kenneth Joy</span>
+              <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+7" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">YouTube Search ↗</a>
+            </div>
+            <h4 class="font-bold text-white text-base">UC Davis ECS 175 — Lecture 07: Depth Buffers and Ray Tracing</h4>
+            <p class="lang-zh text-xs text-slate-400 leading-relaxed">
+              Kenneth Joy 教授深入剖析可见性判定问题 (Hidden Surface Removal)，对比 Z-Buffer 深度缓冲与光线投射求交的几何本质。
+            </p>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 text-xs text-slate-300">
+              <div class="font-bold text-emerald-300">Object-Order (Z-Buffer) vs Image-Order (Ray Casting)</div>
+              <pre class="font-mono text-[11px] text-slate-300 overflow-x-auto">// Z-Buffer (Outer = Primitives)      // Ray Casting (Outer = Pixels)
+for each triangle T in scene:        for each pixel (i,j) on screen:
+  for each pixel (i,j) in proj(T):     ray = generateRay(i, j)
+    if z(T,i,j) &lt; zbuf[i,j]:           for each object O in scene:
+      zbuf[i,j] = z; color[i,j] = ...    t = intersect(ray, O) // pick min t&gt;0</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-game" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-indigo-500/40 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white">
+              <span class="lang-zh">🎮 3 关实战通关小游戏：深空激光雷达与光线投射指挥官</span>
+              <span class="lang-en">🎮 3-Mission Game: Deep-Space LiDAR &amp; Ray-Cast Commander</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              <span class="lang-zh">通过亲手校准相切判别式 $\Delta = 0$、解算平面着陆点 $t^*$ 以及过滤相机背后的伪交点 ($t < 0$) 完成通关！</span>
+              <span class="lang-en">Complete all 3 missions by grazing a sphere at $\Delta \approx 0$, landing a ray on a tilted plane at $t^*$, and filtering out behind-camera $t < 0$ hits!</span>
+            </p>
+          </div>
+
+          <div class="flex gap-2">
+            <button onclick="setGameMission(1)" id="game-btn-1" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white">
+              Mission 1: Δ = 0 Grazing Sniper
+            </button>
+            <button onclick="setGameMission(2)" id="game-btn-2" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 2: Ray-Plane Hit t*
+            </button>
+            <button onclick="setGameMission(3)" id="game-btn-3" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 3: Closest t_min &gt; 0 Filter
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-7">
+            <canvas id="gameCanvas" width="640" height="360" class="w-full rounded-2xl border border-slate-800 bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 space-y-4 text-xs">
+            <div id="gameDesc" class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 text-slate-200 leading-relaxed"></div>
+
+            <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div>
+                <div class="flex justify-between font-bold text-amber-300 mb-1">
+                  <span id="gLabel1">Param 1</span>
+                  <span id="gVal1">0</span>
+                </div>
+                <input id="gSlider1" type="range" min="-35" max="35" step="0.5" value="0" oninput="drawGame()" class="w-full accent-amber-400" />
+              </div>
+              <div>
+                <div class="flex justify-between font-bold text-cyan-300 mb-1">
+                  <span id="gLabel2">Param 2</span>
+                  <span id="gVal2">0</span>
+                </div>
+                <input id="gSlider2" type="range" min="30" max="110" step="1" value="60" oninput="drawGame()" class="w-full accent-cyan-400" />
+              </div>
+            </div>
+
+            <div id="gameStatus" class="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== LANGUAGE & TAB CONTROLLER ====================
+    let isEn = false;
+    function toggleLang() {
+      isEn = !isEn;
+      document.body.classList.toggle('en-mode', isEn);
+      drawVis1();
+      drawLab();
+      drawGame();
+    }
+
+    function switchTab(tabId) {
+      ['concepts', 'lab', 'videos', 'game'].forEach(id => {
+        document.getElementById('tab-' + id).classList.toggle('hidden', id !== tabId);
+        document.getElementById('tab-btn-' + id).classList.toggle('active', id === tabId);
+      });
+      if (tabId === 'concepts') drawVis1();
+      if (tabId === 'lab') drawLab();
+      if (tabId === 'game') drawGame();
+    }
+
+    // ==================== VISUALIZER 1: RAY-SPHERE CHORD & PARABOLA MICROSCOPE ====================
+    function setVis1Preset(mode) {
+      const angS = document.getElementById('v1AngSlider');
+      const cxS = document.getElementById('v1CxSlider');
+      const rS = document.getElementById('v1RadSlider');
+      if (mode === 'two') {
+        angS.value = -5; cxS.value = 390; rS.value = 78;
+      } else if (mode === 'tangent') {
+        // Sphere at (390, 125), ray origin at (90, 125) -> L = (300, 0). sin(theta) = R / 300 = 75 / 300 = 0.25 -> theta = -14.48 deg
+        angS.value = -14.5; cxS.value = 390; rS.value = 75;
+      } else if (mode === 'miss') {
+        angS.value = -27; cxS.value = 390; rS.value = 70;
+      } else {
+        angS.value = 8; cxS.value = 70; rS.value = 45;
+      }
+      drawVis1();
+    }
+
+    function drawVis1() {
+      const c = document.getElementById('vis1Canvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const deg = Number(document.getElementById('v1AngSlider').value);
+      const cx = Number(document.getElementById('v1CxSlider').value);
+      const R = Number(document.getElementById('v1RadSlider').value);
+      const cy = 125;
+      const ox = 150, oy = 125;
+
+      document.getElementById('v1AngText').textContent = deg.toFixed(1) + '°';
+      document.getElementById('v1CxText').textContent = cx;
+      document.getElementById('v1RadText').textContent = R;
+
+      const rad = (deg * Math.PI) / 180;
+      const dx = Math.cos(rad), dy = Math.sin(rad);
+
+      // Divider between Top (2D Ray-Sphere Geometry) and Bottom (Quadratic Parabola f(t))
+      const splitY = 245;
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(0, splitY); ctx.lineTo(W, splitY); ctx.stroke();
+
+      // Compute Geometric & Algebraic intersection
+      const Lx = cx - ox, Ly = cy - oy;
+      const t_ca = Lx * dx + Ly * dy;
+      const L2 = Lx * Lx + Ly * Ly;
+      const dPerp2 = Math.max(0, L2 - t_ca * t_ca);
+      const dPerp = Math.sqrt(dPerp2);
+      const discQuarter = R * R - dPerp2; // Delta / 4
+
+      // Draw Sphere in Top View
+      ctx.fillStyle = discQuarter >= 0 ? 'rgba(6, 182, 212, 0.16)' : 'rgba(244, 63, 94, 0.12)';
+      ctx.strokeStyle = discQuarter >= 0 ? '#22d3ee' : '#f43f5e';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      // Draw Behind-Camera Negative Ray (dashed)
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+      ctx.setLineDash([5, 5]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox - dx * 160, oy - dy * 160);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw Positive Ray r(t) = o + t d (t > 0)
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + dx * 520, oy + dy * 520);
+      ctx.stroke();
+
+      // Closest approach point P_ca = o + t_ca * d
+      const pcaX = ox + t_ca * dx, pcaY = oy + t_ca * dy;
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(pcaX, pcaY); ctx.stroke();
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath(); ctx.arc(ox, oy, 6.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 11px monospace';
+      ctx.fillText('Origin o (t=0)', ox - 35, oy - 12);
+      ctx.fillText(`d_⊥=${dPerp.toFixed(1)}`, (cx + pcaX) * 0.5 + 6, (cy + pcaY) * 0.5);
+
+      let t1 = null, t2 = null;
+      if (discQuarter >= 0) {
+        const thc = Math.sqrt(discQuarter);
+        t1 = t_ca - thc;
+        t2 = t_ca + thc;
+        [t1, t2].forEach((t, idx) => {
+          const hx = ox + t * dx, hy = oy + t * dy;
+          ctx.fillStyle = t > 0 ? (idx === 0 ? '#10b981' : '#22d3ee') : '#f43f5e';
+          ctx.beginPath(); ctx.arc(hx, hy, 6.5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillText(idx === 0 ? `t₁=${t.toFixed(0)}` : `t₂=${t.toFixed(0)}`, hx - 18, hy - 10);
+        });
+      }
+
+      // Draw Quadratic Parabola f(t) = (t - t_ca)^2 + (dPerp^2 - R^2) in Bottom View
+      const zeroY = 325;
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(30, zeroY); ctx.lineTo(W - 30, zeroY); ctx.stroke();
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('f(t) = 0 Axis (t parameter →)', 38, zeroY - 6);
+
+      ctx.strokeStyle = discQuarter >= 0 ? '#10b981' : '#f43f5e';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let px = 40; px <= W - 40; px += 4) {
+        const t = px - ox;
+        const ft = ((t - t_ca) * (t - t_ca) - discQuarter) * 0.008;
+        const py = Math.max(splitY + 10, Math.min(H - 10, zeroY - ft));
+        if (px === 40) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      document.getElementById('vis1Readout').innerHTML = `
+        <div class="font-bold ${discQuarter > 1 ? 'text-emerald-400' : Math.abs(discQuarter) <= 1 ? 'text-amber-300' : 'text-rose-400'}">
+          ${discQuarter > 1 ? 'Δ > 0 (Two Intersections)' : Math.abs(discQuarter) <= 1 ? 'Δ ≈ 0 (Tangent Grazing!)' : 'Δ < 0 (Ray Misses Sphere)'}
+        </div>
+        <div>t_ca = L · d = ${t_ca.toFixed(1)}</div>
+        <div>d_⊥ = ${dPerp.toFixed(1)} | Radius R = ${R}</div>
+        <div>Δ/4 = R² - d_⊥² = ${discQuarter.toFixed(1)}</div>
+        <div class="text-emerald-300">t₁ = ${t1 !== null ? t1.toFixed(1) : 'Imaginary'} | t₂ = ${t2 !== null ? t2.toFixed(1) : 'Imaginary'}</div>
+      `;
+    }
+
+    // ==================== TAB 2: DUAL-VIEW 3D RAY CASTING LAB ====================
+    let renderMode = 'shaded';
+    let selPixX = 11, selPixY = 8;
+    const gridW = 24, gridH = 18;
+    let godYaw = 0.55, godPitch = 0.32, godDragging = false, godLastX = 0, godLastY = 0;
+
+    function setRenderMode(m) {
+      renderMode = m;
+      ['shaded', 'normal', 'depth', 'disc'].forEach(k => {
+        document.getElementById('rm-' + k).className = k === m
+          ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 text-white'
+          : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      drawLab();
+    }
+
+    function onLabParam() {
+      document.getElementById('labFovText').textContent = document.getElementById('labFovSlider').value + '°';
+      document.getElementById('labZText').textContent = Number(document.getElementById('labZSlider').value).toFixed(1);
+      drawLab();
+    }
+
+    function norm3(v) {
+      const l = Math.hypot(v[0], v[1], v[2]) || 1;
+      return [v[0] / l, v[1] / l, v[2] / l];
+    }
+
+    function dot3(a, b) {
+      return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    }
+
+    function traceSceneRay(o, d, frontZ) {
+      const spheres = [
+        { name: 'Cyan Sphere', c: [-0.65, 0.1, frontZ], r: 0.95, col: [34, 211, 238] },
+        { name: 'Amber Sphere', c: [0.85, 0.25, -4.8], r: 1.15, col: [251, 191, 36] }
+      ];
+      let bestT = Infinity, bestHit = null, maxDisc = -999;
+
+      spheres.forEach(s => {
+        const L = [s.c[0] - o[0], s.c[1] - o[1], s.c[2] - o[2]];
+        const tca = dot3(L, d);
+        const d2 = dot3(L, L) - tca * tca;
+        const disc = s.r * s.r - d2;
+        if (disc > maxDisc) maxDisc = disc;
+        if (disc >= 0) {
+          const thc = Math.sqrt(disc);
+          const t0 = tca - thc, t1 = tca + thc;
+          const t = t0 > 0.001 ? t0 : t1 > 0.001 ? t1 : -1;
+          if (t > 0.001 && t < bestT) {
+            bestT = t;
+            const pos = [o[0] + t * d[0], o[1] + t * d[1], o[2] + t * d[2]];
+            const N = norm3([pos[0] - s.c[0], pos[1] - s.c[1], pos[2] - s.c[2]]);
+            bestHit = { name: s.name, t, pos, N, col: s.col, disc };
+          }
+        }
+      });
+
+      // Floor plane y = -1.1
+      if (Math.abs(d[1]) > 1e-4) {
+        const tp = (-1.1 - o[1]) / d[1];
+        if (tp > 0.001 && tp < bestT && tp < 12) {
+          const pos = [o[0] + tp * d[0], o[1] + tp * d[1], o[2] + tp * d[2]];
+          if (Math.abs(pos[0]) < 4.5 && pos[2] < -1.0 && pos[2] > -8.5) {
+            const chk = (Math.floor(pos[0] * 1.5) + Math.floor(pos[2] * 1.5)) & 1;
+            bestT = tp;
+            bestHit = {
+              name: 'Checker Floor Plane',
+              t: tp,
+              pos,
+              N: [0, 1, 0],
+              col: chk ? [71, 85, 105] : [30, 41, 59],
+              disc: maxDisc
+            };
+          }
+        }
+      }
+      return { bestHit, maxDisc };
+    }
+
+    function drawLab() {
+      const godC = document.getElementById('godCanvas');
+      const imgC = document.getElementById('imgCanvas');
+      if (!godC || !imgC) return;
+
+      const fovDeg = Number(document.getElementById('labFovSlider').value);
+      const frontZ = Number(document.getElementById('labZSlider').value);
+      const aspect = gridW / gridH;
+      const tanHalf = Math.tan((fovDeg * Math.PI) / 360);
+      const camO = [0, 0, 0];
+      const lightDir = norm3([0.6, 0.8, 0.5]);
+
+      // 1. Render Right Canvas (Pixel Grid Ray Caster)
+      const ictx = imgC.getContext('2d');
+      const IW = imgC.width, IH = imgC.height;
+      const cw = IW / gridW, ch = IH / gridH;
+      ictx.clearRect(0, 0, IW, IH);
+
+      let activeTrace = null;
+      let activeRayDir = [0, 0, -1];
+
+      for (let j = 0; j < gridH; j++) {
+        for (let i = 0; i < gridW; i++) {
+          const us = ((2 * (i + 0.5)) / gridW - 1) * aspect * tanHalf;
+          const vs = (1 - (2 * (j + 0.5)) / gridH) * tanHalf;
+          const d = norm3([us, vs, -1]);
+          const res = traceSceneRay(camO, d, frontZ);
+
+          if (i === selPixX && j === selPixY) {
+            activeTrace = res;
+            activeRayDir = d;
+          }
+
+          let rgb = [15, 23, 42];
+          if (renderMode === 'disc') {
+            rgb = res.maxDisc >= 0 ? [16, 185, 129] : [30, 41, 59];
+          } else if (res.bestHit) {
+            const h = res.bestHit;
+            if (renderMode === 'shaded') {
+              const diff = Math.max(0.18, dot3(h.N, lightDir));
+              rgb = [h.col[0] * diff, h.col[1] * diff, h.col[2] * diff];
+            } else if (renderMode === 'normal') {
+              rgb = [(h.N[0] * 0.5 + 0.5) * 255, (h.N[1] * 0.5 + 0.5) * 255, (h.N[2] * 0.5 + 0.5) * 255];
+            } else if (renderMode === 'depth') {
+              const zNorm = Math.max(0, Math.min(1, 1 - (h.t - 1.5) / 6.5));
+              const g = Math.round(zNorm * 255);
+              rgb = [g, g, g];
+            }
+          }
+
+          ictx.fillStyle = `rgb(${rgb[0]|0}, ${rgb[1]|0}, ${rgb[2]|0})`;
+          ictx.fillRect(i * cw, j * ch, cw - 1, ch - 1);
+        }
+      }
+
+      // Highlight selected pixel
+      ictx.strokeStyle = '#fbbf24';
+      ictx.lineWidth = 3;
+      ictx.strokeRect(selPixX * cw + 1, selPixY * ch + 1, cw - 2, ch - 2);
+      document.getElementById('pixelCoordLabel').textContent = `Pixel (${selPixX}, ${selPixY})`;
+
+      // 2. Render Left Canvas (3D God View)
+      const gctx = godC.getContext('2d');
+      const GW = godC.width, GH = godC.height;
+      gctx.clearRect(0, 0, GW, GH);
+
+      const projG = (p) => {
+        const q = [p[0], p[1], p[2] + 3.2];
+        const cy = Math.cos(godYaw), sy = Math.sin(godYaw);
+        const cp = Math.cos(godPitch), sp = Math.sin(godPitch);
+        const x1 = q[0] * cy - q[2] * sy;
+        const z1 = q[0] * sy + q[2] * cy;
+        const y2 = q[1] * cp - z1 * sp;
+        const z2 = q[1] * sp + z1 * cp;
+        const s = (6.8 / (6.8 + z2 * 0.35)) * 74;
+        return [GW * 0.5 + x1 * s, GH * 0.52 - y2 * s];
+      };
+
+      // Draw Image Plane Frame at z = -1
+      const corners = [
+        [-aspect * tanHalf, tanHalf, -1],
+        [aspect * tanHalf, tanHalf, -1],
+        [aspect * tanHalf, -tanHalf, -1],
+        [-aspect * tanHalf, -tanHalf, -1]
+      ].map(projG);
+      const pCam = projG(camO);
+
+      gctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+      gctx.lineWidth = 1.5;
+      corners.forEach(c => {
+        gctx.beginPath(); gctx.moveTo(pCam[0], pCam[1]); gctx.lineTo(c[0], c[1]); gctx.stroke();
+      });
+      gctx.strokeStyle = '#38bdf8';
+      gctx.beginPath();
+      corners.forEach((c, i) => i === 0 ? gctx.moveTo(c[0], c[1]) : gctx.lineTo(c[0], c[1]));
+      gctx.closePath();
+      gctx.stroke();
+
+      // Draw 2 Spheres in God View
+      [
+        { c: [-0.65, 0.1, frontZ], r: 0.95, col: '#22d3ee' },
+        { c: [0.85, 0.25, -4.8], r: 1.15, col: '#fbbf24' }
+      ].forEach(s => {
+        const sc = projG(s.c);
+        gctx.strokeStyle = s.col;
+        gctx.fillStyle = s.col === '#22d3ee' ? 'rgba(34,211,238,0.18)' : 'rgba(251,191,36,0.18)';
+        gctx.lineWidth = 2;
+        gctx.beginPath(); gctx.arc(sc[0], sc[1], s.r * 65, 0, Math.PI * 2); gctx.fill(); gctx.stroke();
+      });
+
+      // Draw Active Ray r(t)
+      const hitT = activeTrace && activeTrace.bestHit ? activeTrace.bestHit.t : 7.5;
+      const rayEnd = [activeRayDir[0] * hitT, activeRayDir[1] * hitT, activeRayDir[2] * hitT];
+      const pEnd = projG(rayEnd);
+
+      gctx.strokeStyle = '#10b981';
+      gctx.lineWidth = 3;
+      gctx.beginPath(); gctx.moveTo(pCam[0], pCam[1]); gctx.lineTo(pEnd[0], pEnd[1]); gctx.stroke();
+
+      if (activeTrace && activeTrace.bestHit) {
+        const h = activeTrace.bestHit;
+        const pNorm = projG([h.pos[0] + h.N[0] * 0.8, h.pos[1] + h.N[1] * 0.8, h.pos[2] + h.N[2] * 0.8]);
+        gctx.strokeStyle = '#fbbf24';
+        gctx.lineWidth = 2.5;
+        gctx.beginPath(); gctx.moveTo(pEnd[0], pEnd[1]); gctx.lineTo(pNorm[0], pNorm[1]); gctx.stroke();
+        gctx.fillStyle = '#10b981';
+        gctx.beginPath(); gctx.arc(pEnd[0], pEnd[1], 6, 0, Math.PI * 2); gctx.fill();
+      }
+
+      const readout = document.getElementById('labRayReadout');
+      if (activeTrace && activeTrace.bestHit) {
+        const h = activeTrace.bestHit;
+        readout.innerHTML = `
+          <div class="text-emerald-400 font-bold">HIT: ${h.name} at Closest t_min = ${h.t.toFixed(3)}</div>
+          <div>Ray Direction d = (${activeRayDir[0].toFixed(3)}, ${activeRayDir[1].toFixed(3)}, ${activeRayDir[2].toFixed(3)})</div>
+          <div>Hit Point r(t_min) = (${h.pos[0].toFixed(2)}, ${h.pos[1].toFixed(2)}, ${h.pos[2].toFixed(2)})</div>
+          <div class="text-cyan-300">Surface Normal N = (${h.N[0].toFixed(2)}, ${h.N[1].toFixed(2)}, ${h.N[2].toFixed(2)})</div>
+        `;
+      } else {
+        readout.innerHTML = `
+          <div class="text-rose-400 font-bold">MISS (t = ∞ • Background Sky)</div>
+          <div>Ray Direction d = (${activeRayDir[0].toFixed(3)}, ${activeRayDir[1].toFixed(3)}, ${activeRayDir[2].toFixed(3)})</div>
+        `;
+      }
+    }
+
+    (function setupLabInteraction() {
+      const imgC = document.getElementById('imgCanvas');
+      const pick = (e) => {
+        const r = imgC.getBoundingClientRect();
+        const x = Math.floor(((e.clientX - r.left) / r.width) * gridW);
+        const y = Math.floor(((e.clientY - r.top) / r.height) * gridH);
+        selPixX = Math.max(0, Math.min(gridW - 1, x));
+        selPixY = Math.max(0, Math.min(gridH - 1, y));
+        drawLab();
+      };
+      let down = false;
+      imgC.addEventListener('pointerdown', (e) => { down = true; pick(e); });
+      imgC.addEventListener('pointermove', (e) => { if (down) pick(e); });
+      window.addEventListener('pointerup', () => { down = false; });
+
+      const godC = document.getElementById('godCanvas');
+      godC.addEventListener('pointerdown', (e) => { godDragging = true; godLastX = e.clientX; godLastY = e.clientY; });
+      window.addEventListener('pointermove', (e) => {
+        if (!godDragging) return;
+        godYaw += (e.clientX - godLastX) * 0.01;
+        godPitch = Math.max(-1.1, Math.min(1.1, godPitch + (e.clientY - godLastY) * 0.01));
+        godLastX = e.clientX; godLastY = e.clientY;
+        drawLab();
+      });
+      window.addEventListener('pointerup', () => { godDragging = false; });
+    })();
+
+    // ==================== TAB 4: 3-MISSION MINI-GAME ====================
+    let gameMission = 1;
+    function setGameMission(m) {
+      gameMission = m;
+      [1, 2, 3].forEach(idx => {
+        document.getElementById('game-btn-' + idx).className = idx === m
+          ? 'px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white'
+          : 'px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      const s1 = document.getElementById('gSlider1');
+      const s2 = document.getElementById('gSlider2');
+      if (m === 1) {
+        s1.min = -30; s1.max = 0; s1.step = 0.5; s1.value = -5;
+        s2.min = 40; s2.max = 100; s2.step = 1; s2.value = 75;
+      } else if (m === 2) {
+        s1.min = -45; s1.max = -10; s1.step = 1; s1.value = -25;
+        s2.min = 180; s2.max = 310; s2.step = 5; s2.value = 250;
+      } else {
+        s1.min = -4; s1.max = 8; s1.step = 1; s1.value = -2;
+        s2.min = 1; s2.max = 9; s2.step = 1; s2.value = 7;
+      }
+      drawGame();
+    }
+
+    function drawGame() {
+      const c = document.getElementById('gameCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const v1 = Number(document.getElementById('gSlider1').value);
+      const v2 = Number(document.getElementById('gSlider2').value);
+      document.getElementById('gVal1').textContent = v1;
+      document.getElementById('gVal2').textContent = v2;
+
+      let passed = false;
+      const desc = document.getElementById('gameDesc');
+      const status = document.getElementById('gameStatus');
+
+      if (gameMission === 1) {
+        document.getElementById('gLabel1').textContent = 'Laser Elevation Angle θ (deg)';
+        document.getElementById('gLabel2').textContent = 'Shield Sphere Radius R';
+        desc.innerHTML = isEn
+          ? '<b>Mission 1 (Δ = 0 Tangent Grazing Sniper)</b>: Adjust laser angle θ and sphere radius R (at distance L = 300) so the ray grazes the top edge of the sphere tangentially (|R - d_⊥| < 2.5 px)!'
+          : '<b>第 1 关（Δ = 0 掠射相切轮廓狙击）</b>：调节激光仰角 θ 与护盾球半径 R（球心距离 L = 300），使射线刚好与球面相切掠过（|R - d_⊥| < 2.5 px，即 Δ ≈ 0）！';
+
+        const dPerp = 300 * Math.abs(Math.sin((v1 * Math.PI) / 180));
+        passed = Math.abs(v2 - dPerp) < 2.5;
+
+        ctx.strokeStyle = passed ? '#10b981' : '#22d3ee';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(400, 180, v2, 0, Math.PI * 2); ctx.stroke();
+
+        const rad = (v1 * Math.PI) / 180;
+        ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(100, 180); ctx.lineTo(100 + Math.cos(rad) * 480, 180 + Math.sin(rad) * 480); ctx.stroke();
+      } else if (gameMission === 2) {
+        document.getElementById('gLabel1').textContent = 'Ray Downward Angle θ (deg)';
+        document.getElementById('gLabel2').textContent = 'Ground Plane Y Level';
+        desc.innerHTML = isEn
+          ? '<b>Mission 2 (Ray-Plane Landing Beacon)</b>: Aim the ray downward from (100, 100) so that it intersects the horizontal plane Y = Param2 right inside the green beacon at X = 360!'
+          : '<b>第 2 关（射线-平面着陆点解算）</b>：从 (100, 100) 向下发射射线，调节俯角 θ 与平面高度 Y，使射线与平面的交点精确落在 X = 360 的绿色信标内！';
+
+        const rad = (-v1 * Math.PI) / 180;
+        const dy = Math.sin(rad), dx = Math.cos(rad);
+        const t = (v2 - 100) / dy;
+        const hitX = 100 + t * dx;
+        passed = Math.abs(hitX - 360) < 14 && Math.abs(v2 - 250) < 10;
+
+        ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(40, v2); ctx.lineTo(600, v2); ctx.stroke();
+        ctx.strokeStyle = '#10b981';
+        ctx.strokeRect(360 - 14, v2 - 14, 28, 28);
+        ctx.strokeStyle = '#fbbf24';
+        ctx.beginPath(); ctx.moveTo(100, 100); ctx.lineTo(hitX, v2); ctx.stroke();
+      } else {
+        document.getElementById('gLabel1').textContent = 'Ghost Sphere t_A (Behind Cam < 0)';
+        document.getElementById('gLabel2').textContent = 'Selected Visible Hit t_min';
+        desc.innerHTML = isEn
+          ? '<b>Mission 3 (Closest Positive Hit Filter)</b>: Three spheres lie along the ray line at t = -2 (behind camera!), t = 4, and t = 7. Set Param 1 = -2 and identify the true visible hit t_min > 0 in Param 2 (= 4)!'
+          : '<b>第 3 关（多球遮挡与最小正交点判定）</b>：射线上有三个球交点 t = -2（相机后脑勺！）、t = 4 与 t = 7。请将参数 1 设为 -2，并在参数 2 中选出真正可见的最小正交点 t_min = 4！';
+
+        passed = v1 === -2 && v2 === 4;
+        ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 18px monospace';
+        ctx.fillText(`Candidate roots: t = {-2, +4, +7}`, 120, 140);
+        ctx.fillStyle = passed ? '#10b981' : '#fbbf24';
+        ctx.fillText(`Your visible t_min > 0: t = ${v2}`, 120, 200);
+      }
+
+      status.innerHTML = passed
+        ? `<div class="text-emerald-400 font-bold text-sm">★ MISSION ${gameMission} CLEARED! / 恭喜通关！</div>`
+        : `<div class="text-amber-300 font-bold">● Calibrating ray intersection parameters...</div>`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+      drawVis1();
+      drawLab();
+      setGameMission(1);
+    });
+  </script>
+</body>
+</html>
