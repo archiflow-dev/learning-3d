@@ -444,7 +444,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'The Rendering Equation, Monte Carlo Integration & Path Tracing',
     concepts: ['辐射度量学 (Radiance / Irradiance)', 'Kajiya 渲染方程', '蒙特卡洛积分与重要性采样', '软阴影、焦散与色彩溢色 (Color Bleeding)'],
     playgroundTitle: 'Cornell Box 渐进式路径追踪实验室',
-    playgroundDescription: '实时累计采样数 (SPP)，切换弹射次数 (Bounces) 与余弦重要性采样，直观观察噪点收敛与色彩溢色。',
+    playgroundDescription: '用 3Blue1Brown 努塞尔半球圆盘投影 (Nusselt Analog) 证明漫反射 BRDF 为什么等于 ρ/π 以及 Malley 余弦重要性采样如何完美消去 cosθ，在实时 Cornell Box 渐进式路径追踪器中观察 1/√N 噪点收敛、软阴影与红绿墙壁色彩溢色，并畅玩 3 关全局光照总架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',

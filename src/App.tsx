@@ -16,6 +16,7 @@ import { Lesson13BarycentricCSG } from './lessons/Lesson13BarycentricCSG';
 import { Lesson14RayTracing } from './lessons/Lesson14RayTracing';
 import { Lesson15Acceleration } from './lessons/Lesson15Acceleration';
 import { Lesson16Antialiasing } from './lessons/Lesson16Antialiasing';
+import { Lesson17GlobalIllumination } from './lessons/Lesson17GlobalIllumination';
 
 const STORAGE_KEY = 'learning_3d_completed_lessons_v1';
 const LANG_KEY = 'learning_3d_lang_v1';
@@ -277,6 +278,13 @@ export const App: React.FC = () => {
             lang={lang}
             isCompleted={completedIds.includes('L16')}
             onToggleComplete={() => toggleLessonComplete('L16')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L17' ? (
+          <Lesson17GlobalIllumination
+            lang={lang}
+            isCompleted={completedIds.includes('L17')}
+            onToggleComplete={() => toggleLessonComplete('L17')}
             onBackToPortal={() => navigateToLesson(null)}
           />
         ) : activeLessonObj ? (
