@@ -406,7 +406,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'AABB Slab Test, Bounding Volume Hierarchies, SAH & KD-Trees',
     concepts: ['AABB Slab 射线求交算法', 'BVH 树构建与遍历', '表面积启发式 (SAH)', 'BVH (划分对象) vs KD-Tree (划分空间)'],
     playgroundTitle: 'BVH 树遍历步进透视镜',
-    playgroundDescription: '发射一条射线穿过复杂场景，单步动画演示 BVH 节点剔除过程，对比 O(N) 与 O(log N) 求交次数。',
+    playgroundDescription: '用 3Blue1Brown 积分几何 (Cauchy–Crofton 定理) 推导为什么光线击中包围盒的概率正比于表面积而非体积，亲手调节 Kay–Kajiya AABB Slab 区间交集与 SAH 切分代价曲线，在 BVH vs KD-Tree 步进实验室单步体验 front-to-back 子树剪枝，并畅玩 3 关 BVH 空间加速架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
