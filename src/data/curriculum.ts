@@ -714,7 +714,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Human Cone Response, Metamers, CIE 1931 XYZ, Gamut & sRGB Gamma',
     concepts: ['光谱功率分布与同色异谱 (Metamerism)', 'L/M/S 视锥细胞响应', 'CIE 1931 色度图与色域三角形', 'Linear Space 渲染与 sRGB Gamma 2.2 校正'],
     playgroundTitle: 'CIE 色度图探索器与线性光照对比仪',
-    playgroundDescription: '交互采样 CIE 1931 马蹄图色域，并同屏对比“sRGB 非线性空间直接光照”与“Linear 工作流”的物理准确性。',
+    playgroundDescription: '用 3Blue1Brown 无穷维光谱内积投影与凸锥截面几何推导同色异谱零空间、CIE RGB 负值瓣 r̄(500nm)<0 与马蹄图色域三角形，在双实验台交互采样 sRGB/P3/Rec.2020 色域并同屏对比错误 sRGB 红绿泥沼与 Linear 工作流，畅玩 3 关首席色彩科学架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
