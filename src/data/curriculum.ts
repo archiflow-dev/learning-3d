@@ -693,7 +693,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Structural/Shear/Bending Springs, Hooke Law, Damping & Collision Constraints',
     concepts: ['结构弹簧、剪切弹簧与弯曲弹簧拓扑', '胡克定律与速度阻尼力', '显式/半隐式时间步进与刚度危机', '球体碰撞检测与位置约束'],
     playgroundTitle: '3D 交互式布料风洞与张力可视化沙盒',
-    playgroundDescription: '用鼠标拖拽或取消布料固定针脚，开启风场与碰撞球，按受力大小实时着色内部弹簧张力。',
+    playgroundDescription: '用 3Blue1Brown 势能负梯度与刚度矩阵零空间直觉推导三维向量胡克定律、为什么阻尼力必须投影到弹簧轴向 (Δv·d̂)d̂、为什么仅有结构弹簧会平行四边形坍缩，在 3D 实时布料风洞拖拽拨动布料、解开针脚并观察弹簧张力热力图与球体 SDF 碰撞，畅玩 3 关首席布料物理总监游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
