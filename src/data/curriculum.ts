@@ -752,7 +752,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Subpixel Layouts, Refresh Rates, VR Lens Distortion & Branches in CG',
     concepts: ['OLED/LCD 子像素排列与 ClearType', '双目视差 (Binocular Disparity) 与 vergence-accommodation 冲突', 'VR 透镜桶形畸变与枕形预校正', '科学可视化、几何处理与图形学全分支'],
     playgroundTitle: 'VR 透镜预畸变与子像素阵列显微镜',
-    playgroundDescription: '调节 VR 透镜畸变系数 k₁/k₂ 与双目瞳距，并放大观察 RGB 与 PenTile 子像素排布渲染。',
+    playgroundDescription: '用 3Blue1Brown 相似三角形与逆映射直觉推导双目立体视差 d=bf/Z、辐辏-调节冲突 (VAC)、VR 菲涅尔透镜 r²/r⁴ 枕形预畸变与分通道消色差，在 40× 显微镜下对比 LCD RGB Stripe、OLED Diamond PenTile 与 3× ClearType 次像素超分辨，畅玩 3 关首席 XR 光学架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
