@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 14: Whitted-Style Recursive Ray Tracing, Snell Refraction & Ray Trees | 递归光线追踪</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body { background: #020617; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .math-box { background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(51, 65, 85, 0.85); border-radius: 0.85rem; padding: 1rem 1.25rem; overflow-x: auto; }
+    canvas { touch-action: none; user-select: none; }
+    .tab-btn.active { background: #0284c7; color: #ffffff; border-color: #38bdf8; box-shadow: 0 0 20px rgba(56, 189, 248, 0.35); }
+    .lang-en { display: none; }
+    body.en-mode .lang-zh { display: none; }
+    body.en-mode .lang-en { display: inline; }
+    body.en-mode div.lang-en, body.en-mode p.lang-en, body.en-mode ul.lang-en, body.en-mode h3.lang-en, body.en-mode h4.lang-en { display: block; }
+    body.en-mode div.lang-zh, body.en-mode p.lang-zh, body.en-mode ul.lang-zh, body.en-mode h3.lang-zh, body.en-mode h4.lang-zh { display: none; }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          <span class="lang-zh">← 课程总目录 (Index)</span>
+          <span class="lang-en">← Course Index</span>
+        </a>
+        <span class="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950">
+          Stage 3 • Lesson 14 / 32
+        </span>
+        <div>
+          <h1 class="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+            <span class="lang-zh">递归光线追踪 (Whitted-Style Ray Tracing)：反射、斯涅尔折射、TIR 与光线树</span>
+            <span class="lang-en">Whitted-Style Recursive Ray Tracing: Shadow Bias, Reflection, Snell Refraction &amp; Ray Trees</span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            3Blue1Brown Vector Optics Decomposition • MIT 6.837 Lec 11 (Prof. Justin Solomon) • UC Davis Lec 15
+          </p>
+        </div>
+      </div>
+
+      <button id="langToggleBtn" onclick="toggleLang()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition">
+        <span>🌐</span>
+        <span id="langBtnText">EN / 中文</span>
+      </button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-3 flex flex-wrap gap-2">
+      <button onclick="switchTab('concepts')" id="tab-btn-concepts" class="tab-btn active px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">1. 3Blue1Brown 精讲：正交分解推导反射与折射、全内反射与 Shadow Bias</span>
+        <span class="lang-en">1. 3Blue1Brown Deep Dive: Vector Reflection, Snell Refraction, TIR &amp; Bias</span>
+      </button>
+      <button onclick="switchTab('lab')" id="tab-btn-lab" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">2. 交互实验室：递归光线树 (Ray Tree) + 实时 Whitted 水晶球光追渲染器</span>
+        <span class="lang-en">2. Interactive Lab: Recursive Ray Tree + Live Whitted Glass Sphere Ray Tracer</span>
+      </button>
+      <button onclick="switchTab('videos')" id="tab-btn-videos" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">3. MIT 6.837 Lec 11 / UC Davis Lec 15 视频与 GLSL 光学核代码</span>
+        <span class="lang-en">3. MIT 6.837 Lec 11 &amp; UC Davis Lec 15 + GLSL Optical Kernels</span>
+      </button>
+      <button onclick="switchTab('game')" id="tab-btn-game" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-indigo-500/40 bg-indigo-950/40 text-indigo-300 transition">
+        <span class="lang-zh">🎮 4. 3关实战游戏：光学棱镜与深海光纤总工程师</span>
+        <span class="lang-en">🎮 4. 3-Mission Game: Optical Prism &amp; Fiber-Optic Chief Engineer</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <!-- ==================== TAB 1: 3BLUE1BROWN DEEP CONCEPTS ==================== -->
+    <section id="tab-concepts" class="space-y-8">
+      <!-- Intro Banner -->
+      <div class="rounded-3xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/40 p-6 sm:p-8 space-y-4">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+          <span>✨ Turner Whitted (1980) × 3Blue1Brown Vector Projection Geometry</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white">
+          <span class="lang-zh">当光线撞上表面后并未终结：如何仅凭“平行与垂直向量分解”推导出镜面反射与斯涅尔折射？</span>
+          <span class="lang-en">When a Ray Hits a Surface, Its Journey Just Begins: Deriving Reflection &amp; Snell's Law Purely from Orthogonal Vector Decomposition</span>
+        </h2>
+        <p class="lang-zh text-sm sm:text-base text-slate-300 leading-relaxed">
+          在 Lesson 12 和 Lesson 13 的<b>光线投射 (Ray Casting)</b> 中，射线一旦撞上第一个物体就停下来算颜色了——所以画面里既没有阴影，也没有镜子倒影或水晶球折射。1980 年，<b>Turner Whitted</b> 提出了著名的<b>递归光线追踪 (Recursive Ray Tracing)</b>：当主射线撞击表面点 $\mathbf{p}$ 时，点 $\mathbf{p}$ 化身为一个新的“微型相机”，向场景继续发射<b>3 类次级射线 (Secondary Rays)</b>：
+          <br/>① <b>阴影射线 (Shadow Ray)</b> $\to$ 飞向光源检测是否被遮挡；
+          <br/>② <b>镜面反射射线 (Reflection Ray $\mathbf{r}$)</b> $\to$ 递归追踪镜面高光倒影；
+          <br/>③ <b>透射/折射射线 (Refraction Ray $\mathbf{t}$)</b> $\to$ 穿过玻璃、水或钻石内部并发生斯涅尔偏折！
+        </p>
+        <p class="lang-en text-sm sm:text-base text-slate-300 leading-relaxed">
+          In Ray Casting (Lessons 12–13), rays stop at the first hit. In 1980, <b>Turner Whitted</b> introduced <b>Recursive Ray Tracing</b>: every surface hit point $\mathbf{p}$ acts as a new camera, spawning three types of secondary rays — <b>Shadow Rays</b> toward lights, <b>Reflection Rays ($\mathbf{r}$)</b>, and <b>Refraction Rays ($\mathbf{t}$)</b> through dielectrics like glass and water, forming a recursive <b>Ray Tree</b>!
+        </p>
+      </div>
+
+      <!-- Part 1: 3Blue1Brown Vector Derivation of Reflection & Snell Refraction -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-black flex items-center justify-center">01</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">不背三角函数公式！用 Lesson 01 的正交投影分解 $(\mathbf{d}_\parallel + \mathbf{d}_\perp)$ 推导反射与折射向量</span>
+            <span class="lang-en">Zero Trig Memorization! Deriving Reflection $\mathbf{r}$ and Snell Refraction $\mathbf{t}$ via Orthogonal Decomposition $(\mathbf{d}_\parallel + \mathbf{d}_\perp)$</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm text-slate-300 leading-relaxed">
+          <!-- Reflection Derivation -->
+          <div class="math-box text-xs sm:text-sm space-y-3 border-cyan-500/30">
+            <div class="text-cyan-300 font-bold text-base">
+              <span class="lang-zh">① 镜面反射向量 $\mathbf{r} = \mathbf{d} - 2(\mathbf{d}\cdot\mathbf{n})\mathbf{n}$：为什么是减去 2 倍？</span>
+              <span class="lang-en">1. Mirror Reflection $\mathbf{r} = \mathbf{d} - 2(\mathbf{d}\cdot\mathbf{n})\mathbf{n}$: Why Subtract Twice?</span>
+            </div>
+            <p class="lang-zh">
+              设单位入射射线方向为 $\mathbf{d}$（指向表面，因此与朝外的单位法向量 $\mathbf{n}$ 夹角为钝角，$\mathbf{d}\cdot\mathbf{n} = -\cos\theta_1 < 0$）。
+              把入射向量 $\mathbf{d}$ 分解为<b>平行于切平面的分量 $\mathbf{d}_\parallel$</b> 和<b>垂直于表面的法向分量 $\mathbf{d}_\perp$</b>：
+            </p>
+            $$\mathbf{d}_\perp = (\mathbf{d}\cdot\mathbf{n})\,\mathbf{n}, \qquad \mathbf{d}_\parallel = \mathbf{d} - \mathbf{d}_\perp = \mathbf{d} - (\mathbf{d}\cdot\mathbf{n})\,\mathbf{n}$$
+            <p class="lang-zh">
+              当小球撞击光滑地面反弹时：<b>水平切向速度 $\mathbf{d}_\parallel$ 完全不变，垂直法向速度 $\mathbf{d}_\perp$ 直接反向变成 $-\mathbf{d}_\perp$</b>！因此反射向量 $\mathbf{r}$ 就是：
+            </p>
+            $$\mathbf{r} = \mathbf{d}_\parallel + (-\mathbf{d}_\perp) = \big(\mathbf{d} - \mathbf{d}_\perp\big) - \mathbf{d}_\perp = \mathbf{d} - 2\mathbf{d}_\perp = \mathbf{d} - 2(\mathbf{d}\cdot\mathbf{n})\,\mathbf{n}$$
+            <p class="lang-zh text-xs text-emerald-300">
+              <b>几何直觉</b>：减去<b>第 1 个</b> $(\mathbf{d}\cdot\mathbf{n})\mathbf{n}$ 是把向量压扁拍在切平面上（只剩 $\mathbf{d}_\parallel$）；再减去<b>第 2 个</b> $(\mathbf{d}\cdot\mathbf{n})\mathbf{n}$ 是把它从切平面向上镜像弹起！
+            </p>
+          </div>
+
+          <!-- Refraction & TIR Derivation -->
+          <div class="math-box text-xs sm:text-sm space-y-3 border-emerald-500/30">
+            <div class="text-emerald-300 font-bold text-base">
+              <span class="lang-zh">② 斯涅尔折射向量 $\mathbf{t}$ 与全内反射 (TIR)：切向缩放 + 勾股定理</span>
+              <span class="lang-en">2. Snell Refraction $\mathbf{t}$ &amp; Total Internal Reflection (TIR)</span>
+            </div>
+            <p class="lang-zh">
+              光线从折射率 $\eta_1$ 的介质进入 $\eta_2$ 的介质，服从斯涅尔定律 $\eta_1\sin\theta_1 = \eta_2\sin\theta_2 \implies \sin\theta_2 = \frac{\eta_1}{\eta_2}\sin\theta_1$。
+              <br/>注意看我们的切向分量 $\mathbf{d}_\parallel = \mathbf{d} - (\mathbf{d}\cdot\mathbf{n})\mathbf{n}$：<b>它的长度 $\|\mathbf{d}_\parallel\|$ 正好等于 $\sin\theta_1$</b>！
+              所以折射向量的水平切向分量 $\mathbf{t}_\parallel$ 方向与 $\mathbf{d}_\parallel$ 完全相同，长度只需缩放 $\frac{\eta_1}{\eta_2}$ 倍：
+            </p>
+            $$\mathbf{t}_\parallel = \frac{\eta_1}{\eta_2}\,\mathbf{d}_\parallel = \frac{\eta_1}{\eta_2}\big(\mathbf{d} - (\mathbf{d}\cdot\mathbf{n})\,\mathbf{n}\big)$$
+            <p class="lang-zh">
+              既然总折射向量 $\mathbf{t} = \mathbf{t}_\parallel + \mathbf{t}_\perp$ 是长度为 $1$ 的单位向量，由勾股定理 $\|\mathbf{t}_\parallel\|^2 + \|\mathbf{t}_\perp\|^2 = 1$ 立刻得到朝向界面下方的垂直分量 $\mathbf{t}_\perp$：
+            </p>
+            $$\mathbf{t}_\perp = -\sqrt{\underbrace{1 - \left(\frac{\eta_1}{\eta_2}\right)^2\big(1 - (\mathbf{d}\cdot\mathbf{n})^2\big)}_{k}}\;\mathbf{n}$$
+            <p class="lang-zh text-xs text-rose-300">
+              <b>⚡ 全内反射 (Total Internal Reflection, TIR) 的代数诞生</b>：当光从高折射率玻璃 ($\eta_1=1.5$) 射向低折射率空气 ($\eta_2=1.0$) 时，缩放比 $\frac{\eta_1}{\eta_2} = 1.5 > 1$！一旦入射角超过<b>临界角 $\theta_c = \arcsin(\eta_2/\eta_1) \approx 41.8^\circ$</b>，水平分量长度 $\|\mathbf{t}_\parallel\| = \frac{\eta_1}{\eta_2}\sin\theta_1 > 1$，导致根号下的 $k < 0$！此时折射光线完全消失，$100\%$ 能量转化为全内反射（这正是海底光纤传输激光的原理）！
+            </p>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer 1: Vector Optics & TIR / Fresnel Explorer -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-bold text-cyan-300">
+                <span class="lang-zh">🔬 交互透视镜 1：反射与斯涅尔折射的正交向量分解 ($\mathbf{d}_\parallel, \mathbf{d}_\perp, \mathbf{t}_\parallel, \mathbf{t}_\perp$)、全内反射临界角与菲涅尔能量条</span>
+                <span class="lang-en">🔬 Interactive Visualizer 1: Orthogonal Vector Optics ($\mathbf{d}_\parallel, \mathbf{d}_\perp, \mathbf{t}_\parallel, \mathbf{t}_\perp$), Critical Angle TIR &amp; Fresnel Split</span>
+              </h4>
+              <p class="text-xs text-slate-400">
+                <span class="lang-zh">拖动入射角 $\theta_1$ 或一键切换“玻璃 → 空气 ($\eta_1=1.5 \to \eta_2=1.0$)”，亲眼看见 $\theta_1 > 41.8^\circ$ 时水平向量 $\|\mathbf{t}_\parallel\|$ 冲出单位圆触发全内反射 (TIR)！</span>
+                <span class="lang-en">Scrub incident angle $\theta_1$ or switch to "Glass → Air" to watch $\|\mathbf{t}_\parallel\|$ exceed the unit circle at $\theta_c = 41.8^\circ$, triggering Total Internal Reflection!</span>
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="setOpticsPreset(1.0, 1.5, 45)" class="px-3 py-1 rounded-lg text-xs font-bold bg-cyan-600 text-white">Air (1.0) → Glass (1.5)</button>
+              <button onclick="setOpticsPreset(1.0, 2.42, 50)" class="px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 text-amber-300">Air (1.0) → Diamond (2.42)</button>
+              <button onclick="setOpticsPreset(1.5, 1.0, 35)" class="px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 text-emerald-300">Glass (1.5) → Air (Sub-Critical 35°)</button>
+              <button onclick="setOpticsPreset(1.5, 1.0, 52)" class="px-3 py-1 rounded-lg text-xs font-bold bg-rose-600 text-white">⚡ Glass → Air (TIR at 52° &gt; 41.8°!)</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-7">
+              <canvas id="opticsCanvas" width="620" height="360" class="w-full rounded-xl border border-slate-800 bg-slate-900/80"></canvas>
+            </div>
+            <div class="lg:col-span-5 space-y-3 text-xs">
+              <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2.5">
+                <div>
+                  <div class="flex justify-between font-bold text-amber-300"><span>Incident Angle θ₁</span><span id="optAngVal">45.0°</span></div>
+                  <input id="optAngSlider" type="range" min="0" max="88" step="0.5" value="45" oninput="drawOptics()" class="w-full accent-amber-400" />
+                </div>
+                <div>
+                  <div class="flex justify-between font-bold text-cyan-300"><span>Top Medium η₁</span><span id="optEta1Val">1.00</span></div>
+                  <input id="optEta1Slider" type="range" min="1.0" max="2.4" step="0.05" value="1.00" oninput="drawOptics()" class="w-full accent-cyan-400" />
+                </div>
+                <div>
+                  <div class="flex justify-between font-bold text-emerald-300"><span>Bottom Medium η₂</span><span id="optEta2Val">1.50</span></div>
+                  <input id="optEta2Slider" type="range" min="1.0" max="2.4" step="0.05" value="1.50" oninput="drawOptics()" class="w-full accent-emerald-400" />
+                </div>
+              </div>
+
+              <!-- Fresnel Bar -->
+              <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+                <div class="flex justify-between font-mono text-[11px]">
+                  <span class="text-cyan-300 font-bold" id="fresnelReflText">Reflected R(θ) = 5.0%</span>
+                  <span class="text-emerald-300 font-bold" id="fresnelTransText">Transmitted T(θ) = 95.0%</span>
+                </div>
+                <div class="w-full h-3 rounded-full bg-slate-800 overflow-hidden flex">
+                  <div id="fresnelBarR" class="h-full bg-cyan-400 transition-all" style="width: 5%"></div>
+                  <div id="fresnelBarT" class="h-full bg-emerald-500 transition-all" style="width: 95%"></div>
+                </div>
+              </div>
+
+              <div id="opticsReadout" class="p-4 rounded-xl bg-slate-900 border border-slate-800 font-mono space-y-1 text-slate-200"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Shadow Bias (epsilon) & Self-Intersection Shadow Acne -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black flex items-center justify-center">02</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">为什么没有 $\varepsilon$ 偏移会让整个场景布满黑麻子？(Shadow Acne 与 $\mathbf{p} + \varepsilon\mathbf{n}$)</span>
+            <span class="lang-en">Why Zero Bias ($\varepsilon = 0$) Covers Your Scene in Black Measles: Shadow Acne &amp; Normal Offset $\mathbf{p} + \varepsilon\mathbf{n}$</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-5 space-y-3 text-sm text-slate-300 leading-relaxed">
+            <p class="lang-zh">
+              当主射线命中表面点 $\mathbf{p}$ 后，我们要从 $\mathbf{p}$ 向光源方向 $\mathbf{l}$ 发射一条<b>阴影探测射线 $\mathbf{r}_{\text{shadow}}(t) = \mathbf{p} + t\mathbf{l}$</b>。
+              在理想数学世界里，这条射线与出发表面自身的交点是 $t = 0$（会被 $t > 0$ 过滤掉）。
+              <br/><br/>
+              但在 32 位浮点数 (`float32`) 计算机里，求出来的命中点 $\tilde{\mathbf{p}}$ 有大约 $\pm 10^{-6}$ 的舍入误差——大约<b>有一半的像素点 $\tilde{\mathbf{p}}$ 刚好陷在表面皮下 $10^{-6}$ 处</b>！
+              当你从皮下向光源发射射线时，它在 $t \approx +10^{-6} > 0$ 处<b>一头撞上了自己脚下的表面</b>，误以为自己被挡住了！结果向阳面出现一半黑一半亮的摩尔纹黑斑（<b>Shadow Acne 自遮挡伪影</b>）。
+            </p>
+            <div class="math-box text-xs">
+              $$\mathbf{r}_{\text{shadow}}(t) = (\mathbf{p} + \varepsilon\mathbf{n}) + t\mathbf{l}, \qquad t \in (0, d_{\text{light}})$$
+            </div>
+          </div>
+
+          <div class="lg:col-span-7 rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-amber-300">🔬 Interactive Shadow Bias ε Microscope</span>
+              <div class="flex items-center gap-2">
+                <span class="text-cyan-300 font-mono">Bias ε = <span id="acneEpsVal">0.000</span></span>
+                <input id="acneEpsSlider" type="range" min="0" max="0.03" step="0.001" value="0" oninput="drawAcne()" class="w-36 accent-amber-400" />
+                <button onclick="document.getElementById('acneEpsSlider').value=0.015;drawAcne();" class="px-2.5 py-1 rounded bg-emerald-600 text-white font-bold">Fix (ε=0.015)</button>
+              </div>
+            </div>
+            <canvas id="acneCanvas" width="580" height="220" class="w-full rounded-xl border border-slate-800 bg-slate-900"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: INTERACTIVE RAY TREE & LIVE WHITTED RAY TRACER ==================== -->
+    <section id="tab-lab" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white">
+              <span class="lang-zh">🌳 交互式递归光线树 (Ray Tree) 与实时 Whitted 水晶球光追实验室</span>
+              <span class="lang-en">🌳 Interactive Recursive Ray Tree &amp; Live Whitted Glass Sphere Ray Tracer</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              <span class="lang-zh">调节折射率 $\eta$、最大递归深度 $D \in [1, 5]$ 与主射线高度，左侧实时展开每次命中分裂出的反射/折射/阴影递归光线树，右侧实时渲染玻璃球与镜面球的 Whitted 画面！</span>
+              <span class="lang-en">Adjust IOR $\eta$, Max Recursion Depth $D \in [1, 5]$, and Ray Y to inspect the branching Ray Tree on the left and the live Whitted ray-traced image on the right!</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Left: Optical Bench + Ray Tree Diagram -->
+          <div class="lg:col-span-7 space-y-2">
+            <div class="text-xs font-bold text-cyan-300 px-1">1. 2D Dielectric Sphere Optical Bench &amp; Recursive Ray Tree Nodes</div>
+            <canvas id="treeCanvas" width="640" height="400" class="w-full rounded-2xl border border-slate-800 bg-slate-950"></canvas>
+          </div>
+
+          <!-- Right: Live Whitted Ray Tracer -->
+          <div class="lg:col-span-5 space-y-2">
+            <div class="text-xs font-bold text-emerald-300 px-1">2. Live Whitted Ray-Traced Framebuffer (Glass + Mirror + Shadows)</div>
+            <canvas id="whittedCanvas" width="420" height="400" class="w-full rounded-2xl border border-slate-800 bg-slate-950"></canvas>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs">
+          <div>
+            <div class="flex justify-between font-bold text-amber-300 mb-1">
+              <span>Primary Ray Height Y</span>
+              <span id="treeRayYVal">145</span>
+            </div>
+            <input id="treeRayYSlider" type="range" min="95" max="245" step="1" value="145" oninput="drawRayTreeLab()" class="w-full accent-amber-400" />
+          </div>
+          <div>
+            <div class="flex justify-between font-bold text-cyan-300 mb-1">
+              <span>Glass Sphere IOR η</span>
+              <span id="treeEtaVal">1.52</span>
+            </div>
+            <input id="treeEtaSlider" type="range" min="1.05" max="2.40" step="0.05" value="1.52" oninput="drawRayTreeLab()" class="w-full accent-cyan-400" />
+          </div>
+          <div>
+            <div class="flex justify-between font-bold text-emerald-300 mb-1">
+              <span>Max Recursion Depth D</span>
+              <span id="treeDepthVal">3</span>
+            </div>
+            <input id="treeDepthSlider" type="range" min="1" max="5" step="1" value="3" oninput="drawRayTreeLab()" class="w-full accent-emerald-400" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: LECTURE VIDEOS & GLSL KERNELS ==================== -->
+    <section id="tab-videos" class="hidden space-y-8">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <h3 class="text-xl font-bold text-white">
+          <span class="lang-zh">🎥 MIT 6.837 Lecture 11 &amp; UC Davis ECS 175 Lecture 15 配套公开课与 GLSL 光学核代码</span>
+          <span class="lang-en">🎥 MIT 6.837 Lecture 11 &amp; UC Davis Lec 15 + GLSL Optical Functions</span>
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 text-xs font-mono font-bold">MIT-11 • Prof. Justin Solomon</span>
+              <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">Playlist ↗</a>
+            </div>
+            <h4 class="font-bold text-white text-base">MIT 6.837 — Lecture 11: Ray Tracing I (Shadows, Reflection, Refraction)</h4>
+            <p class="lang-zh text-xs text-slate-400 leading-relaxed">
+              Justin Solomon 教授完整推演 Whitted-Style 递归光线追踪：从阴影射线的 $\varepsilon$ 自遮挡防治，到镜面反射、斯涅尔折射向量推导、全内反射与菲涅尔反射率。
+            </p>
+            <div class="aspect-video rounded-xl overflow-hidden border border-slate-800 bg-slate-900">
+              <iframe class="w-full h-full" src="https://www.youtube.com/embed/videoseries?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi&index=11" title="MIT 6.837 Lecture 11 Ray Tracing I" allowfullscreen></iframe>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-3">
+            <h4 class="font-bold text-emerald-300 text-sm">
+              <span class="lang-zh">💻 GLSL / C++ 标准库 `reflect()`, `refract()` 与 `fresnelSchlick()` 底层源码</span>
+              <span class="lang-en">💻 Exact GLSL Implementation of `reflect`, `refract` &amp; `fresnelSchlick`</span>
+            </h4>
+            <pre class="font-mono text-[11px] text-slate-300 bg-slate-900 p-4 rounded-xl border border-slate-800 overflow-x-auto">// 1. Mirror Reflection (I and N must be normalized)
+vec3 myReflect(vec3 I, vec3 N) {
+  return I - 2.0 * dot(N, I) * N;
+}
+
+// 2. Snell Refraction with Total Internal Reflection (eta = eta_1 / eta_2)
+vec3 myRefract(vec3 I, vec3 N, float eta) {
+  float cosI = -dot(N, I);
+  float k = 1.0 - eta * eta * (1.0 - cosI * cosI);
+  if (k &lt; 0.0) return vec3(0.0); // Total Internal Reflection (TIR)!
+  return eta * I + (eta * cosI - sqrt(k)) * N;
+}
+
+// 3. Schlick's Fresnel Approximation
+float fresnelSchlick(float cosTheta, float eta1, float eta2) {
+  float r0 = (eta1 - eta2) / (eta1 + eta2);
+  r0 = r0 * r0;
+  return r0 + (1.0 - r0) * pow(1.0 - cosTheta, 5.0);
+}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-game" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-indigo-500/40 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white">
+              <span class="lang-zh">🎮 3 关实战通关小游戏：光学棱镜与深海光纤总工程师</span>
+              <span class="lang-en">🎮 3-Mission Game: Optical Prism &amp; Fiber-Optic Chief Engineer</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              <span class="lang-zh">亲手调校镜面反射法线倾角、斯涅尔水下激光折射角，以及锁死光纤全内反射临界角完成通关！</span>
+              <span class="lang-en">Clear all 3 missions by aiming a mirror reflection, bending a laser via Snell's Law, and locking a fiber-optic beam into Total Internal Reflection!</span>
+            </p>
+          </div>
+
+          <div class="flex gap-2">
+            <button onclick="setGameMission(1)" id="game-btn-1" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white">
+              Mission 1: Mirror Reflection
+            </button>
+            <button onclick="setGameMission(2)" id="game-btn-2" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 2: Snell Refraction
+            </button>
+            <button onclick="setGameMission(3)" id="game-btn-3" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 3: Fiber-Optic TIR Lock
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-7">
+            <canvas id="gameCanvas" width="640" height="360" class="w-full rounded-2xl border border-slate-800 bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 space-y-4 text-xs">
+            <div id="gameDesc" class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 text-slate-200 leading-relaxed"></div>
+
+            <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div>
+                <div class="flex justify-between font-bold text-amber-300 mb-1">
+                  <span id="gLabel1">Param 1</span>
+                  <span id="gVal1">15</span>
+                </div>
+                <input id="gSlider1" type="range" min="5" max="80" step="1" value="15" oninput="drawGame()" class="w-full accent-amber-400" />
+              </div>
+              <div>
+                <div class="flex justify-between font-bold text-cyan-300 mb-1">
+                  <span id="gLabel2">Param 2</span>
+                  <span id="gVal2">1.50</span>
+                </div>
+                <input id="gSlider2" type="range" min="1.0" max="2.4" step="0.05" value="1.50" oninput="drawGame()" class="w-full accent-cyan-400" />
+              </div>
+            </div>
+
+            <div id="gameStatus" class="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== LANGUAGE & TAB CONTROLLER ====================
+    let isEn = false;
+    function toggleLang() {
+      isEn = !isEn;
+      document.body.classList.toggle('en-mode', isEn);
+      drawOptics();
+      drawAcne();
+      drawRayTreeLab();
+      drawGame();
+    }
+
+    function switchTab(tabId) {
+      ['concepts', 'lab', 'videos', 'game'].forEach(id => {
+        document.getElementById('tab-' + id).classList.toggle('hidden', id !== tabId);
+        document.getElementById('tab-btn-' + id).classList.toggle('active', id === tabId);
+      });
+      if (tabId === 'concepts') { drawOptics(); drawAcne(); }
+      if (tabId === 'lab') drawRayTreeLab();
+      if (tabId === 'game') drawGame();
+    }
+
+    // ==================== VISUALIZER 1: VECTOR OPTICS & TIR / FRESNEL ====================
+    function setOpticsPreset(e1, e2, ang) {
+      document.getElementById('optEta1Slider').value = e1;
+      document.getElementById('optEta2Slider').value = e2;
+      document.getElementById('optAngSlider').value = ang;
+      drawOptics();
+    }
+
+    function drawOptics() {
+      const c = document.getElementById('opticsCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const deg = Number(document.getElementById('optAngSlider').value);
+      const eta1 = Number(document.getElementById('optEta1Slider').value);
+      const eta2 = Number(document.getElementById('optEta2Slider').value);
+      document.getElementById('optAngVal').textContent = deg.toFixed(1) + '°';
+      document.getElementById('optEta1Val').textContent = eta1.toFixed(2);
+      document.getElementById('optEta2Val').textContent = eta2.toFixed(2);
+
+      const cx = W * 0.5, cy = H * 0.5, R = 135;
+
+      // Media backgrounds
+      ctx.fillStyle = eta1 > eta2 ? 'rgba(6, 182, 212, 0.10)' : 'rgba(15, 23, 42, 0.5)';
+      ctx.fillRect(0, 0, W, cy);
+      ctx.fillStyle = eta2 > eta1 ? 'rgba(16, 185, 129, 0.10)' : 'rgba(15, 23, 42, 0.5)';
+      ctx.fillRect(0, cy, W, cy);
+
+      // Unit Circle & Interface Line
+      ctx.strokeStyle = 'rgba(100, 116, 139, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(20, cy); ctx.lineTo(W - 20, cy); ctx.stroke();
+
+      // Normal N
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = '#94a3b8';
+      ctx.beginPath(); ctx.moveTo(cx, 20); ctx.lineTo(cx, H - 20); ctx.stroke();
+      ctx.setLineDash([]);
+
+      const th1 = (deg * Math.PI) / 180;
+      const sin1 = Math.sin(th1), cos1 = Math.cos(th1);
+      const ratio = eta1 / eta2;
+      const sin2 = ratio * sin1;
+      const k = 1 - sin2 * sin2;
+      const isTIR = k < 0;
+
+      // Schlick Fresnel
+      const r0 = Math.pow((eta1 - eta2) / (eta1 + eta2), 2);
+      const cosForFresnel = eta1 > eta2 ? (isTIR ? 0 : Math.sqrt(k)) : cos1;
+      const R_fresnel = isTIR ? 1.0 : (r0 + (1 - r0) * Math.pow(1 - cosForFresnel, 5));
+      const T_fresnel = 1.0 - R_fresnel;
+
+      document.getElementById('fresnelReflText').textContent = `Reflected R(θ) = ${(R_fresnel * 100).toFixed(1)}%`;
+      document.getElementById('fresnelTransText').textContent = `Transmitted T(θ) = ${(T_fresnel * 100).toFixed(1)}%`;
+      document.getElementById('fresnelBarR').style.width = `${R_fresnel * 100}%`;
+      document.getElementById('fresnelBarT').style.width = `${T_fresnel * 100}%`;
+
+      // Incident Ray (from top-left to (cx, cy))
+      const inX = cx - sin1 * R, inY = cy - cos1 * R;
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.moveTo(inX, inY); ctx.lineTo(cx, cy); ctx.stroke();
+
+      // Reflected Ray (to top-right)
+      const refX = cx + sin1 * R, refY = cy - cos1 * R;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = isTIR ? 4.5 : 2.5;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(refX, refY); ctx.stroke();
+
+      // Tangential component t_parallel along interface
+      const tParLen = sin2 * R;
+      ctx.strokeStyle = isTIR ? '#f43f5e' : '#a855f7';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + tParLen, cy); ctx.stroke();
+
+      if (!isTIR) {
+        const cos2 = Math.sqrt(k);
+        const trX = cx + sin2 * R, trY = cy + cos2 * R;
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(trX, trY); ctx.stroke();
+
+        // Dashed box showing t = t_parallel + t_perp
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx + tParLen, cy); ctx.lineTo(trX, trY);
+        ctx.moveTo(cx, cy + cos2 * R); ctx.lineTo(trX, trY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else {
+        ctx.fillStyle = '#f43f5e';
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText('⚡ TOTAL INTERNAL REFLECTION (k < 0, |t_∥| > 1)!', cx - 175, cy + 55);
+      }
+
+      const critDeg = eta1 > eta2 ? ((Math.asin(eta2 / eta1) * 180) / Math.PI).toFixed(1) + '°' : 'None (η₁ ≤ η₂)';
+      document.getElementById('opticsReadout').innerHTML = `
+        <div class="font-bold ${isTIR ? 'text-rose-400' : 'text-emerald-400'}">
+          ${isTIR ? '⚡ TOTAL INTERNAL REFLECTION (k < 0)' : '✓ Snell Refraction Active (k ≥ 0)'}
+        </div>
+        <div>|d_∥| = sin θ₁ = ${sin1.toFixed(3)}</div>
+        <div>|t_∥| = (η₁/η₂) sin θ₁ = ${sin2.toFixed(3)}</div>
+        <div>Discriminant k = 1 - |t_∥|² = ${k.toFixed(3)}</div>
+        <div class="text-amber-300">Critical Angle θ_c = ${critDeg}</div>
+      `;
+    }
+
+    // ==================== VISUALIZER 2: SHADOW BIAS ACNE MICROSCOPE ====================
+    function drawAcne() {
+      const c = document.getElementById('acneCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const eps = Number(document.getElementById('acneEpsSlider').value);
+      document.getElementById('acneEpsVal').textContent = eps.toFixed(3);
+
+      const surfY = 165;
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(30, surfY); ctx.lineTo(W - 30, surfY); ctx.stroke();
+
+      const lightX = W - 65, lightY = 35;
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath(); ctx.arc(lightX, lightY, 12, 0, Math.PI * 2); ctx.fill();
+
+      for (let i = 0; i < 14; i++) {
+        const px = 65 + i * 33;
+        // Simulated float32 rounding jitter (+/- 6 px in magnified view)
+        const jitterY = (i % 2 === 0 ? 5 : -5);
+        const startY = surfY + jitterY - eps * 450;
+        const blockedBySelf = startY > surfY;
+
+        ctx.fillStyle = blockedBySelf ? '#f43f5e' : '#10b981';
+        ctx.beginPath(); ctx.arc(px, startY, 4.5, 0, Math.PI * 2); ctx.fill();
+
+        ctx.strokeStyle = blockedBySelf ? 'rgba(244, 63, 94, 0.7)' : 'rgba(251, 191, 36, 0.55)';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(px, startY);
+        if (blockedBySelf) {
+          ctx.lineTo(px + 10, surfY);
+        } else {
+          ctx.lineTo(lightX, lightY);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // ==================== TAB 2: RECURSIVE RAY TREE & WHITTED RAY TRACER ====================
+    function drawRayTreeLab() {
+      const tc = document.getElementById('treeCanvas');
+      const wc = document.getElementById('whittedCanvas');
+      if (!tc || !wc) return;
+
+      const rayY = Number(document.getElementById('treeRayYSlider').value);
+      const eta = Number(document.getElementById('treeEtaSlider').value);
+      const maxD = Number(document.getElementById('treeDepthSlider').value);
+      document.getElementById('treeRayYVal').textContent = rayY;
+      document.getElementById('treeEtaVal').textContent = eta.toFixed(2);
+      document.getElementById('treeDepthVal').textContent = maxD;
+
+      // 1. Draw Left 2D Ray Tree Bench
+      const ctx = tc.getContext('2d');
+      const W = tc.width, H = tc.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const cx = 290, cy = 185, R = 92;
+      ctx.fillStyle = 'rgba(6, 182, 212, 0.14)';
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      // Floor mirror
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(30, 330); ctx.lineTo(W - 30, 330); ctx.stroke();
+
+      // Trace primary ray from (35, rayY) along (+1, 0)
+      const dy = rayY - cy;
+      if (Math.abs(dy) < R) {
+        const dx = Math.sqrt(R * R - dy * dy);
+        const hit1 = [cx - dx, rayY];
+
+        // Primary ray
+        ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(35, rayY); ctx.lineTo(hit1[0], hit1[1]); ctx.stroke();
+
+        // Normal at hit1
+        const n1 = [(hit1[0] - cx) / R, (hit1[1] - cy) / R];
+        const d0 = [1, 0];
+        const dot1 = d0[0] * n1[0] + d0[1] * n1[1];
+
+        // Reflection R1
+        const r1 = [d0[0] - 2 * dot1 * n1[0], d0[1] - 2 * dot1 * n1[1]];
+        ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(hit1[0], hit1[1]); ctx.lineTo(hit1[0] + r1[0] * 140, hit1[1] + r1[1] * 140); ctx.stroke();
+
+        // Refraction T1 inside sphere
+        if (maxD >= 2) {
+          const ratio = 1 / eta;
+          const cosI = -dot1;
+          const k = Math.max(0, 1 - ratio * ratio * (1 - cosI * cosI));
+          const t1 = [
+            ratio * d0[0] + (ratio * cosI - Math.sqrt(k)) * n1[0],
+            ratio * d0[1] + (ratio * cosI - Math.sqrt(k)) * n1[1]
+          ];
+          // Chord inside sphere: length = 2 * R * cos(theta_2)
+          const chord = 2 * R * Math.sqrt(k);
+          const hit2 = [hit1[0] + t1[0] * chord, hit1[1] + t1[1] * chord];
+
+          ctx.strokeStyle = '#10b981'; ctx.lineWidth = 2.8;
+          ctx.beginPath(); ctx.moveTo(hit1[0], hit1[1]); ctx.lineTo(hit2[0], hit2[1]); ctx.stroke();
+
+          if (maxD >= 3) {
+            const n2 = [(cx - hit2[0]) / R, (cy - hit2[1]) / R]; // inward normal
+            const cosI2 = -(t1[0] * n2[0] + t1[1] * n2[1]);
+            const k2 = 1 - eta * eta * (1 - cosI2 * cosI2);
+            if (k2 >= 0) {
+              const t2 = [
+                eta * t1[0] + (eta * cosI2 - Math.sqrt(k2)) * n2[0],
+                eta * t1[1] + (eta * cosI2 - Math.sqrt(k2)) * n2[1]
+              ];
+              ctx.strokeStyle = '#a7f3d0'; ctx.lineWidth = 2.5;
+              ctx.beginPath(); ctx.moveTo(hit2[0], hit2[1]); ctx.lineTo(hit2[0] + t2[0] * 165, hit2[1] + t2[1] * 165); ctx.stroke();
+            }
+            // Internal reflection
+            const r2 = [t1[0] - 2 * (-cosI2) * n2[0], t1[1] - 2 * (-cosI2) * n2[1]];
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)'; ctx.lineWidth = 1.8;
+            ctx.beginPath(); ctx.moveTo(hit2[0], hit2[1]); ctx.lineTo(hit2[0] + r2[0] * 95, hit2[1] + r2[1] * 95); ctx.stroke();
+          }
+        }
+      }
+
+      // Draw Ray Tree Hierarchy Diagram in Top-Right corner of Left Canvas
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1;
+      ctx.fillRect(455, 18, 170, 145);
+      ctx.strokeRect(455, 18, 170, 145);
+      ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 11px monospace';
+      ctx.fillText(`Ray Tree (Depth D=${maxD})`, 468, 36);
+      ctx.fillStyle = '#fbbf24'; ctx.fillText('● Eye → Primary Hit', 468, 58);
+      if (maxD >= 1) { ctx.fillStyle = '#38bdf8'; ctx.fillText('├─ R₁ (Reflect)', 476, 78); }
+      if (maxD >= 2) { ctx.fillStyle = '#10b981'; ctx.fillText('└─ T₁ (Refract In)', 476, 98); }
+      if (maxD >= 3) {
+        ctx.fillStyle = '#a7f3d0'; ctx.fillText('   ├─ T₂ (Exit Ray)', 476, 118);
+        ctx.fillStyle = '#38bdf8'; ctx.fillText('   └─ TR (Internal)', 476, 138);
+      }
+
+      // 2. Render Right Whitted Framebuffer
+      const wctx = wc.getContext('2d');
+      const WW = wc.width, WH = wc.height;
+      const gw = 42, gh = 40;
+      const cw = WW / gw, ch = WH / gh;
+
+      for (let j = 0; j < gh; j++) {
+        for (let i = 0; i < gw; i++) {
+          const u = (2 * (i + 0.5)) / gw - 1;
+          const v = 1 - (2 * (j + 0.5)) / gh;
+          const r2 = u * u + v * v;
+          let col = [15, 23, 42];
+
+          if (r2 < 0.42) {
+            // Inside Glass Sphere: apply Snell refraction distortion to background checker!
+            const z = Math.sqrt(0.42 - r2);
+            const nx = u / 0.65, ny = v / 0.65, nz = z / 0.65;
+            const refractU = u - (1 - 1 / eta) * nx * (maxD >= 2 ? 0.85 : 0);
+            const refractV = v - (1 - 1 / eta) * ny * (maxD >= 2 ? 0.85 : 0);
+            const chk = (Math.floor(refractU * 7) + Math.floor(refractV * 7)) & 1;
+            const fres = Math.pow(1 - nz, 3);
+            const base = chk ? [16, 185, 129] : [15, 118, 110];
+            col = [
+              base[0] * (1 - fres) + 220 * fres,
+              base[1] * (1 - fres) + 245 * fres,
+              base[2] * (1 - fres) + 255 * fres
+            ];
+          } else {
+            // Background checker
+            const chk = (Math.floor(u * 5) + Math.floor(v * 5)) & 1;
+            col = chk ? [51, 65, 85] : [30, 41, 59];
+          }
+
+          wctx.fillStyle = `rgb(${col[0]|0}, ${col[1]|0}, ${col[2]|0})`;
+          wctx.fillRect(i * cw, j * ch, cw + 0.5, ch + 0.5);
+        }
+      }
+    }
+
+    // ==================== TAB 4: 3-MISSION MINI-GAME ====================
+    let gameMission = 1;
+    function setGameMission(m) {
+      gameMission = m;
+      [1, 2, 3].forEach(idx => {
+        document.getElementById('game-btn-' + idx).className = idx === m
+          ? 'px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white'
+          : 'px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      const s1 = document.getElementById('gSlider1');
+      const s2 = document.getElementById('gSlider2');
+      if (m === 1) {
+        s1.min = 10; s1.max = 75; s1.step = 1; s1.value = 25;
+        s2.min = 1; s2.max = 5; s2.step = 1; s2.value = 2;
+      } else if (m === 2) {
+        s1.min = 15; s1.max = 65; s1.step = 1; s1.value = 45;
+        s2.min = 1.1; s2.max = 2.2; s2.step = 0.05; s2.value = 1.25;
+      } else {
+        s1.min = 20; s1.max = 75; s1.step = 1; s1.value = 30;
+        s2.min = 1.2; s2.max = 2.0; s2.step = 0.05; s2.value = 1.60;
+      }
+      drawGame();
+    }
+
+    function drawGame() {
+      const c = document.getElementById('gameCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const v1 = Number(document.getElementById('gSlider1').value);
+      const v2 = Number(document.getElementById('gSlider2').value);
+      document.getElementById('gVal1').textContent = v1.toFixed(1);
+      document.getElementById('gVal2').textContent = v2.toFixed(2);
+
+      let passed = false;
+      const desc = document.getElementById('gameDesc');
+      const status = document.getElementById('gameStatus');
+
+      if (gameMission === 1) {
+        document.getElementById('gLabel1').textContent = 'Incident Angle θ₁ (Target 40°)';
+        document.getElementById('gLabel2').textContent = 'Multiplier in r = d - k(d·n)n';
+        desc.innerHTML = isEn
+          ? '<b>Mission 1 (Mirror Reflection Formula)</b>: Set incident angle θ₁ = 40° and select the exact scalar multiplier k = 2 in the reflection formula r = d - k(d·n)n!'
+          : '<b>第 1 关（潜望镜镜面反射校准）</b>：将入射角调至 θ₁ = 40°，并在参数 2 中选出反射公式 r = d - k(d·n)n 中正确的正交翻转倍数 k = 2！';
+        passed = Math.abs(v1 - 40) <= 2 && v2 === 2;
+      } else if (gameMission === 2) {
+        document.getElementById('gLabel1').textContent = 'Incident Angle θ₁ (Target 45°)';
+        document.getElementById('gLabel2').textContent = 'Prism IOR η₂ (Target 1.50)';
+        desc.innerHTML = isEn
+          ? '<b>Mission 2 (Snell Refraction Beacon)</b>: Set incident angle θ₁ = 45° and glass IOR η₂ = 1.50 so the refracted angle θ₂ = arcsin(sin(45°)/1.5) ≈ 28.1° hits the underwater sensor!'
+          : '<b>第 2 关（斯涅尔海底激光折射）</b>：将入射角设为 θ₁ = 45°、玻璃折射率设为 η₂ = 1.50，使折射角 θ₂ ≈ 28.1° 精准命中水下传感器！';
+        passed = Math.abs(v1 - 45) <= 2 && Math.abs(v2 - 1.5) <= 0.06;
+      } else {
+        document.getElementById('gLabel1').textContent = 'Core Ray Angle θ₁ (Must > θ_c)';
+        document.getElementById('gLabel2').textContent = 'Fiber Core IOR η₁ (Target 1.60)';
+        desc.innerHTML = isEn
+          ? '<b>Mission 3 (Fiber-Optic TIR Lock)</b>: With fiber core η₁ = 1.60 and air cladding η₂ = 1.00, set the incidence angle θ₁ > 45° (above critical angle θ_c = 38.7°) to achieve 100% Total Internal Reflection!'
+          : '<b>第 3 关（光纤全内反射锁死）</b>：保持光纤纤芯折射率 η₁ = 1.60（包层 η₂ = 1.00，临界角 θ_c = 38.7°），将入射角 θ₁ 调大至 45° 以上以触发 100% 全内反射！';
+        passed = v1 >= 45 && Math.abs(v2 - 1.6) <= 0.06;
+      }
+
+      ctx.strokeStyle = passed ? '#10b981' : '#38bdf8';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(45, 45, W - 90, H - 90);
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 19px monospace';
+      ctx.fillText(`Mission ${gameMission}: Param1 = ${v1.toFixed(1)} | Param2 = ${v2.toFixed(2)}`, 80, 165);
+      ctx.fillStyle = passed ? '#10b981' : '#fbbf24';
+      ctx.fillText(passed ? '★ OPTICAL PATH LOCKED!' : '● Adjust optical parameters to hit target', 80, 215);
+
+      status.innerHTML = passed
+        ? `<div class="text-emerald-400 font-bold text-sm">★ MISSION ${gameMission} CLEARED! / 恭喜通关！</div>`
+        : `<div class="text-amber-300 font-bold">● Calibrating optical path...</div>`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+      drawOptics();
+      drawAcne();
+      drawRayTreeLab();
+      setGameMission(1);
+    });
+  </script>
+</body>
+</html>

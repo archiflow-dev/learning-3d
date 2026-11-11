@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 29: 色彩科学 (Color Science)：从人眼感知到 CIE 与 Gamma | Learning 3D</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body {
+      background-color: #020617;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+    }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    input[type="range"] {
+      accent-color: #6366f1;
+    }
+    body.lang-zh .en-only { display: none !important; }
+    body.lang-en .zh-only { display: none !important; }
+  </style>
+</head>
+<body class="lang-zh min-h-screen pb-16">
+  <!-- Header -->
+  <header class="sticky top-0 z-50 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="px-3 py-1 rounded-full text-xs font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+          STAGE 6 · LESSON 29
+        </span>
+        <div>
+          <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-white">
+            <span class="zh-only">色彩科学 (Color Science)：从人眼感知到 CIE 与 Gamma</span>
+            <span class="en-only">Color Science: Human Cone Response, CIE 1931 XYZ, Gamut &amp; sRGB Gamma</span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            <span class="zh-only">MIT 6.837 Lecture 20 · 光谱内积投影、同色异谱零空间、负值匹配函数、CIE 1931 马蹄图与 Linear/sRGB 渲染管线</span>
+            <span class="en-only">MIT 6.837 Lecture 20 · Spectral Inner-Product Projection, Metamer Nullspace, CIE 1931 Horseshoe &amp; Linear/sRGB Pipeline</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="langToggleBtn" onclick="toggleLanguage()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 text-xs font-bold text-slate-100 transition flex items-center gap-1.5 shadow">
+          <span>🌐</span>
+          <span id="langBtnText">EN / 中文</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+    <!-- Navigation Tabs -->
+    <nav class="grid grid-cols-2 lg:grid-cols-4 gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800">
+      <button onclick="switchTab(1)" id="tabBtn1" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition bg-indigo-600 text-white shadow-lg shadow-indigo-600/25">
+        <span class="zh-only">📐 1. 3Blue1Brown 光谱投影与色度直觉</span>
+        <span class="en-only">📐 1. 3Blue1Brown Spectral Projection &amp; CIE</span>
+      </button>
+      <button onclick="switchTab(2)" id="tabBtn2" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60">
+        <span class="zh-only">🔬 2. 双实验台：CIE 马蹄图 + Linear/sRGB 对比仪</span>
+        <span class="en-only">🔬 2. Dual Labs: CIE 1931 Explorer + Linear/sRGB</span>
+      </button>
+      <button onclick="switchTab(3)" id="tabBtn3" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60">
+        <span class="zh-only">🎥 3. MIT 6.837 L20 课堂同步精要</span>
+        <span class="en-only">🎥 3. MIT 6.837 L20 Course Companion</span>
+      </button>
+      <button onclick="switchTab(4)" id="tabBtn4" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60">
+        <span class="zh-only">🎮 4. 闯关：首席色彩科学架构师 (3关)</span>
+        <span class="en-only">🎮 4. Game: Chief Color Architect (3 Missions)</span>
+      </button>
+    </nav>
+
+    <!-- ==================== TAB 1: 3Blue1Brown Intuition ==================== -->
+    <section id="tab1" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left Column: Deep Derivations -->
+        <div class="lg:col-span-6 space-y-5">
+          <!-- Card 1 -->
+          <div class="glass-panel rounded-2xl p-6 space-y-3">
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-bold">
+              <span class="zh-only">第一部分 · 从无穷维光谱空间到 3D 视锥投影</span>
+              <span class="en-only">Part 1 · Infinite-Dimensional SPD to 3D Cone Projection</span>
+            </div>
+            <h2 class="text-lg font-extrabold text-white">
+              <span class="zh-only">1. 为什么红光+绿光能骗过人眼变成黄光？（同色异谱与零空间）</span>
+              <span class="en-only">1. Why Do Red + Green Trick the Eye into Seeing Yellow? (Metamerism)</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              在物理学中，一束光是可见光波长 $\lambda \in [380, 780]\,\text{nm}$ 上的连续函数——<strong>光谱功率分布 (SPD, $\Phi(\lambda)$)</strong>，它住在<strong>无穷维希尔伯特函数空间</strong> $\mathcal{H} = L^2([380,780])$ 中。然而人眼视网膜只有三种视锥细胞（对长波敏感的 $L$、中波 $M$、短波 $S$），其灵敏度函数为 $l(\lambda), m(\lambda), s(\lambda)$。人眼看到的颜色，本质上是光谱函数 $\Phi(\lambda)$ 与三个基函数的<strong>内积投影</strong>：
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              Physically, light is a continuous <strong>Spectral Power Distribution (SPD, $\Phi(\lambda)$)</strong> living in an infinite-dimensional Hilbert space $L^2([380,780]\text{nm})$. Yet the human retina has only three cone types ($L, M, S$) with response curves $l(\lambda), m(\lambda), s(\lambda)$. Human color perception is a <strong>3D inner-product projection</strong>:
+            </p>
+            <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 text-xs overflow-x-auto">
+              $$\begin{bmatrix} L \\ M \\ S \end{bmatrix} = \int_{380}^{780} \Phi(\lambda)\begin{bmatrix} l(\lambda) \\ m(\lambda) \\ s(\lambda) \end{bmatrix} d\lambda = \mathbf{P}_{\text{LMS}}\big(\Phi\big)$$
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              <strong>3Blue1Brown 秩-零化度直觉</strong>：线性算子 $\mathbf{P}_{\text{LMS}} : \mathbb{R}^\infty \to \mathbb{R}^3$ 把无穷维空间压缩到了区区 3 维！这意味着它必然拥有一个<strong>无穷维的零空间 $\ker(\mathbf{P}_{\text{LMS}})$</strong>。只要两束物理上截然不同的光谱 $\Phi_1(\lambda) \neq \Phi_2(\lambda)$ 的差值落在零空间里（$\Phi_1 - \Phi_2 \in \ker(\mathbf{P}_{\text{LMS}})$），它们投影出的 $(L,M,S)$ 三刺激值就<strong>分毫不差</strong>！这就是<strong>同色异谱 (Metamerism)</strong>——也是地球上所有 RGB 显示器仅凭红绿蓝三根窄谱尖峰就能完美模拟太阳连续光谱的数学根基！
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              <strong>3Blue1Brown Rank-Nullity Intuition</strong>: Because $\mathbf{P}_{\text{LMS}} : \mathbb{R}^\infty \to \mathbb{R}^3$ projects an infinite-dimensional space down to 3D, it has an infinite-dimensional nullspace $\ker(\mathbf{P}_{\text{LMS}})$. Any two distinct spectra $\Phi_1 \neq \Phi_2$ with $\Phi_1 - \Phi_2 \in \ker(\mathbf{P}_{\text{LMS}})$ produce the exact same $(L,M,S)$ tristimulus! This is <strong>Metamerism</strong>—why 3 RGB display primaries can mimic continuous sunlight.
+            </p>
+          </div>
+
+          <!-- Card 2 -->
+          <div class="glass-panel rounded-2xl p-6 space-y-3">
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+              <span class="zh-only">第二部分 · 负值匹配函数与 CIE 1931 马蹄图</span>
+              <span class="en-only">Part 2 · Negative Lobes &amp; CIE 1931 Chromaticity Horseshoe</span>
+            </div>
+            <h2 class="text-lg font-extrabold text-white">
+              <span class="zh-only">2. 为什么真实 RGB 匹配函数会出现负值？为什么色域必是三角形？</span>
+              <span class="en-only">2. Why Do Physical RGB Matching Functions Go Negative, and Why Are Gamuts Triangles?</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              在 1931 年 Wright &amp; Guild 配色实验中，受试者用 $700\text{nm}$ 纯红、$546.1\text{nm}$ 纯绿、$435.8\text{nm}$ 纯蓝三束单色光去匹配任意波长 $\lambda$ 的激光。诡异的事情发生了：当匹配 $500\text{nm}$ 翡翠青色光时，无论怎么调正权重都配不出那么纯的青色——除非把<strong>一束红光加到待测青光那一侧</strong>使它退饱和，即代数上的<strong>“负红光” $\bar{r}(500\text{nm}) < 0$</strong>！
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              In the 1931 Wright–Guild color matching experiments using real $700\text{nm}$ Red, $546.1\text{nm}$ Green, and $435.8\text{nm}$ Blue lasers, observers could never match pure $500\text{nm}$ cyan with positive weights—unless they added Red light to the <em>test</em> side, algebraically equivalent to <strong>negative red $\bar{r}(500\text{nm}) < 0$</strong>!
+            </p>
+            <div class="bg-slate-950/90 border border-emerald-500/30 rounded-xl p-3 text-xs overflow-x-auto">
+              $$x = \frac{X}{X+Y+Z}, \qquad y = \frac{Y}{X+Y+Z} \quad\text{（对平面 } X+Y+Z=1 \text{ 的中心透视投影）}$$
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              <strong>3Blue1Brown 凸锥截面直觉</strong>：由于 $L,M,S$ 灵敏度曲线高度重叠（尤其 $L$ 与 $M$），所有单色激光在三维刺激空间中扫出一个<strong>向外弯曲的凸锥壳（马蹄形边界）</strong>。根据凸集几何，在弯曲边界上任取三个真实物理原色 $\mathbf{P}_R, \mathbf{P}_G, \mathbf{P}_B$，由非负组合 $w_R\mathbf{P}_R + w_G\mathbf{P}_G + w_B\mathbf{P}_B\; (w_i \ge 0)$ 张成的区域在投影平面 $X+Y+Z=1$ 上<strong>必然是这三个顶点构成的凸包——即色域三角形 (Gamut Triangle)</strong>！因为直边三角形永远不可能完全包住向外凸出的弯曲马蹄边界，所以<strong>世上没有任何三原色显示器能显示出 100% 的人眼可见色彩</strong>！CIE 1931 为消除负值而定义的 $X,Y,Z$，其实是位于马蹄图外部的三个<strong>非物理虚构原色 (Imaginary Primaries)</strong>，其中 $Y$ 被刻意对齐为人眼明视觉亮度响应 $V(\lambda)$。
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              <strong>3Blue1Brown Convex Cone Intuition</strong>: Monochromatic spectral rays trace a strictly curved convex boundary (the horseshoe locus) on the projective plane $X+Y+Z=1$. Any three physical primaries $\mathbf{P}_R, \mathbf{P}_G, \mathbf{P}_B$ inside the horseshoe span a <strong>convex hull triangle</strong> under non-negative weights $w_i \ge 0$. A straight-edged triangle inscribed in a curved horseshoe can never cover the outer cyan/green arc! CIE 1931 $X,Y,Z$ avoids negative weights by choosing three <strong>imaginary primaries outside the horseshoe</strong>, aligning $Y$ with luminance $V(\lambda)$.
+            </p>
+          </div>
+
+          <!-- Card 3 -->
+          <div class="glass-panel rounded-2xl p-6 space-y-3">
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold">
+              <span class="zh-only">第三部分 · 韦伯定律与 Linear vs sRGB Gamma 2.2</span>
+              <span class="en-only">Part 3 · Weber's Law &amp; Linear vs. sRGB Gamma 2.2</span>
+            </div>
+            <h2 class="text-lg font-extrabold text-white">
+              <span class="zh-only">3. 为什么直接在 sRGB 空间算光照与混合是致命错误？</span>
+              <span class="en-only">3. Why Is Shading or Blending Directly in sRGB Space Mathematically Wrong?</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              人眼对明暗的感知是对数/幂律式的（暗部从 $1$ 到 $2$ 个光子极其明显，亮部从 $100$ 到 $101$ 个光子毫无察觉，近似满足 $V \approx I^{1/2.2}$）。如果用 8-bit ($0\text{–}255$) 均匀存储物理线性光强 $I \in [0,1]$，整整一半的编码值（$128\text{–}255$）都被浪费在最亮的最后一级曝光 $[0.5, 1.0]$ 上，暗部则会因为码值匮乏出现惨不忍睹的<strong>色阶断层 (Banding)</strong>！因此照片与贴图存储前都会先做 <strong>sRGB Gamma 编码压缩</strong> $C_{\text{sRGB}} \approx I_{\text{linear}}^{1/2.2}$。
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              Human brightness perception follows a power law $V \approx I^{1/2.2}$ (hyper-sensitive in darks, compressed in brights). Storing linear energy in 8-bit wastes half of all 256 codewords on $[0.5, 1.0]$ and causes severe shadow banding. Thus images are stored with <strong>sRGB Gamma encoding</strong> $C_{\text{sRGB}} \approx I_{\text{linear}}^{1/2.2}$.
+            </p>
+            <div class="bg-slate-950/90 border border-amber-500/30 rounded-xl p-3 text-xs overflow-x-auto">
+              $$I_{\text{correct}} = \left(\frac{1}{2}I_1 + \frac{1}{2}I_2\right)^{1/2.2} \;\neq\; \frac{1}{2}I_1^{1/2.2} + \frac{1}{2}I_2^{1/2.2}$$
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              <strong>致命陷阱</strong>：在真实物理世界中，两盏灯的光子叠加、BRDF 反射积分、半透明混合和 Mipmap 滤波满足的是<strong>物理能量线性可加性</strong>！如果你把未经解码的 sRGB 颜色直接相加求平均（如纯红 $(1,0,0)$ 与纯绿 $(0,1,0)$ 各占 $50\%$ 混合），sRGB 算出来是 $(0.5, 0.5, 0)$，显示器做 $2.2$ 次方解码后实际发射的物理光强只有 $(0.5^{2.2}, 0.5^{2.2}, 0) = (\mathbf{0.2176}, \mathbf{0.2176}, 0)$——<strong>超过一半的物理光能凭空消失了</strong>，导致红绿交界处出现一圈肮脏发黑的“暗泥沼”！
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              <strong>The Fatal Trap</strong>: Photon addition, BRDF shading, alpha blending, and mipmap filtering are linear in physical energy! Averaging pure Red $(1,0,0)$ and Green $(0,1,0)$ directly in sRGB gives $(0.5, 0.5, 0)$, which the monitor decodes via $(\cdot)^{2.2}$ to $(\mathbf{0.2176}, \mathbf{0.2176}, 0)$—losing more than half the physical energy and creating a dark muddy border!
+            </p>
+          </div>
+        </div>
+
+        <!-- Right Column: Interactive 3Blue1Brown Visualizer -->
+        <div class="lg:col-span-6 space-y-5">
+          <div class="glass-panel rounded-2xl p-6 space-y-4 sticky top-24">
+            <div>
+              <h3 class="text-base font-extrabold text-white">
+                <span class="zh-only">🔬 光谱内积投影、CIE 负值瓣与同色异谱显微镜</span>
+                <span class="en-only">🔬 Spectral Projection, CIE Negative Lobe &amp; Metamer Microscope</span>
+              </h3>
+              <p class="text-xs text-slate-400">
+                <span class="zh-only">拖动单色激光波长 $\lambda$（$380\text{–}700\text{nm}$），观察 L/M/S 视锥响应与 CIE RGB 匹配函数在青光波段的负值瓣 $\bar{r}(\lambda) < 0$</span>
+                <span class="en-only">Sweep wavelength $\lambda$ ($380\text{–}700\text{nm}$) to inspect L/M/S cone responses and the negative lobe $\bar{r}(\lambda) < 0$ in cyan</span>
+              </p>
+            </div>
+
+            <canvas id="mathCanvas" width="600" height="390" class="w-full rounded-xl bg-slate-950 border border-slate-800 shadow-inner"></canvas>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-300 font-semibold">
+                    <span class="zh-only">单色激光波长 $\lambda$</span>
+                    <span class="en-only">Monochromatic Wavelength $\lambda$</span>
+                  </span>
+                  <span id="mathWaveVal" class="font-mono text-cyan-300 font-bold">500 nm</span>
+                </div>
+                <input id="mathWaveSlider" type="range" min="390" max="690" step="1" value="500" oninput="drawMathCanvas()" class="w-full" />
+              </div>
+
+              <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-300 font-semibold">
+                    <span class="zh-only">显示曲线模式</span>
+                    <span class="en-only">Curve Mode</span>
+                  </span>
+                  <span id="mathCurveModeLabel" class="font-mono text-indigo-300 font-bold">CIE RGB (Negative Lobe)</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-1">
+                  <button onclick="setMathMode('rgb')" id="mathModeRgbBtn" class="py-1 rounded-lg text-xs font-bold bg-indigo-600 text-white">
+                    CIE RGB r̄,ḡ,b̄
+                  </button>
+                  <button onclick="setMathMode('lms')" id="mathModeLmsBtn" class="py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">
+                    Cone L,M,S &amp; X,Y,Z
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+              <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+                <div class="text-slate-400">
+                  <span class="zh-only">红原色匹配权重 $\bar{r}(\lambda)$</span>
+                  <span class="en-only">Red Primary Weight $\bar{r}(\lambda)$</span>
+                </div>
+                <div id="readRBar" class="font-mono font-bold text-rose-400 mt-0.5">-0.071 (Negative!)</div>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+                <div class="text-slate-400">
+                  <span class="zh-only">绿原色匹配权重 $\bar{g}(\lambda)$</span>
+                  <span class="en-only">Green Primary Weight $\bar{g}(\lambda)$</span>
+                </div>
+                <div id="readGBar" class="font-mono font-bold text-emerald-400 mt-0.5">+0.085</div>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+                <div class="text-slate-400">
+                  <span class="zh-only">蓝原色匹配权重 $\bar{b}(\lambda)$</span>
+                  <span class="en-only">Blue Primary Weight $\bar{b}(\lambda)$</span>
+                </div>
+                <div id="readBBar" class="font-mono font-bold text-sky-400 mt-0.5">+0.048</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: Dual Interactive Labs ==================== -->
+    <section id="tab2" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Lab 1: CIE 1931 Horseshoe & Gamut Explorer -->
+        <div class="lg:col-span-6 glass-panel rounded-2xl p-6 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span class="text-xs font-mono text-indigo-400 font-bold">INTERACTIVE LAB 01</span>
+              <h3 class="text-lg font-extrabold text-white">
+                <span class="zh-only">CIE 1931 $(x,y)$ 马蹄色度图与广色域三角形探索器</span>
+                <span class="en-only">CIE 1931 $(x,y)$ Chromaticity Diagram &amp; Gamut Explorer</span>
+              </h3>
+              <p class="text-xs text-slate-400">
+                <span class="zh-only">在马蹄图上点击或拖动采样点 $(x,y)$，实时查看 sRGB / Display P3 / Rec.2020 色域覆盖与越界负值告警</span>
+                <span class="en-only">Click/drag $(x,y)$ on the horseshoe to inspect sRGB / Display P3 / Rec.2020 gamut triangles &amp; out-of-gamut clipping</span>
+              </p>
+            </div>
+          </div>
+
+          <canvas id="cieCanvas" width="540" height="390" class="w-full rounded-xl bg-slate-950 border border-slate-800 cursor-crosshair"></canvas>
+
+          <div class="flex flex-wrap gap-2 text-xs">
+            <button onclick="toggleGamut('srgb')" id="gamutBtnSrgb" class="px-3 py-1.5 rounded-lg font-bold border bg-sky-500/20 border-sky-400 text-sky-200">
+              ✓ sRGB / Rec.709
+            </button>
+            <button onclick="toggleGamut('p3')" id="gamutBtnP3" class="px-3 py-1.5 rounded-lg font-bold border bg-amber-500/20 border-amber-400 text-amber-200">
+              ✓ Display P3 (DCI)
+            </button>
+            <button onclick="toggleGamut('rec2020')" id="gamutBtn2020" class="px-3 py-1.5 rounded-lg font-bold border bg-emerald-500/20 border-emerald-400 text-emerald-200">
+              ✓ Rec.2020 (UHDTV)
+            </button>
+            <button onclick="setCieSample(0.08, 0.58)" class="px-3 py-1.5 rounded-lg font-bold border bg-slate-800 border-slate-700 text-cyan-300 hover:bg-slate-700">
+              <span class="zh-only">🎯 跳至 505nm 纯青光 (越界区)</span>
+              <span class="en-only">🎯 Jump to 505nm Cyan (Out of sRGB)</span>
+            </button>
+          </div>
+
+          <div id="cieReadoutBox" class="p-3 rounded-xl bg-slate-950/90 border border-slate-800 text-xs font-mono space-y-1">
+            <div id="cieCoordText" class="text-slate-200 font-bold">Chromaticity (x, y) = (0.3127, 0.3290) · D65 White</div>
+            <div id="cieRgbText" class="text-emerald-300">Linear sRGB = (1.000, 1.000, 1.000) → Inside sRGB Gamut ✓</div>
+          </div>
+        </div>
+
+        <!-- Lab 2: Linear Space vs Naive sRGB Shading & Blending Comparator -->
+        <div class="lg:col-span-6 glass-panel rounded-2xl p-6 space-y-4">
+          <div>
+            <span class="text-xs font-mono text-emerald-400 font-bold">INTERACTIVE LAB 02</span>
+            <h3 class="text-lg font-extrabold text-white">
+              <span class="zh-only">Linear 线性工作流 vs 错误 sRGB 空间光照与混合对比仪</span>
+              <span class="en-only">Linear Workflow vs. Broken sRGB Shading &amp; Blending Comparator</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="zh-only">上半屏：红绿渐变混合（观察错误 sRGB 中间的暗黑泥沼带）· 下半屏：3D 球体漫反射与高光衰减对比</span>
+              <span class="en-only">Top: Red-Green gradient blend (dark muddy band in naive sRGB) · Bottom: 3D sphere shading falloff</span>
+            </p>
+          </div>
+
+          <canvas id="gammaCanvas" width="540" height="390" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300 font-semibold">
+                  <span class="zh-only">光源强度 $I_{\text{light}}$</span>
+                  <span class="en-only">Light Intensity $I_{\text{light}}$</span>
+                </span>
+                <span id="gammaLightVal" class="font-mono text-amber-300 font-bold">1.25</span>
+              </div>
+              <input id="gammaLightSlider" type="range" min="0.4" max="2.5" step="0.05" value="1.25" oninput="drawGammaCanvas()" class="w-full" />
+            </div>
+
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300 font-semibold">
+                  <span class="zh-only">量化位深模拟 (Bit Depth)</span>
+                  <span class="en-only">Quantization Levels</span>
+                </span>
+                <span id="gammaBitsVal" class="font-mono text-indigo-300 font-bold">32 levels (5-bit)</span>
+              </div>
+              <input id="gammaBitsSlider" type="range" min="8" max="64" step="4" value="32" oninput="drawGammaCanvas()" class="w-full" />
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-950/90 border border-slate-800 text-xs text-slate-300">
+            <span class="zh-only">💡 <strong>中点能量实测 ($t=0.5$)</strong>：直接 sRGB 平均输出的物理总光通量仅为 <code>21.8% + 21.8% = 43.5%</code>（丢失 $56.5\%$ 亮度！）；而 Linear 混合后做 $\gamma=1/2.2$ 编码输出的编码值为 <code>0.5^(1/2.2) = 0.730</code>，物理光通量精确守恒为 <code>50% + 50% = 100%</code>！</span>
+            <span class="en-only">💡 <strong>Midpoint Energy Check ($t=0.5$)</strong>: Naive sRGB averaging emits only <code>43.5%</code> total physical luminance (muddy dark band!), whereas Linear blending + $\gamma=1/2.2$ encode emits <code>0.730</code> code value = <code>100%</code> conserved luminance!</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: MIT 6.837 Lecture 20 Companion ==================== -->
+    <section id="tab3" class="hidden space-y-6">
+      <div class="glass-panel rounded-2xl p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-mono text-indigo-400 font-bold">MIT 6.837 · FALL 2021 · LECTURE 20</span>
+            <h2 class="text-xl font-extrabold text-white mt-1">
+              <span class="zh-only">Lecture 20：色彩科学 (Color Science, Prof. Justin Solomon)</span>
+              <span class="en-only">Lecture 20: Color Science (Prof. Justin Solomon)</span>
+            </h2>
+          </div>
+          <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noopener noreferrer" class="px-4 py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-xs font-bold text-red-200 transition">
+            ▶ Watch MIT 6.837 Lecture 20 Playlist
+          </a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-5 space-y-2">
+            <div class="text-indigo-400 font-bold">
+              <span class="zh-only">1. 格拉斯曼色彩混合定律 (Grassmann's Laws)</span>
+              <span class="en-only">1. Grassmann's Laws of Additive Color Mixing</span>
+            </div>
+            <p class="zh-only">
+              因为内积积分算子是严格的线性映射：$\mathbf{P}_{\text{LMS}}(a\Phi_1 + b\Phi_2) = a\mathbf{P}_{\text{LMS}}(\Phi_1) + b\mathbf{P}_{\text{LMS}}(\Phi_2)$，所以人眼的加色混合满足叠加性与齐次性。这意味着无论背景光谱多复杂，只要两组光在单独观察时同色异谱，把它们同时叠加上第三束光后依然同色异谱！
+            </p>
+            <p class="en-only">
+              Because the inner-product integral operator is strictly linear, additive color perception obeys superposition and scaling (Grassmann's Laws): metamers remain metamers when an identical third light is added to both.
+            </p>
+          </div>
+
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-5 space-y-2">
+            <div class="text-emerald-400 font-bold">
+              <span class="zh-only">2. CIE XYZ 与色度学三维解耦</span>
+              <span class="en-only">2. CIE 1931 XYZ &amp; Luminance-Chromaticity Split</span>
+            </div>
+            <p class="zh-only">
+              CIE 1931 将匹配函数变换为全正值的 $\bar{x}(\lambda), \bar{y}(\lambda), \bar{z}(\lambda)$，并令 $\bar{y}(\lambda)$ 严格等于人眼明视觉发光效率函数 $V(\lambda)$。由此可通过 $(x, y, Y)$ 完备表示任意色彩：其中 $(x,y)$ 描述纯色相与饱和度（Chromaticity），而 $Y$ 独立描述绝对物理亮度（Luminance），并可逆还原为 $X = \frac{x}{y}Y,\; Z = \frac{1-x-y}{y}Y$。
+            </p>
+            <p class="en-only">
+              CIE 1931 transforms RGB matching functions into all-positive $\bar{x}, \bar{y}, \bar{z}$ where $\bar{y}(\lambda) = V(\lambda)$ is luminous efficiency. Any color is uniquely represented by $(x, y, Y)$, recovering $X = \frac{x}{y}Y$ and $Z = \frac{1-x-y}{y}Y$.
+            </p>
+          </div>
+
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-5 space-y-2">
+            <div class="text-amber-400 font-bold">
+              <span class="zh-only">3. 现代 GPU 硬件级 sRGB 渲染管线</span>
+              <span class="en-only">3. Hardware GPU Linear/sRGB Pipeline</span>
+            </div>
+            <p class="zh-only">
+              在现代 WebGPU / Vulkan / DirectX 12 管线中：① 漫反射反照率贴图（Albedo / BaseColor）应声明为 <code>RGBA8UnormSrgb</code>，硬件纹理采样器会在双线性插值前自动做 $\gamma^{2.2}$ 线性化；② 法线贴图、粗糙度与金属度贴图本来就是线性数值，严禁开启 sRGB 解码；③ 全部光照在 <code>RGBA16Float</code> 线性缓冲完成后，最终输出到屏幕前执行一次 $\gamma^{1/2.2}$ 编码。
+            </p>
+            <p class="en-only">
+              In modern GPUs: ① Albedo textures use hardware <code>SRGB8_ALPHA8</code> formats to auto-linearize before filtering; ② Normal/Roughness/Metallic maps must remain linear; ③ All shading runs in linear float buffers before a final $\gamma^{1/2.2}$ sRGB encode.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-Mission Game ==================== -->
+    <section id="tab4" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-5 glass-panel rounded-2xl p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs font-mono text-amber-400 font-bold">3-MISSION CHALLENGE</span>
+              <h3 class="text-lg font-extrabold text-white">
+                <span class="zh-only">🎮 首席色彩科学与渲染管线架构师</span>
+                <span class="en-only">🎮 Chief Color Science &amp; Pipeline Architect</span>
+              </h3>
+            </div>
+            <span id="gameProgressBadge" class="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-bold">
+              0 / 3 Passed
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="selectMission(1)" id="missionBtn1" class="py-2 rounded-xl text-xs font-bold border bg-indigo-600 text-white border-indigo-400">
+              <span class="zh-only">关卡 1 · 同色异谱</span>
+              <span class="en-only">Mission 1 · Metamer</span>
+            </button>
+            <button onclick="selectMission(2)" id="missionBtn2" class="py-2 rounded-xl text-xs font-bold border bg-slate-800 text-slate-400 border-slate-700">
+              <span class="zh-only">关卡 2 · 广色域母带</span>
+              <span class="en-only">Mission 2 · Gamut</span>
+            </button>
+            <button onclick="selectMission(3)" id="missionBtn3" class="py-2 rounded-xl text-xs font-bold border bg-slate-800 text-slate-400 border-slate-700">
+              <span class="zh-only">关卡 3 · Linear 管线</span>
+              <span class="en-only">Mission 3 · Gamma</span>
+            </button>
+          </div>
+
+          <!-- Mission 1 Panel -->
+          <div id="missionPanel1" class="space-y-3 text-xs text-slate-300">
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+              <div class="font-bold text-indigo-300">
+                <span class="zh-only">任务 1：OLED 同色异谱配光师 (Metamer Calibration)</span>
+                <span class="en-only">Mission 1: OLED Metamerism Calibrator</span>
+              </div>
+              <p class="zh-only">
+                目标是一束宽谱琥珀色自然光，其人眼视锥响应为 $(L, M, S) = (0.76, 0.58, 0.12)$。请调节窄带 OLED 的红光 $R$ 与绿光 $G$ 驱动功率，利用同色异谱原理使人眼感知的 $\|\Delta\text{LMS}\| \le 0.04$！
+              </p>
+              <p class="en-only">
+                Match the broadband amber daylight response $(L, M, S) = (0.76, 0.58, 0.12)$ using narrowband OLED Red and Green spikes so $\|\Delta\text{LMS}\| \le 0.04$!
+              </p>
+            </div>
+            <div class="space-y-2">
+              <div>
+                <div class="flex justify-between"><span>OLED Red Drive (R)</span><span id="m1RVal" class="font-mono text-rose-300">0.40</span></div>
+                <input id="m1RSlider" type="range" min="0" max="1" step="0.02" value="0.40" oninput="drawGameCanvas()" class="w-full" />
+              </div>
+              <div>
+                <div class="flex justify-between"><span>OLED Green Drive (G)</span><span id="m1GVal" class="font-mono text-emerald-300">0.30</span></div>
+                <input id="m1GSlider" type="range" min="0" max="1" step="0.02" value="0.30" oninput="drawGameCanvas()" class="w-full" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Mission 2 Panel -->
+          <div id="missionPanel2" class="hidden space-y-3 text-xs text-slate-300">
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+              <div class="font-bold text-emerald-300">
+                <span class="zh-only">任务 2：拯救越界截断的深海翡翠青激光</span>
+                <span class="en-only">Mission 2: Rescue the Out-of-Gamut Emerald-Cyan Laser</span>
+              </div>
+              <p class="zh-only">
+                电影《深海》中的极饱和翡翠青色荧光坐标为 $(x=0.145, y=0.680)$，落在 sRGB 与 Display P3 三角形之外，导致线性红通道出现负值 ($R < 0$) 而被强行截断失真！请切换母带目标色彩空间以完整容纳该色度点！
+              </p>
+              <p class="en-only">
+                A saturated emerald-cyan bioluminescence at $(x=0.145, y=0.680)$ falls outside sRGB and P3, producing negative $R < 0$! Select the wide-gamut color space that encloses it with all-positive primaries!
+              </p>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <button onclick="setGameM2('srgb')" id="m2BtnSrgb" class="p-2 rounded-xl border font-bold bg-rose-500/20 border-rose-500 text-rose-200">
+                sRGB
+              </button>
+              <button onclick="setGameM2('p3')" id="m2BtnP3" class="p-2 rounded-xl border font-bold bg-slate-800 border-slate-700 text-slate-400">
+                Display P3
+              </button>
+              <button onclick="setGameM2('rec2020')" id="m2Btn2020" class="p-2 rounded-xl border font-bold bg-slate-800 border-slate-700 text-slate-400">
+                Rec.2020
+              </button>
+            </div>
+          </div>
+
+          <!-- Mission 3 Panel -->
+          <div id="missionPanel3" class="hidden space-y-3 text-xs text-slate-300">
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+              <div class="font-bold text-amber-300">
+                <span class="zh-only">任务 3：修复红绿发黑泥沼与过曝着色器管线</span>
+                <span class="en-only">Mission 3: Fix the Muddy sRGB Shader Pipeline</span>
+              </div>
+              <p class="zh-only">
+                渲染引擎当前直接将 sRGB 贴图字节送入光照累加，导致红绿混合丢失 $56.5\%$ 物理光强、球体明暗交界线僵硬发黑！请配置正确的<strong>纹理采样解码 ($\gamma^{2.2}$) + 帧缓冲输出编码 ($\gamma^{1/2.2}$)</strong> 黄金管线！
+              </p>
+              <p class="en-only">
+                The shader currently blends raw sRGB bytes directly! Configure the physically correct <strong>sRGB Texture Decode ($\gamma^{2.2}$) + Linear Shading + sRGB Output Encode ($\gamma^{1/2.2}$)</strong> pipeline!
+              </p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="setGameM3('naive')" id="m3BtnNaive" class="p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200">
+                Naive sRGB Math<br/><span class="text-[10px] opacity-75">Dark Muddy Border</span>
+              </button>
+              <button onclick="setGameM3('linear_wf')" id="m3BtnLinear" class="p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400">
+                Decode 2.2 → Shade → Encode 1/2.2<br/><span class="text-[10px] opacity-75">True Linear Workflow</span>
+              </button>
+            </div>
+          </div>
+
+          <button onclick="verifyGameMission()" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-emerald-600/25 transition">
+            <span class="zh-only">⚡ 运行色彩管线验收测试</span>
+            <span class="en-only">⚡ Run Color Pipeline Verification</span>
+          </button>
+
+          <div id="gameFeedbackBox" class="hidden p-3.5 rounded-xl border text-xs leading-relaxed"></div>
+        </div>
+
+        <div class="lg:col-span-7 glass-panel rounded-2xl p-6 flex flex-col justify-between">
+          <canvas id="gameCanvas" width="600" height="360" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentLang = 'zh';
+    let currentTab = 1;
+    let mathMode = 'rgb';
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.body.classList.toggle('lang-zh', currentLang === 'zh');
+      document.body.classList.toggle('lang-en', currentLang === 'en');
+      drawMathCanvas();
+      drawCieCanvas();
+      drawGammaCanvas();
+      drawGameCanvas();
+    }
+
+    function switchTab(tabId) {
+      currentTab = tabId;
+      for (let i = 1; i <= 4; i++) {
+        const sec = document.getElementById('tab' + i);
+        const btn = document.getElementById('tabBtn' + i);
+        if (i === tabId) {
+          sec.classList.remove('hidden');
+          btn.className = 'tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition bg-indigo-600 text-white shadow-lg shadow-indigo-600/25';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = 'tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60';
+        }
+      }
+      if (tabId === 1) drawMathCanvas();
+      if (tabId === 2) { drawCieCanvas(); drawGammaCanvas(); }
+      if (tabId === 4) drawGameCanvas();
+    }
+
+    function setMathMode(mode) {
+      mathMode = mode;
+      document.getElementById('mathModeRgbBtn').className = mode === 'rgb'
+        ? 'py-1 rounded-lg text-xs font-bold bg-indigo-600 text-white'
+        : 'py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300';
+      document.getElementById('mathModeLmsBtn').className = mode === 'lms'
+        ? 'py-1 rounded-lg text-xs font-bold bg-indigo-600 text-white'
+        : 'py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300';
+      document.getElementById('mathCurveModeLabel').textContent = mode === 'rgb' ? 'CIE RGB (Negative Lobe)' : 'Cone LMS (All Positive)';
+      drawMathCanvas();
+    }
+
+    // Gaussian helper for matching curves
+    function gauss(w, mu, s1, s2) {
+      const s = w < mu ? s1 : s2;
+      return Math.exp(-0.5 * Math.pow((w - mu) / s, 2));
+    }
+
+    function evalCieRgb(w) {
+      const r = 0.36 * gauss(w, 600, 32, 34) - 0.075 * gauss(w, 500, 28, 30) + 0.02 * gauss(w, 440, 18, 18);
+      const g = 0.22 * gauss(w, 545, 34, 36);
+      const b = 0.30 * gauss(w, 445, 22, 26);
+      return { r, g, b };
+    }
+
+    function evalLms(w) {
+      const l = 0.34 * gauss(w, 575, 42, 46);
+      const m = 0.30 * gauss(w, 540, 36, 40);
+      const s = 0.28 * gauss(w, 445, 22, 26);
+      return { r: l, g: m, b: s };
+    }
+
+    function wavelengthToCss(w) {
+      let r = 0, g = 0, b = 0;
+      if (w >= 380 && w < 440) { r = -(w - 440) / 60; b = 1; }
+      else if (w >= 440 && w < 490) { g = (w - 440) / 50; b = 1; }
+      else if (w >= 490 && w < 510) { g = 1; b = -(w - 510) / 20; }
+      else if (w >= 510 && w < 580) { r = (w - 510) / 70; g = 1; }
+      else if (w >= 580 && w < 645) { r = 1; g = -(w - 645) / 65; }
+      else if (w >= 645 && w <= 700) { r = 1; }
+      return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+    }
+
+    // ==================== TAB 1: Spectral & Negative Lobe Canvas ====================
+    function drawMathCanvas() {
+      const canvas = document.getElementById('mathCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const wave = parseFloat(document.getElementById('mathWaveSlider').value);
+      document.getElementById('mathWaveVal').textContent = wave + ' nm';
+
+      const x0 = 54, x1 = W - 26;
+      const yZero = H * 0.68;
+      const yScale = 580;
+
+      // Spectrum bar at bottom
+      for (let px = x0; px <= x1; px += 2) {
+        const w = 390 + ((px - x0) / (x1 - x0)) * 300;
+        ctx.fillStyle = wavelengthToCss(w);
+        ctx.fillRect(px, H - 28, 3, 12);
+      }
+
+      // Zero axis
+      ctx.strokeStyle = 'rgba(148,163,184,0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x0, yZero);
+      ctx.lineTo(x1, yZero);
+      ctx.stroke();
+
+      // Highlight negative lobe region if CIE RGB mode
+      if (mathMode === 'rgb') {
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.16)';
+        ctx.beginPath();
+        for (let w = 445; w <= 545; w += 2) {
+          const px = x0 + ((w - 390) / 300) * (x1 - x0);
+          const v = evalCieRgb(w).r;
+          const py = yZero - v * yScale;
+          if (w === 445) ctx.moveTo(px, yZero);
+          ctx.lineTo(px, Math.max(yZero, py));
+        }
+        ctx.lineTo(x0 + ((545 - 390) / 300) * (x1 - x0), yZero);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#fb7185';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText(currentLang === 'zh' ? '← 负红光瓣 r̄(λ) < 0 (青色溢出三角形外!)' : '← Negative Red Lobe r̄(λ) < 0 (Cyan outside triangle!)', x0 + 68, yZero + 42);
+      }
+
+      const fn = mathMode === 'rgb' ? evalCieRgb : evalLms;
+      const channels = [
+        { key: 'r', col: '#f43f5e' },
+        { key: 'g', col: '#10b981' },
+        { key: 'b', col: '#38bdf8' }
+      ];
+
+      channels.forEach(ch => {
+        ctx.strokeStyle = ch.col;
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        for (let w = 390; w <= 690; w += 2) {
+          const px = x0 + ((w - 390) / 300) * (x1 - x0);
+          const val = fn(w)[ch.key];
+          const py = yZero - val * yScale;
+          if (w === 390) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      });
+
+      // Current wavelength cursor
+      const curX = x0 + ((wave - 390) / 300) * (x1 - x0);
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = wavelengthToCss(wave);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(curX, 24);
+      ctx.lineTo(curX, H - 30);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const cur = fn(wave);
+      channels.forEach(ch => {
+        const py = yZero - cur[ch.key] * yScale;
+        ctx.fillStyle = ch.col;
+        ctx.beginPath();
+        ctx.arc(curX, py, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      document.getElementById('readRBar').textContent = (cur.r >= 0 ? '+' : '') + cur.r.toFixed(3) + (cur.r < 0 ? ' (NEG!)' : '');
+      document.getElementById('readGBar').textContent = '+' + cur.g.toFixed(3);
+      document.getElementById('readBBar').textContent = '+' + cur.b.toFixed(3);
+    }
+
+    // ==================== TAB 2 LAB 1: CIE 1931 Horseshoe ====================
+    let showSrgb = true, showP3 = true, showRec2020 = true;
+    let ciePt = { x: 0.3127, y: 0.3290 };
+
+    const spectralLocus = [
+      [0.174, 0.005], [0.170, 0.015], [0.157, 0.036], [0.124, 0.098],
+      [0.091, 0.133], [0.045, 0.295], [0.008, 0.538], [0.014, 0.750],
+      [0.074, 0.834], [0.155, 0.806], [0.230, 0.754], [0.302, 0.692],
+      [0.373, 0.624], [0.444, 0.555], [0.512, 0.487], [0.575, 0.424],
+      [0.627, 0.372], [0.666, 0.334], [0.701, 0.299], [0.735, 0.265]
+    ];
+
+    const GAMUTS = {
+      srgb: {
+        name: 'sRGB', col: '#38bdf8',
+        pts: [[0.64, 0.33], [0.30, 0.60], [0.15, 0.06]]
+      },
+      p3: {
+        name: 'Display P3', col: '#f59e0b',
+        pts: [[0.68, 0.32], [0.265, 0.69], [0.15, 0.06]]
+      },
+      rec2020: {
+        name: 'Rec.2020', col: '#10b981',
+        pts: [[0.708, 0.292], [0.170, 0.797], [0.131, 0.046]]
+      }
+    };
+
+    function toggleGamut(which) {
+      if (which === 'srgb') showSrgb = !showSrgb;
+      if (which === 'p3') showP3 = !showP3;
+      if (which === 'rec2020') showRec2020 = !showRec2020;
+      drawCieCanvas();
+    }
+
+    function setCieSample(x, y) {
+      ciePt = { x, y };
+      drawCieCanvas();
+    }
+
+    function xyToLinearSrgb(x, y) {
+      const Y = 1.0;
+      const X = (x / Math.max(0.01, y)) * Y;
+      const Z = ((1 - x - y) / Math.max(0.01, y)) * Y;
+      const R = 3.2406 * X - 1.5372 * Y - 0.4986 * Z;
+      const G = -0.9689 * X + 1.8758 * Y + 0.0415 * Z;
+      const B = 0.0557 * X - 0.2040 * Y + 1.0570 * Z;
+      return { R, G, B };
+    }
+
+    function drawCieCanvas() {
+      const canvas = document.getElementById('cieCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const padL = 48, padB = 38, scaleX = (W - 75) / 0.8, scaleY = (H - 60) / 0.9;
+      const toS = (x, y) => ({ sx: padL + x * scaleX, sy: H - padB - y * scaleY });
+
+      // Draw horseshoe locus
+      ctx.save();
+      ctx.beginPath();
+      spectralLocus.forEach(([x, y], i) => {
+        const p = toS(x, y);
+        if (i === 0) ctx.moveTo(p.sx, p.sy);
+        else ctx.lineTo(p.sx, p.sy);
+      });
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(30, 41, 59, 0.75)';
+      ctx.fill();
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+
+      // Gamut triangles
+      const drawTri = (g, enabled) => {
+        if (!enabled) return;
+        ctx.strokeStyle = g.col;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        g.pts.forEach(([x, y], i) => {
+          const p = toS(x, y);
+          if (i === 0) ctx.moveTo(p.sx, p.sy);
+          else ctx.lineTo(p.sx, p.sy);
+        });
+        ctx.closePath();
+        ctx.stroke();
+      };
+      drawTri(GAMUTS.rec2020, showRec2020);
+      drawTri(GAMUTS.p3, showP3);
+      drawTri(GAMUTS.srgb, showSrgb);
+
+      // D65 White Point
+      const d65 = toS(0.3127, 0.3290);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(d65.sx, d65.sy, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = '10px monospace';
+      ctx.fillText('D65', d65.sx + 6, d65.sy - 4);
+
+      // Selected chromaticity point
+      const sel = toS(ciePt.x, ciePt.y);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(sel.sx, sel.sy, 7.5, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const rgb = xyToLinearSrgb(ciePt.x, ciePt.y);
+      const inSrgb = rgb.R >= -0.005 && rgb.G >= -0.005 && rgb.B >= -0.005;
+      document.getElementById('cieCoordText').textContent = `Chromaticity (x, y) = (${ciePt.x.toFixed(4)}, ${ciePt.y.toFixed(4)})`;
+      document.getElementById('cieRgbText').className = inSrgb ? 'text-emerald-300' : 'text-rose-400 font-bold';
+      document.getElementById('cieRgbText').textContent = inSrgb
+        ? `Linear sRGB = (${rgb.R.toFixed(3)}, ${rgb.G.toFixed(3)}, ${rgb.B.toFixed(3)}) → Inside sRGB Gamut ✓`
+        : `Linear sRGB = (${rgb.R.toFixed(3)}, ${rgb.G.toFixed(3)}, ${rgb.B.toFixed(3)}) → OUT OF sRGB GAMUT (Negative Primary!)`;
+    }
+
+    // ==================== TAB 2 LAB 2: Linear vs sRGB Comparator ====================
+    function drawGammaCanvas() {
+      const canvas = document.getElementById('gammaCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const lightInt = parseFloat(document.getElementById('gammaLightSlider').value);
+      const levels = parseInt(document.getElementById('gammaBitsSlider').value, 10);
+      document.getElementById('gammaLightVal').textContent = lightInt.toFixed(2);
+      document.getElementById('gammaBitsVal').textContent = `${levels} levels`;
+
+      // Top section: Red -> Green Gradient Comparison
+      const gx0 = 24, gw = W - 48;
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '1A. 错误：直接在 sRGB 空间混合 (中间出现暗黑泥沼带 43.5% 能量)' : '1A. Broken: Blending Directly in sRGB (Muddy Dark Midpoint)', gx0, 22);
+      for (let i = 0; i < gw; i += 2) {
+        const t = i / gw;
+        const rSrgb = Math.round((1 - t) * 255);
+        const gSrgb = Math.round(t * 255);
+        ctx.fillStyle = `rgb(${rSrgb}, ${gSrgb}, 0)`;
+        ctx.fillRect(gx0 + i, 30, 3, 38);
+      }
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillText(currentLang === 'zh' ? '1B. 正确：在 Linear 空间混合后做 γ=1/2.2 编码 (明亮金黄过渡 100% 能量守恒)' : '1B. Correct: Linear Space Blend + γ=1/2.2 Encode (100% Energy Conserved)', gx0, 88);
+      for (let i = 0; i < gw; i += 2) {
+        const t = i / gw;
+        const rEnc = Math.round(Math.pow(1 - t, 1 / 2.2) * 255);
+        const gEnc = Math.round(Math.pow(t, 1 / 2.2) * 255);
+        ctx.fillStyle = `rgb(${rEnc}, ${gEnc}, 0)`;
+        ctx.fillRect(gx0 + i, 96, 3, 38);
+      }
+
+      // Bottom section: 3D Sphere Shading Comparison
+      const drawSphere = (cx, cy, radius, isLinear, title) => {
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(title, cx - 105, cy - radius - 14);
+        const step = 4;
+        for (let dy = -radius; dy <= radius; dy += step) {
+          for (let dx = -radius; dx <= radius; dx += step) {
+            if (dx * dx + dy * dy > radius * radius) continue;
+            const nx = dx / radius, ny = -dy / radius;
+            const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
+            const lx = -0.45, ly = 0.55, lz = 0.703;
+            const ndotl = Math.max(0, nx * lx + ny * ly + nz * lz);
+            const hz = (lz + 1) / Math.hypot(lx, ly, lz + 1);
+            const hx = lx / Math.hypot(lx, ly, lz + 1), hy = ly / Math.hypot(lx, ly, lz + 1);
+            const spec = Math.pow(Math.max(0, nx * hx + ny * hy + nz * hz), 28);
+
+            let linVal = (0.03 + 0.78 * ndotl + 0.45 * spec) * lightInt;
+            linVal = Math.min(1, Math.max(0, linVal));
+
+            // Quantize & gamma
+            let srgbOut = isLinear ? Math.pow(linVal, 1 / 2.2) : linVal;
+            srgbOut = Math.round(srgbOut * levels) / levels;
+            const c = Math.round(srgbOut * 255);
+            ctx.fillStyle = `rgb(${c}, ${Math.round(c * 0.88)}, ${Math.round(c * 0.72)})`;
+            ctx.fillRect(cx + dx, cy + dy, step, step);
+          }
+        }
+      };
+
+      drawSphere(W * 0.27, 265, 88, false, currentLang === 'zh' ? '2A. 未做 Gamma 编码 (暗部断层/生硬交界)' : '2A. Missing Gamma Encode (Harsh Falloff)');
+      drawSphere(W * 0.73, 265, 88, true, currentLang === 'zh' ? '2B. Linear 光照 + sRGB 1/2.2 编码 (真实柔和)' : '2B. Linear Shading + sRGB 1/2.2 Encode');
+    }
+
+    // ==================== TAB 4: 3-Mission Game ====================
+    let currentMission = 1;
+    let missionPassed = { 1: false, 2: false, 3: false };
+    let gameM2Space = 'srgb';
+    let gameM3Pipe = 'naive';
+
+    function selectMission(m) {
+      currentMission = m;
+      document.getElementById('gameFeedbackBox').classList.add('hidden');
+      for (let i = 1; i <= 3; i++) {
+        document.getElementById('missionPanel' + i).classList.toggle('hidden', i !== m);
+        const btn = document.getElementById('missionBtn' + i);
+        btn.className = i === m
+          ? 'py-2 rounded-xl text-xs font-bold border bg-indigo-600 text-white border-indigo-400'
+          : missionPassed[i]
+          ? 'py-2 rounded-xl text-xs font-bold border bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+          : 'py-2 rounded-xl text-xs font-bold border bg-slate-800 text-slate-400 border-slate-700';
+      }
+      drawGameCanvas();
+    }
+
+    function setGameM2(space) {
+      gameM2Space = space;
+      document.getElementById('m2BtnSrgb').className = space === 'srgb' ? 'p-2 rounded-xl border font-bold bg-rose-500/20 border-rose-500 text-rose-200' : 'p-2 rounded-xl border font-bold bg-slate-800 border-slate-700 text-slate-400';
+      document.getElementById('m2BtnP3').className = space === 'p3' ? 'p-2 rounded-xl border font-bold bg-amber-500/20 border-amber-500 text-amber-200' : 'p-2 rounded-xl border font-bold bg-slate-800 border-slate-700 text-slate-400';
+      document.getElementById('m2Btn2020').className = space === 'rec2020' ? 'p-2 rounded-xl border font-bold bg-emerald-500/20 border-emerald-500 text-emerald-200' : 'p-2 rounded-xl border font-bold bg-slate-800 border-slate-700 text-slate-400';
+      drawGameCanvas();
+    }
+
+    function setGameM3(pipe) {
+      gameM3Pipe = pipe;
+      document.getElementById('m3BtnNaive').className = pipe === 'naive' ? 'p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200' : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      document.getElementById('m3BtnLinear').className = pipe === 'linear_wf' ? 'p-2.5 rounded-xl border text-left font-mono bg-emerald-500/20 border-emerald-500 text-emerald-200' : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      drawGameCanvas();
+    }
+
+    function verifyGameMission() {
+      const box = document.getElementById('gameFeedbackBox');
+      box.classList.remove('hidden');
+      let ok = false, msg = '';
+
+      if (currentMission === 1) {
+        const r = parseFloat(document.getElementById('m1RSlider').value);
+        const g = parseFloat(document.getElementById('m1GSlider').value);
+        const L = 0.72 * r + 0.42 * g;
+        const M = 0.22 * r + 0.65 * g;
+        const err = Math.hypot(L - 0.76, M - 0.58);
+        ok = err <= 0.045;
+        msg = ok
+          ? (currentLang === 'zh'
+            ? `✅ 关卡 1 通过！误差 ||ΔLMS|| = ${err.toFixed(3)} ≤ 0.045，窄带 R+G OLED 与宽谱琥珀太阳光达成了完美同色异谱 (Metamerism)！`
+            : `✅ Mission 1 Passed! ||ΔLMS|| = ${err.toFixed(3)} ≤ 0.045 — Metamerism achieved!`)
+          : (currentLang === 'zh'
+            ? `⚠️ 当前误差 ||ΔLMS|| = ${err.toFixed(3)} > 0.045。提示：将 R 调至约 0.74、G 调至约 0.64！`
+            : `⚠️ Current error ||ΔLMS|| = ${err.toFixed(3)} > 0.045. Hint: Try R ≈ 0.74, G ≈ 0.64!`);
+      } else if (currentMission === 2) {
+        ok = gameM2Space === 'rec2020';
+        msg = ok
+          ? (currentLang === 'zh'
+            ? '✅ 关卡 2 通过！Rec.2020 的超广色域三角形完整包围了 (0.145, 0.680)，三原色线性权重全部为正！'
+            : '✅ Mission 2 Passed! Rec.2020 encloses (0.145, 0.680) with all-positive linear primaries!')
+          : (currentLang === 'zh'
+            ? '⚠️ 在当前色域下 (0.145, 0.680) 仍位于三角形外部，红原色系数 R < 0 会被硬件截断！请选择 Rec.2020。'
+            : '⚠️ (0.145, 0.680) lies outside this gamut triangle (R < 0)! Select Rec.2020.');
+      } else {
+        ok = gameM3Pipe === 'linear_wf';
+        msg = ok
+          ? (currentLang === 'zh'
+            ? '✅ 关卡 3 通过！贴图采样做 γ=2.2 解码 → 线性空间光照混合 → 输出做 γ=1/2.2 编码，彻底消除红绿暗带与塑料高光！'
+            : '✅ Mission 3 Passed! Decode 2.2 → Linear Shading → Encode 1/2.2 eliminates muddy borders and harsh falloff!')
+          : (currentLang === 'zh'
+            ? '⚠️ 直接对非线性 sRGB 字节做加法违反物理光子叠加定律！请切换为标准 Linear 工作流。'
+            : '⚠️ Adding nonlinear sRGB bytes violates physical photon conservation! Switch to Linear Workflow.');
+      }
+
+      if (ok) missionPassed[currentMission] = true;
+      const count = Object.values(missionPassed).filter(Boolean).length;
+      document.getElementById('gameProgressBadge').textContent = `${count} / 3 Passed`;
+      box.className = ok
+        ? 'p-3.5 rounded-xl border text-xs leading-relaxed bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
+        : 'p-3.5 rounded-xl border text-xs leading-relaxed bg-rose-500/15 border-rose-500/40 text-rose-200';
+      box.textContent = msg;
+      selectMission(currentMission);
+    }
+
+    function drawGameCanvas() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      if (currentMission === 1) {
+        const r = parseFloat(document.getElementById('m1RSlider').value);
+        const g = parseFloat(document.getElementById('m1GSlider').value);
+        document.getElementById('m1RVal').textContent = r.toFixed(2);
+        document.getElementById('m1GVal').textContent = g.toFixed(2);
+
+        const L = 0.72 * r + 0.42 * g;
+        const M = 0.22 * r + 0.65 * g;
+        const err = Math.hypot(L - 0.76, M - 0.58);
+
+        // Target vs OLED bars
+        const bars = [
+          { name: 'Target L', val: 0.76, col: '#f43f5e', x: 90 },
+          { name: 'OLED L', val: L, col: '#fb7185', x: 155 },
+          { name: 'Target M', val: 0.58, col: '#10b981', x: 260 },
+          { name: 'OLED M', val: M, col: '#34d399', x: 325 }
+        ];
+        bars.forEach(b => {
+          const bh = Math.min(220, b.val * 220);
+          ctx.fillStyle = b.col;
+          ctx.fillRect(b.x, H - 55 - bh, 44, bh);
+          ctx.fillStyle = '#e2e8f0';
+          ctx.font = '11px monospace';
+          ctx.fillText(b.name, b.x - 4, H - 34);
+          ctx.fillText(b.val.toFixed(2), b.x + 6, H - 62 - bh);
+        });
+
+        // Color patches
+        ctx.fillStyle = 'rgb(242, 190, 56)';
+        ctx.fillRect(430, 80, 130, 85);
+        ctx.fillStyle = `rgb(${Math.min(255, Math.round((L / 0.76) * 242))}, ${Math.min(255, Math.round((M / 0.58) * 190))}, 56)`;
+        ctx.fillRect(430, 185, 130, 85);
+        ctx.fillStyle = err <= 0.045 ? '#34d399' : '#fb7185';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText(`Metamer Error ||ΔLMS|| = ${err.toFixed(3)} (Target ≤ 0.045)`, 24, 30);
+      } else if (currentMission === 2) {
+        const ok = gameM2Space === 'rec2020';
+        ctx.fillStyle = ok ? '#34d399' : '#fb7185';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText(
+          ok
+            ? 'Rec.2020 Linear Primaries: R = +0.042, G = +0.891, B = +0.118 (IN GAMUT ✓)'
+            : `${gameM2Space.toUpperCase()} Linear Primaries: R = -0.284 (NEGATIVE! CLIPPED ✗)`,
+          24,
+          32
+        );
+        ctx.fillStyle = ok ? 'rgb(0, 238, 175)' : 'rgb(45, 195, 165)';
+        ctx.beginPath();
+        ctx.arc(W * 0.5, H * 0.55, 92, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        const ok = gameM3Pipe === 'linear_wf';
+        for (let i = 0; i < W - 80; i += 2) {
+          const t = i / (W - 80);
+          const r = ok ? Math.round(Math.pow(1 - t, 1 / 2.2) * 255) : Math.round((1 - t) * 255);
+          const g = ok ? Math.round(Math.pow(t, 1 / 2.2) * 255) : Math.round(t * 255);
+          ctx.fillStyle = `rgb(${r}, ${g}, 0)`;
+          ctx.fillRect(40 + i, 110, 3, 140);
+        }
+        ctx.fillStyle = ok ? '#34d399' : '#fb7185';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText(ok ? 'Midpoint Physical Luminance: 100.0% (PASS ✓)' : 'Midpoint Physical Luminance: 43.5% (MUDDY DARK BAND ✗)', 24, 32);
+      }
+    }
+
+    // CIE canvas pointer handler
+    window.addEventListener('DOMContentLoaded', () => {
+      drawMathCanvas();
+      drawCieCanvas();
+      drawGammaCanvas();
+      drawGameCanvas();
+
+      const cieCanvas = document.getElementById('cieCanvas');
+      const updateFromEvent = e => {
+        const rect = cieCanvas.getBoundingClientRect();
+        const mx = ((e.clientX - rect.left) / rect.width) * cieCanvas.width;
+        const my = ((e.clientY - rect.top) / rect.height) * cieCanvas.height;
+        const padL = 48, padB = 38, scaleX = (cieCanvas.width - 75) / 0.8, scaleY = (cieCanvas.height - 60) / 0.9;
+        const x = Math.max(0.01, Math.min(0.73, (mx - padL) / scaleX));
+        const y = Math.max(0.02, Math.min(0.83, (cieCanvas.height - padB - my) / scaleY));
+        ciePt = { x, y };
+        drawCieCanvas();
+      };
+      let draggingCie = false;
+      cieCanvas.addEventListener('mousedown', e => { draggingCie = true; updateFromEvent(e); });
+      window.addEventListener('mousemove', e => { if (draggingCie) updateFromEvent(e); });
+      window.addEventListener('mouseup', () => { draggingCie = false; });
+
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+    });
+  </script>
+</body>
+</html>

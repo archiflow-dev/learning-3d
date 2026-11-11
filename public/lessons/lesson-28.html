@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 28: 质点弹簧系统与实时布料仿真 (Mass-Spring & Cloth Simulation) | Learning 3D</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body {
+      background-color: #020617;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+    }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    input[type="range"] {
+      accent-color: #6366f1;
+    }
+    body.lang-zh .en-only { display: none !important; }
+    body.lang-en .zh-only { display: none !important; }
+  </style>
+</head>
+<body class="lang-zh min-h-screen pb-16">
+  <!-- Header -->
+  <header class="sticky top-0 z-50 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="px-3 py-1 rounded-full text-xs font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+          STAGE 5 · LESSON 28
+        </span>
+        <div>
+          <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-white">
+            <span class="zh-only">质点弹簧系统与实时布料仿真 (Mass-Spring &amp; Cloth Simulation)</span>
+            <span class="en-only">Mass-Spring Systems &amp; Real-Time Cloth Simulation</span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            <span class="zh-only">MIT 6.837 Lecture 08 · 结构/剪切/弯曲弹簧拓扑、胡克定律势能梯度、轴向速度阻尼、刚度危机与球体碰撞</span>
+            <span class="en-only">MIT 6.837 Lecture 08 · Structural/Shear/Bending Topology, Hooke's Law, Axial Dashpot, Stiffness Crisis &amp; Collision</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="langToggleBtn" onclick="toggleLanguage()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 text-xs font-bold text-slate-100 transition flex items-center gap-1.5 shadow">
+          <span>🌐</span>
+          <span id="langBtnText">EN / 中文</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+    <!-- Navigation Tabs -->
+    <nav class="grid grid-cols-2 lg:grid-cols-4 gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800">
+      <button onclick="switchTab(1)" id="tabBtn1" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition bg-indigo-600 text-white shadow-lg shadow-indigo-600/25">
+        <span class="zh-only">📐 1. 3Blue1Brown 弹簧拓扑与刚度直觉</span>
+        <span class="en-only">📐 1. 3Blue1Brown Spring &amp; Topology Intuition</span>
+      </button>
+      <button onclick="switchTab(2)" id="tabBtn2" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60">
+        <span class="zh-only">🔬 2. 双实验台：3D 布料风洞 + 拓扑刚度台</span>
+        <span class="en-only">🔬 2. Dual Labs: 3D Cloth Wind Tunnel + Stiffness</span>
+      </button>
+      <button onclick="switchTab(3)" id="tabBtn3" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60">
+        <span class="zh-only">🎥 3. MIT 6.837 L08 课堂同步精要</span>
+        <span class="en-only">🎥 3. MIT 6.837 L08 Course Companion</span>
+      </button>
+      <button onclick="switchTab(4)" id="tabBtn4" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60">
+        <span class="zh-only">🎮 4. 闯关：首席布料物理总监 (3关)</span>
+        <span class="en-only">🎮 4. Game: Chief Cloth Simulation Director (3 Missions)</span>
+      </button>
+    </nav>
+
+    <!-- ==================== TAB 1: 3Blue1Brown Intuition ==================== -->
+    <section id="tab1" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left Column: Deep Derivations -->
+        <div class="lg:col-span-6 space-y-5">
+          <!-- Card 1 -->
+          <div class="glass-panel rounded-2xl p-6 space-y-3">
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-bold">
+              <span class="zh-only">第一部分 · 势能梯度与轴向阻尼投影</span>
+              <span class="en-only">Part 1 · Potential Gradient &amp; Axial Dashpot Projection</span>
+            </div>
+            <h2 class="text-lg font-extrabold text-white">
+              <span class="zh-only">1. 为什么阻尼力必须投影到弹簧轴线上？</span>
+              <span class="en-only">1. Why Must Dashpot Damping Project onto the Spring Axis?</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              连接质点 $\mathbf{x}_i$ 与 $\mathbf{x}_j$、原长为 $L_0$ 的弹簧，其弹性势能为 $E(\mathbf{x}_i,\mathbf{x}_j) = \frac{1}{2}k_s\big(\|\mathbf{x}_j - \mathbf{x}_i\| - L_0\big)^2$。对 $\mathbf{x}_i$ 求负梯度（令 $\mathbf{d} = \mathbf{x}_j - \mathbf{x}_i,\;\hat{\mathbf{d}} = \mathbf{d}/\|\mathbf{d}\|$），立即得到<strong>三维向量胡克定律</strong>：
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              For a spring of rest length $L_0$ connecting $\mathbf{x}_i$ and $\mathbf{x}_j$, its elastic potential energy is $E(\mathbf{x}_i,\mathbf{x}_j) = \frac{1}{2}k_s(\|\mathbf{x}_j - \mathbf{x}_i\| - L_0)^2$. Taking the negative gradient with respect to $\mathbf{x}_i$ (with $\mathbf{d}=\mathbf{x}_j-\mathbf{x}_i,\;\hat{\mathbf{d}}=\mathbf{d}/\|\mathbf{d}\|$) yields <strong>3D Vector Hooke's Law</strong>:
+            </p>
+            <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 text-xs overflow-x-auto">
+              $$\mathbf{F}_{i\leftarrow j}^{\text{spring}} = -\nabla_{\mathbf{x}_i} E = k_s\big(\|\mathbf{x}_j - \mathbf{x}_i\| - L_0\big)\,\hat{\mathbf{d}}, \qquad \mathbf{F}_{j\leftarrow i}^{\text{spring}} = -\mathbf{F}_{i\leftarrow j}^{\text{spring}}$$
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              <strong>3Blue1Brown 几何追问</strong>：如果为了消耗多余振动直接写全局阻尼 $\mathbf{F}^{\text{viscous}} = -k_d \mathbf{v}_i$，会发生什么灾难？当整块布料在空中自由下落或刚体旋转时，弹簧根本没有伸长，但 $-k_d\mathbf{v}_i$ 却像把布料泡在浓稠糖浆里一样拖慢整体运动！真正物理正确的<strong>弹簧轴向阻尼器 (Axial Dashpot)</strong> 只阻尼弹簧长度的变化率 $\dot{L} = \frac{d}{dt}\|\mathbf{x}_j - \mathbf{x}_i\| = (\mathbf{v}_j - \mathbf{v}_i)\cdot\hat{\mathbf{d}}$：
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              <strong>3Blue1Brown Geometric Insight</strong>: If you apply naive global damping $\mathbf{F} = -k_d \mathbf{v}_i$, rigid-body falling or rotation is falsely damped as if submerged in molasses! True internal <strong>Axial Dashpot Damping</strong> only opposes the rate of change of spring length $\dot{L} = (\mathbf{v}_j - \mathbf{v}_i)\cdot\hat{\mathbf{d}}$:
+            </p>
+            <div class="bg-slate-950/90 border border-indigo-500/30 rounded-xl p-3 text-xs overflow-x-auto">
+              $$\mathbf{F}_{i\leftarrow j}^{\text{damp}} = k_d\Big((\mathbf{v}_j - \mathbf{v}_i)\cdot\hat{\mathbf{d}}\Big)\hat{\mathbf{d}}$$
+            </div>
+            <p class="text-xs text-indigo-300 zh-only">
+              💡 当相对速度 $\Delta\mathbf{v} = \mathbf{v}_j - \mathbf{v}_i$ 垂直于弹簧轴 $\hat{\mathbf{d}}$（即纯刚体旋转）时，$(\Delta\mathbf{v}\cdot\hat{\mathbf{d}}) = 0$，轴向阻尼力精确为零，绝不干扰刚体摆动！
+            </p>
+            <p class="text-xs text-indigo-300 en-only">
+              💡 When relative velocity $\Delta\mathbf{v} = \mathbf{v}_j - \mathbf{v}_i$ is perpendicular to $\hat{\mathbf{d}}$ (pure rigid rotation), $(\Delta\mathbf{v}\cdot\hat{\mathbf{d}}) = 0$, so axial damping is identically zero!
+            </p>
+          </div>
+
+          <!-- Card 2 -->
+          <div class="glass-panel rounded-2xl p-6 space-y-3">
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+              <span class="zh-only">第二部分 · 布料三大弹簧拓扑与零空间 (Nullspace)</span>
+              <span class="en-only">Part 2 · Cloth Spring Topologies &amp; Deformation Nullspace</span>
+            </div>
+            <h2 class="text-lg font-extrabold text-white">
+              <span class="zh-only">2. 为什么仅有横竖弹簧的网格会像手风琴一样坍缩？</span>
+              <span class="en-only">2. Why Does a Grid with Only Structural Springs Collapse?</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              把一块布料离散为 $N\times N$ 质点网格（Provot 1995 模型），为什么必须同时布置<strong>三种拓扑弹簧</strong>？从“零能量变形模态（刚度矩阵零空间 Nullspace）”一看便知：
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              In Provot's (1995) $N\times N$ mass-spring cloth model, why do we need <strong>three distinct spring topologies</strong>? Look at the zero-energy deformation modes (nullspace):
+            </p>
+            <ul class="space-y-2 text-xs text-slate-300 leading-relaxed">
+              <li class="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800">
+                <strong class="text-sky-300">① 结构弹簧 (Structural: $(i,j)\leftrightarrow(i\pm 1,j),(i,j\pm 1)$, $L_0=h$)</strong>：
+                <span class="zh-only">抵抗水平经线与垂直纬线拉伸（Stretch）。但<strong>正方形压扁成菱形（平行四边形错切）时四条边长完全不变</strong>！因此仅有结构弹簧时，剪切变形位于零空间中，布料一斜拉就会无阻力坍缩成一条线。</span>
+                <span class="en-only">Resists horizontal/vertical stretching. However, <strong>shearing a square into a rhombus keeps all 4 edge lengths unchanged</strong>! Without diagonals, in-plane shear lies in the zero-energy nullspace.</span>
+              </li>
+              <li class="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800">
+                <strong class="text-amber-300">② 剪切弹簧 (Shear: $(i,j)\leftrightarrow(i\pm 1,j\pm 1)$, $L_0=\sqrt{2}h$)</strong>：
+                <span class="zh-only">连接每个方格的两条对角线。一旦正方形发生菱形错切，一条对角线必然拉长、另一条必然缩短，从而锁死平面内错切自由度！但沿着网格线把布料像折纸一样 $180^\circ$ 对折时，结构边和对角线长度全都不变！</span>
+                <span class="en-only">Connects quad diagonals ($L_0=\sqrt{2}h$), locking in-plane rhombus shear. Yet folding the mesh $180^\circ$ like origami along a grid line leaves both structural and diagonal lengths unchanged!</span>
+              </li>
+              <li class="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800">
+                <strong class="text-purple-300">③ 弯曲弹簧 (Bending / Flexion: $(i,j)\leftrightarrow(i\pm 2,j),(i,j\pm 2)$, $L_0=2h$)</strong>：
+                <span class="zh-only">每隔一个顶点跨步连接！一旦相邻两个面片向法向折弯，跨步端点的欧氏距离立刻小于 $2h$，弯曲弹簧便产生回弹力，赋予丝绸、棉布或厚牛仔布不同的悬垂褶皱挺括度。</span>
+                <span class="en-only">Connects every second vertex ($L_0=2h$). Out-of-plane folding immediately shortens the 2-hop distance below $2h$, resisting sharp creases and controlling cloth drape stiffness.</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Card 3 -->
+          <div class="glass-panel rounded-2xl p-6 space-y-3">
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-bold">
+              <span class="zh-only">第三部分 · 刚度危机与位置约束 (PBD / Provot)</span>
+              <span class="en-only">Part 3 · The Stiffness Crisis &amp; Constraint Projection</span>
+            </div>
+            <h2 class="text-lg font-extrabold text-white">
+              <span class="zh-only">3. 刚度危机 $\Delta t_{\text{crit}} = 2\sqrt{m/k_s}$ 与碰撞位置修正</span>
+              <span class="en-only">3. Stiffness Crisis $\Delta t_{\text{crit}} = 2\sqrt{m/k_s}$ &amp; Collision Projection</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              真实的棉布和牛仔布几乎不可拉伸（需要极大的刚度系数 $k_s$）。但在上一课（L27）我们证明了半隐式欧拉的稳定充要条件是 $h\,\omega_{\max} < 2$。由于弹簧固有频率 $\omega = \sqrt{k_s/m}$，最大允许时间步长为：
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              Real fabrics barely stretch (requiring huge stiffness $k_s$). Recall from Lesson 27 that Symplectic Euler requires $h\,\omega_{\max} < 2$. Since natural frequency $\omega = \sqrt{k_s/m}$, the critical time step is:
+            </p>
+            <div class="bg-slate-950/90 border border-rose-500/30 rounded-xl p-3 text-xs overflow-x-auto">
+              $$\Delta t_{\text{crit}} = \frac{2}{\omega_{\max}} \propto 2\sqrt{\frac{m}{k_s}}, \qquad \Delta\mathbf{x}_i = +\frac{w_i}{w_i+w_j}\big(\|\mathbf{d}\| - L_0\big)\hat{\mathbf{d}}$$
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              当 $k_s$ 增大 100 倍，$\Delta t_{\text{crit}}$ 就被迫缩小 10 倍，否则单步过冲（Overshoot）会让布料瞬间炸裂！现代实时布料引擎（Provot 1995 / Müller PBD 2007）采用<strong>温和刚度力积分 $+$ Gauss-Seidel 距离约束直接投影</strong>，并对球体碰撞执行符号距离场（SDF）表面投影 $\mathbf{x}_i \leftarrow \mathbf{c} + (R+\epsilon)\frac{\mathbf{x}_i-\mathbf{c}}{\|\mathbf{x}_i-\mathbf{c}\|}$ 并消去法向穿入速度。
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              Increasing $k_s$ by $100\times$ shrinks $\Delta t_{\text{crit}}$ by $10\times$! Real-time engines (Provot 1995 / Position-Based Dynamics) combine moderate spring integration with iterative <strong>Gauss–Seidel distance constraint projection</strong> and sphere SDF collision projection.
+            </p>
+          </div>
+        </div>
+
+        <!-- Right Column: Interactive 3Blue1Brown Visualizer -->
+        <div class="lg:col-span-6 space-y-5">
+          <div class="glass-panel rounded-2xl p-6 space-y-4 sticky top-24">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 class="text-base font-extrabold text-white">
+                  <span class="zh-only">🔬 向量胡克定律、轴向阻尼分解与三类弹簧拓扑显微镜</span>
+                  <span class="en-only">🔬 Vector Hooke, Axial Dashpot &amp; Topology Microscope</span>
+                </h3>
+                <p class="text-xs text-slate-400">
+                  <span class="zh-only">左半屏：相对速度分解 $\Delta\mathbf{v} = \Delta\mathbf{v}_\parallel + \Delta\mathbf{v}_\perp$ · 右半屏：三大弹簧在错切/折叠下的变形响应</span>
+                  <span class="en-only">Left: Velocity projection $\Delta\mathbf{v} = \Delta\mathbf{v}_\parallel + \Delta\mathbf{v}_\perp$ · Right: Topology response under shear/fold</span>
+                </p>
+              </div>
+            </div>
+
+            <canvas id="mathCanvas" width="600" height="390" class="w-full rounded-xl bg-slate-950 border border-slate-800 shadow-inner"></canvas>
+
+            <!-- Sliders -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+              <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-300 font-semibold">
+                    <span class="zh-only">当前弹簧长度 $\|\mathbf{d}\|/L_0$</span>
+                    <span class="en-only">Stretch Ratio $\|\mathbf{d}\|/L_0$</span>
+                  </span>
+                  <span id="mathStretchVal" class="font-mono text-indigo-300 font-bold">1.35x</span>
+                </div>
+                <input id="mathStretchSlider" type="range" min="0.55" max="1.65" step="0.01" value="1.35" oninput="drawMathCanvas()" class="w-full" />
+              </div>
+
+              <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-300 font-semibold">
+                    <span class="zh-only">相对速度方向角 $\phi_{\Delta v}$</span>
+                    <span class="en-only">Rel. Velocity Angle $\phi_{\Delta v}$</span>
+                  </span>
+                  <span id="mathVelAngleVal" class="font-mono text-emerald-300 font-bold">55°</span>
+                </div>
+                <input id="mathVelAngleSlider" type="range" min="0" max="180" step="1" value="55" oninput="drawMathCanvas()" class="w-full" />
+              </div>
+
+              <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-300 font-semibold">
+                    <span class="zh-only">方格错切角 $\gamma_{\text{shear}}$</span>
+                    <span class="en-only">Quad Shear Angle $\gamma_{\text{shear}}$</span>
+                  </span>
+                  <span id="mathShearVal" class="font-mono text-amber-300 font-bold">28°</span>
+                </div>
+                <input id="mathShearSlider" type="range" min="-42" max="42" step="1" value="28" oninput="drawMathCanvas()" class="w-full" />
+              </div>
+            </div>
+
+            <!-- Readouts -->
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+              <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+                <div class="text-slate-400">
+                  <span class="zh-only">胡克弹力 $F_{\text{spring}}$</span>
+                  <span class="en-only">Hooke Force $F_{\text{spring}}$</span>
+                </div>
+                <div id="readHooke" class="font-mono font-bold text-rose-400 mt-0.5">+35.0 N</div>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+                <div class="text-slate-400">
+                  <span class="zh-only">轴向有效阻尼 $(\Delta\mathbf{v}\cdot\hat{\mathbf{d}})$</span>
+                  <span class="en-only">Axial Damping $(\Delta\mathbf{v}\cdot\hat{\mathbf{d}})$</span>
+                </div>
+                <div id="readDamp" class="font-mono font-bold text-emerald-400 mt-0.5">57.4%</div>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+                <div class="text-slate-400">
+                  <span class="zh-only">对角剪切伸长 $\Delta L_{\text{diag}}$</span>
+                  <span class="en-only">Diagonal Stretch $\Delta L_{\text{diag}}$</span>
+                </div>
+                <div id="readDiag" class="font-mono font-bold text-amber-300 mt-0.5">+21.2%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: Dual Interactive Labs ==================== -->
+    <section id="tab2" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Lab 1: 3D Cloth Wind Tunnel, Tension Heatmap & Sphere Collider -->
+        <div class="lg:col-span-7 glass-panel rounded-2xl p-6 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span class="text-xs font-mono text-indigo-400 font-bold">INTERACTIVE LAB 01</span>
+              <h3 class="text-lg font-extrabold text-white">
+                <span class="zh-only">3D 实时布料风洞、弹簧张力热力图与球体碰撞沙盒</span>
+                <span class="en-only">3D Cloth Wind Tunnel, Tension Heatmap &amp; Sphere Collision Sandbox</span>
+              </h3>
+              <p class="text-xs text-slate-400">
+                <span class="zh-only">鼠标在画布上拖拽可拨动布料 · 点击顶部挂钩切换固定针脚 · 颜色映射内部弹簧实时拉伸率</span>
+                <span class="en-only">Drag cloth with mouse · Toggle top pins below · Color maps real-time spring strain</span>
+              </p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="resetCloth()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-slate-200 transition">
+                <span class="zh-only">↺ 重置布料</span>
+                <span class="en-only">↺ Reset Cloth</span>
+              </button>
+              <button onclick="dropRightPin()" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-xs font-bold text-amber-300 transition">
+                <span class="zh-only">📌 解开右上角挂钩</span>
+                <span class="en-only">📌 Toggle Right Corner Pin</span>
+              </button>
+            </div>
+          </div>
+
+          <canvas id="clothCanvas" width="660" height="400" class="w-full rounded-xl bg-slate-950 border border-slate-800 cursor-grab active:cursor-grabbing"></canvas>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300 font-semibold">
+                  <span class="zh-only">风洞风力 $F_{\text{wind}}$</span>
+                  <span class="en-only">Wind Force $F_{\text{wind}}$</span>
+                </span>
+                <span id="windVal" class="font-mono text-sky-300 font-bold">1.4</span>
+              </div>
+              <input id="windSlider" type="range" min="0" max="3.5" step="0.1" value="1.4" oninput="document.getElementById('windVal').textContent=parseFloat(this.value).toFixed(1)" class="w-full" />
+            </div>
+
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300 font-semibold">
+                  <span class="zh-only">碰撞球前后深度 $Z_{\text{sphere}}$</span>
+                  <span class="en-only">Collider Depth $Z_{\text{sphere}}$</span>
+                </span>
+                <span id="sphereZVal" class="font-mono text-emerald-300 font-bold">0.25</span>
+              </div>
+              <input id="sphereZSlider" type="range" min="-0.8" max="0.9" step="0.05" value="0.25" oninput="document.getElementById('sphereZVal').textContent=parseFloat(this.value).toFixed(2)" class="w-full" />
+            </div>
+
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300 font-semibold">
+                  <span class="zh-only">约束迭代次数 (PBD Passes)</span>
+                  <span class="en-only">Constraint Iterations</span>
+                </span>
+                <span id="iterVal" class="font-mono text-indigo-300 font-bold">5</span>
+              </div>
+              <input id="iterSlider" type="range" min="1" max="10" step="1" value="5" oninput="document.getElementById('iterVal').textContent=this.value" class="w-full" />
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 bg-slate-950/70 border border-slate-800/80 rounded-xl px-3.5 py-2">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-sky-400 inline-block"></span> <span class="zh-only">压缩 (&lt;L₀)</span><span class="en-only">Compressed</span></span>
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span> <span class="zh-only">原长平衡 (≈L₀)</span><span class="en-only">Rest Length</span></span>
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> <span class="zh-only">中度拉伸</span><span class="en-only">Stretched</span></span>
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span> <span class="zh-only">高张力警戒 (&gt;1.2L₀)</span><span class="en-only">High Tension</span></span>
+            </div>
+            <div id="clothStatsText" class="font-mono text-slate-300">Max Strain: 4.2%</div>
+          </div>
+        </div>
+
+        <!-- Lab 2: Topology Shear Test & Stiffness Crisis Arena -->
+        <div class="lg:col-span-5 glass-panel rounded-2xl p-6 space-y-4">
+          <div>
+            <span class="text-xs font-mono text-emerald-400 font-bold">INTERACTIVE LAB 02</span>
+            <h3 class="text-lg font-extrabold text-white">
+              <span class="zh-only">拓扑抗剪切测试与刚度稳定性临界点实验台</span>
+              <span class="en-only">Topology Shear Test &amp; Stiffness Stability Arena</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="zh-only">开启/关闭剪切与弯曲弹簧观察斜拉变形，并调大 $k_s$ 观察 $\Delta t$ 超越临界值 $2\sqrt{m/k_s}$ 时的数值爆炸</span>
+              <span class="en-only">Toggle Shear/Bending springs under diagonal load and test stiffness limit $\Delta t_{\text{crit}} = 2\sqrt{m/k_s}$</span>
+            </p>
+          </div>
+
+          <canvas id="stiffCanvas" width="480" height="320" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+
+          <div class="space-y-3">
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <button id="togStructBtn" class="py-2 px-2 rounded-xl font-bold border bg-sky-500/20 border-sky-500/50 text-sky-200">
+                ✓ Structural
+              </button>
+              <button id="togShearBtn" onclick="toggleTopo('shear')" class="py-2 px-2 rounded-xl font-bold border bg-amber-500/20 border-amber-500/50 text-amber-200">
+                ✓ Shear (×)
+              </button>
+              <button id="togBendBtn" onclick="toggleTopo('bend')" class="py-2 px-2 rounded-xl font-bold border bg-purple-500/20 border-purple-500/50 text-purple-200">
+                ✓ Bending (2x)
+              </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-300 font-semibold">
+                    <span class="zh-only">刚度系数 $k_s$</span>
+                    <span class="en-only">Stiffness $k_s$</span>
+                  </span>
+                  <span id="labKsVal" class="font-mono text-rose-300 font-bold">180</span>
+                </div>
+                <input id="labKsSlider" type="range" min="40" max="600" step="10" value="180" oninput="drawStiffCanvas()" class="w-full" />
+              </div>
+
+              <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-300 font-semibold">
+                    <span class="zh-only">步长 $\Delta t$</span>
+                    <span class="en-only">Step $\Delta t$</span>
+                  </span>
+                  <span id="labDtVal" class="font-mono text-indigo-300 font-bold">0.08</span>
+                </div>
+                <input id="labDtSlider" type="range" min="0.02" max="0.18" step="0.005" value="0.08" oninput="drawStiffCanvas()" class="w-full" />
+              </div>
+            </div>
+
+            <div id="stiffBadge" class="p-3 rounded-xl border text-xs font-mono bg-emerald-500/15 border-emerald-500/40 text-emerald-200">
+              ω·Δt = 1.07 &lt; 2.00 → Stable Oscillation
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: MIT 6.837 Lecture 08 Companion ==================== -->
+    <section id="tab3" class="hidden space-y-6">
+      <div class="glass-panel rounded-2xl p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-mono text-indigo-400 font-bold">MIT 6.837 · FALL 2021 · LECTURE 08</span>
+            <h2 class="text-xl font-extrabold text-white mt-1">
+              <span class="zh-only">Lecture 08：质点弹簧系统与布料仿真 (Mass-Spring Systems &amp; Cloth Simulation)</span>
+              <span class="en-only">Lecture 08: Mass-Spring Systems &amp; Cloth Simulation (Prof. Justin Solomon)</span>
+            </h2>
+          </div>
+          <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noopener noreferrer" class="px-4 py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-xs font-bold text-red-200 transition">
+            ▶ Watch MIT 6.837 Lecture 08 Playlist
+          </a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-5 space-y-2">
+            <div class="text-indigo-400 font-bold">
+              <span class="zh-only">1. 连续体 vs 离散质点网络</span>
+              <span class="en-only">1. Continuum vs. Discrete Mass-Spring Network</span>
+            </div>
+            <p class="zh-only">
+              虽然有限元方法（FEM）直接从连续弹性力学偏微分方程（PDE）出发，但质点弹簧网络（Mass-Spring Network）将表面离散为质点 $m_i$ 与无质量弹簧边 $(i,j)$，把偏微分方程直接转化为第 27 课学过的常微分方程组 $\dot{\mathbf{Y}} = \mathbf{f}(\mathbf{Y})$，具备极高的工程实现性价比。
+            </p>
+            <p class="en-only">
+              While Finite Element Methods (FEM) discretize continuum PDEs directly, Mass-Spring networks replace a surface with point masses $m_i$ and massless springs $(i,j)$, reducing cloth PDEs immediately to the coupled ODE system $\dot{\mathbf{Y}} = \mathbf{f}(\mathbf{Y})$ from Lesson 27.
+            </p>
+          </div>
+
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-5 space-y-2">
+            <div class="text-emerald-400 font-bold">
+              <span class="zh-only">2. 内力与外力解耦管线</span>
+              <span class="en-only">2. Internal vs. External Force Accumulation</span>
+            </div>
+            <p class="zh-only">
+              每一帧步进前，先把每个粒子的力累加器清零 $\mathbf{F}_i \leftarrow \mathbf{0}$；随后叠加外力（重力 $m_i\mathbf{g}$、气动风阻 $\frac{1}{2}\rho C_d A ((\mathbf{v}_{\text{wind}}-\mathbf{v})\cdot\mathbf{n})\mathbf{n}$），再遍历全部弹簧边计算胡克弹力与轴向阻尼力，并按牛顿第三定律成对施加 $\mathbf{F}_i \mathrel{+}= \mathbf{F}_{i\leftarrow j},\;\mathbf{F}_j \mathrel{-}= \mathbf{F}_{i\leftarrow j}$。
+            </p>
+            <p class="en-only">
+              Each frame clears force accumulators $\mathbf{F}_i \leftarrow \mathbf{0}$, adds external forces (gravity $m_i\mathbf{g}$, aerodynamic wind normal pressure), and loops over every spring edge once, applying equal and opposite forces $\mathbf{F}_i \mathrel{+}= \mathbf{F}_{i\leftarrow j}$ and $\mathbf{F}_j \mathrel{-}= \mathbf{F}_{i\leftarrow j}$ by Newton's 3rd Law.
+            </p>
+          </div>
+
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-5 space-y-2">
+            <div class="text-amber-400 font-bold">
+              <span class="zh-only">3. 固定针脚 (Pinned Constraints) 与碰撞</span>
+              <span class="en-only">3. Pinned Vertices &amp; Collision Handling</span>
+            </div>
+            <p class="zh-only">
+              对于被挂钩固定的顶点（如窗帘顶边或旗杆角点），只需将其逆质量设为 $w_i = 1/m_i = 0$（或每步强制清零其速度与位移增量 $\Delta\mathbf{x}_i = \mathbf{0}$）。对于隐式曲面碰撞（如球体 $\|\mathbf{x}-\mathbf{c}\| - R < 0$），将穿入点沿法向推回球面并抹除向内法向速度分量。
+            </p>
+            <p class="en-only">
+              Pinned vertices simply take inverse mass $w_i = 1/m_i = 0$ (zero velocity and position delta). Implicit surface collisions ($f(\mathbf{x}) < 0$) project penetrating vertices back onto $f(\mathbf{x}) = 0$ along $\nabla f$ and cancel inward normal velocity.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-Mission Game ==================== -->
+    <section id="tab4" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-5 glass-panel rounded-2xl p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs font-mono text-amber-400 font-bold">3-MISSION CHALLENGE</span>
+              <h3 class="text-lg font-extrabold text-white">
+                <span class="zh-only">🎮 首席布料物理仿真总监</span>
+                <span class="en-only">🎮 Chief Cloth Simulation Director</span>
+              </h3>
+            </div>
+            <span id="gameProgressBadge" class="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-bold">
+              0 / 3 Passed
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="selectMission(1)" id="missionBtn1" class="py-2 rounded-xl text-xs font-bold border bg-indigo-600 text-white border-indigo-400">
+              <span class="zh-only">关卡 1 · 抗剪拓扑</span>
+              <span class="en-only">Mission 1 · Shear</span>
+            </button>
+            <button onclick="selectMission(2)" id="missionBtn2" class="py-2 rounded-xl text-xs font-bold border bg-slate-800 text-slate-400 border-slate-700">
+              <span class="zh-only">关卡 2 · 轴向阻尼</span>
+              <span class="en-only">Mission 2 · Damping</span>
+            </button>
+            <button onclick="selectMission(3)" id="missionBtn3" class="py-2 rounded-xl text-xs font-bold border bg-slate-800 text-slate-400 border-slate-700">
+              <span class="zh-only">关卡 3 · 刚度与碰撞</span>
+              <span class="en-only">Mission 3 · Collision</span>
+            </button>
+          </div>
+
+          <!-- Mission 1 Panel -->
+          <div id="missionPanel1" class="space-y-3 text-xs text-slate-300">
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+              <div class="font-bold text-indigo-300">
+                <span class="zh-only">任务 1：拯救平行四边形坍缩的皇家旗帜</span>
+                <span class="en-only">Mission 1: Rescue the Parallelogram-Collapsed Banner</span>
+              </div>
+              <p class="zh-only">
+                实习生搭建的旗帜只连接了横竖结构弹簧（Structural Only），在斜向风拉扯下四条边虽未伸长，但整个网格沿着对角线零空间坍缩成了狭长菱形并发生 $180^\circ$ 折痕！请开启完整的 <strong>Structural + Shear + Bending</strong> 弹簧拓扑！
+              </p>
+              <p class="en-only">
+                The banner only has Structural springs, so diagonal wind shears its quads into collapsed rhombuses! Enable full <strong>Structural + Shear + Bending</strong> topology!
+              </p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="setGameM1('struct_only')" id="m1BtnStruct" class="p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200">
+                Structural Only<br/><span class="text-[10px] opacity-75">Nullspace Shear Collapse</span>
+              </button>
+              <button onclick="setGameM1('full_provot')" id="m1BtnFull" class="p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400">
+                Struct + Shear + Bend<br/><span class="text-[10px] opacity-75">Full Provot Topology</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mission 2 Panel -->
+          <div id="missionPanel2" class="hidden space-y-3 text-xs text-slate-300">
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+              <div class="font-bold text-emerald-300">
+                <span class="zh-only">任务 2：修复“泡在糖浆里”的披风摆动</span>
+                <span class="en-only">Mission 2: Fix the "Submerged in Molasses" Cape Swing</span>
+              </div>
+              <p class="zh-only">
+                角色披风在刚体摆动时像泡在糖浆里一样僵硬缓慢！排查发现代码直接写了全局速度阻尼 $-k_d \mathbf{v}_i$，把垂直于弹簧的刚体旋转速度也耗散掉了。请切换为正确的<strong>弹簧轴向投影阻尼 $k_d((\mathbf{v}_j-\mathbf{v}_i)\cdot\hat{\mathbf{d}})\hat{\mathbf{d}}$</strong>！
+              </p>
+              <p class="en-only">
+                The character's cape swings as if in molasses because global damping $-k_d\mathbf{v}_i$ kills rigid-body rotation! Switch to <strong>Axial Dashpot Projection $k_d((\mathbf{v}_j-\mathbf{v}_i)\cdot\hat{\mathbf{d}})\hat{\mathbf{d}}$</strong>!
+              </p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="setGameM2('global')" id="m2BtnGlobal" class="p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200">
+                -k_d * v_i<br/><span class="text-[10px] opacity-75">Global Molasses Drag</span>
+              </button>
+              <button onclick="setGameM2('axial')" id="m2BtnAxial" class="p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400">
+                k_d * dot(dv, d_hat) * d_hat<br/><span class="text-[10px] opacity-75">Axial Dashpot Projection</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mission 3 Panel -->
+          <div id="missionPanel3" class="hidden space-y-3 text-xs text-slate-300">
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+              <div class="font-bold text-amber-300">
+                <span class="zh-only">任务 3：化解高刚度牛仔布爆炸与球体穿模危机</span>
+                <span class="en-only">Mission 3: Resolve High-Stiffness Explosion &amp; Sphere Penetration</span>
+              </div>
+              <p class="zh-only">
+                高刚度牛仔布 ($k_s=2400$) 在单步积分下超越临界步长 $\Delta t_{\text{crit}} = 2\sqrt{m/k_s}$ 发生剧烈震荡并直接穿入角色肩部碰撞球！请开启 <strong>PBD 距离约束松弛 + 球体 SDF 法向碰撞投影</strong>！
+              </p>
+              <p class="en-only">
+                High-stiffness denim ($k_s=2400$) violates $\Delta t_{\text{crit}}$ and penetrates the shoulder collider! Enable <strong>PBD Constraint Relaxation + Sphere SDF Collision Projection</strong>!
+              </p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="setGameM3('raw_euler')" id="m3BtnRaw" class="p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200">
+                Raw Single-Step Force<br/><span class="text-[10px] opacity-75">Overshoot &amp; Penetration</span>
+              </button>
+              <button onclick="setGameM3('pbd_sdf')" id="m3BtnPbd" class="p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400">
+                PBD + Sphere SDF Projection<br/><span class="text-[10px] opacity-75">Stable &amp; Non-Penetrating</span>
+              </button>
+            </div>
+          </div>
+
+          <button onclick="verifyGameMission()" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-emerald-600/25 transition">
+            <span class="zh-only">⚡ 运行布料仿真验收测试</span>
+            <span class="en-only">⚡ Run Cloth Simulation Verification</span>
+          </button>
+
+          <div id="gameFeedbackBox" class="hidden p-3.5 rounded-xl border text-xs leading-relaxed"></div>
+        </div>
+
+        <div class="lg:col-span-7 glass-panel rounded-2xl p-6 flex flex-col justify-between">
+          <canvas id="gameCanvas" width="600" height="360" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentLang = 'zh';
+    let currentTab = 1;
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.body.classList.toggle('lang-zh', currentLang === 'zh');
+      document.body.classList.toggle('lang-en', currentLang === 'en');
+      drawMathCanvas();
+      drawStiffCanvas();
+      drawGameCanvas();
+    }
+
+    function switchTab(tabId) {
+      currentTab = tabId;
+      for (let i = 1; i <= 4; i++) {
+        const sec = document.getElementById('tab' + i);
+        const btn = document.getElementById('tabBtn' + i);
+        if (i === tabId) {
+          sec.classList.remove('hidden');
+          btn.className = 'tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition bg-indigo-600 text-white shadow-lg shadow-indigo-600/25';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = 'tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60';
+        }
+      }
+      if (tabId === 1) drawMathCanvas();
+      if (tabId === 2) drawStiffCanvas();
+      if (tabId === 4) drawGameCanvas();
+    }
+
+    // ==================== TAB 1: Math & Topology Microscope ====================
+    function drawMathCanvas() {
+      const canvas = document.getElementById('mathCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width;
+      const H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const stretch = parseFloat(document.getElementById('mathStretchSlider').value);
+      const velAngleDeg = parseFloat(document.getElementById('mathVelAngleSlider').value);
+      const shearDeg = parseFloat(document.getElementById('mathShearSlider').value);
+
+      document.getElementById('mathStretchVal').textContent = stretch.toFixed(2) + 'x';
+      document.getElementById('mathVelAngleVal').textContent = velAngleDeg + '°';
+      document.getElementById('mathShearVal').textContent = shearDeg + '°';
+
+      // Divider
+      ctx.strokeStyle = 'rgba(148,163,184,0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(W * 0.52, 16);
+      ctx.lineTo(W * 0.52, H - 16);
+      ctx.stroke();
+
+      // LEFT PANEL: Vector Hooke + Axial Dashpot Velocity Projection
+      const x1 = 55, y1 = H * 0.56;
+      const L0 = 110;
+      const curL = L0 * stretch;
+      const x2 = x1 + curL, y2 = y1;
+
+      // Rest length marker
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = 'rgba(16,185,129,0.5)';
+      ctx.beginPath();
+      ctx.moveTo(x1 + L0, y1 - 45);
+      ctx.lineTo(x1 + L0, y1 + 45);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#34d399';
+      ctx.font = '10px monospace';
+      ctx.fillText('L₀', x1 + L0 - 6, y1 + 58);
+
+      // Spring zig-zag
+      ctx.strokeStyle = stretch > 1.02 ? '#fb7185' : stretch < 0.98 ? '#38bdf8' : '#34d399';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      const coils = 10;
+      for (let i = 1; i < coils; i++) {
+        const px = x1 + (i / coils) * curL;
+        const py = y1 + (i % 2 === 0 ? -10 : 10);
+        ctx.lineTo(px, py);
+      }
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      // Relative velocity vector at x2
+      const phi = (velAngleDeg * Math.PI) / 180;
+      const vLen = 78;
+      const vx = Math.cos(phi) * vLen;
+      const vy = -Math.sin(phi) * vLen;
+
+      // Parallel component (axial dashpot)
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 + vx, y2);
+      ctx.stroke();
+
+      // Perpendicular component (rigid rotation, zero damping!)
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x2 + vx, y2);
+      ctx.lineTo(x2 + vx, y2 + vy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Total relative velocity Δv
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 + vx, y2 + vy);
+      ctx.stroke();
+
+      // Nodes
+      ctx.fillStyle = '#e2e8f0';
+      ctx.beginPath();
+      ctx.arc(x1, y1, 7, 0, Math.PI * 2);
+      ctx.arc(x2, y2, 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '1. 轴向弹力与阻尼投影 (Δv·d̂)d̂' : '1. Axial Hooke & Dashpot Projection', 18, 26);
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = '11px monospace';
+      ctx.fillText('Δv', x2 + vx + 5, y2 + vy);
+      ctx.fillStyle = '#34d399';
+      ctx.fillText('(Δv·d̂)d̂ (Damped)', x2 + vx * 0.25, y2 + 24);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('Δv_⊥ (Rigid Rot = 0 Damp)', x2 + vx - 40, y2 + vy - 8);
+
+      // RIGHT PANEL: Quad Topology under Shear Angle
+      const qcx = W * 0.76, qcy = H * 0.56;
+      const side = 115;
+      const gamma = (shearDeg * Math.PI) / 180;
+      const p00 = { x: qcx - side * 0.5, y: qcy + side * 0.5 };
+      const p10 = { x: qcx + side * 0.5, y: qcy + side * 0.5 };
+      const p01 = { x: p00.x + Math.sin(gamma) * side, y: p00.y - Math.cos(gamma) * side };
+      const p11 = { x: p10.x + Math.sin(gamma) * side, y: p10.y - Math.cos(gamma) * side };
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '2. 菱形错切：结构边不变 vs 对角剪切锁死' : '2. Rhombus Shear: Structural vs Diagonal', W * 0.55, 26);
+
+      // Shear diagonals
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(p00.x, p00.y);
+      ctx.lineTo(p11.x, p11.y);
+      ctx.moveTo(p10.x, p10.y);
+      ctx.lineTo(p01.x, p01.y);
+      ctx.stroke();
+
+      // Structural edges
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(p00.x, p00.y);
+      ctx.lineTo(p10.x, p10.y);
+      ctx.lineTo(p11.x, p11.y);
+      ctx.lineTo(p01.x, p01.y);
+      ctx.closePath();
+      ctx.stroke();
+
+      [p00, p10, p01, p11].forEach(p => {
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      const d1 = Math.hypot(p11.x - p00.x, p11.y - p00.y) / (side * Math.SQRT2);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '11px monospace';
+      ctx.fillText('Structural ΔL = 0.0% (Nullspace!)', W * 0.56, H - 42);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText(`Shear Diagonal L/√2h = ${d1.toFixed(3)}x`, W * 0.56, H - 22);
+
+      // Update Readouts
+      const fSpring = (stretch - 1.0) * 100;
+      document.getElementById('readHooke').textContent = (fSpring >= 0 ? '+' : '') + fSpring.toFixed(1) + ' N';
+      document.getElementById('readDamp').textContent = (Math.abs(Math.cos(phi)) * 100).toFixed(1) + '%';
+      document.getElementById('readDiag').textContent = ((d1 - 1) * 100 >= 0 ? '+' : '') + ((d1 - 1) * 100).toFixed(1) + '%';
+    }
+
+    // ==================== TAB 2 LAB 1: 3D Cloth Simulation ====================
+    const COLS = 13, ROWS = 10, REST = 22;
+    let clothPts = [];
+    let clothSprings = [];
+    let rightPinLocked = true;
+    let dragIdx = -1;
+
+    function initCloth() {
+      clothPts = [];
+      clothSprings = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const x = (c - (COLS - 1) / 2) * REST;
+          const y = -110 + r * REST;
+          const z = (Math.sin(c * 0.5) * 2);
+          const pinned = r === 0 && (c === 0 || c === Math.floor(COLS / 2) || (c === COLS - 1 && rightPinLocked));
+          clothPts.push({ x, y, z, vx: 0, vy: 0, vz: 0, pinned });
+        }
+      }
+      const idx = (r, c) => r * COLS + c;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (c + 1 < COLS) clothSprings.push({ a: idx(r, c), b: idx(r, c + 1), len: REST, type: 'struct' });
+          if (r + 1 < ROWS) clothSprings.push({ a: idx(r, c), b: idx(r + 1, c), len: REST, type: 'struct' });
+          if (r + 1 < ROWS && c + 1 < COLS) {
+            clothSprings.push({ a: idx(r, c), b: idx(r + 1, c + 1), len: REST * Math.SQRT2, type: 'shear' });
+            clothSprings.push({ a: idx(r + 1, c), b: idx(r, c + 1), len: REST * Math.SQRT2, type: 'shear' });
+          }
+          if (c + 2 < COLS) clothSprings.push({ a: idx(r, c), b: idx(r, c + 2), len: REST * 2, type: 'bend' });
+          if (r + 2 < ROWS) clothSprings.push({ a: idx(r, c), b: idx(r + 2, c), len: REST * 2, type: 'bend' });
+        }
+      }
+    }
+
+    function resetCloth() {
+      rightPinLocked = true;
+      initCloth();
+    }
+
+    function dropRightPin() {
+      rightPinLocked = !rightPinLocked;
+      if (clothPts.length > 0) {
+        clothPts[COLS - 1].pinned = rightPinLocked;
+      }
+    }
+
+    function stepAndDrawCloth(timeMs) {
+      const canvas = document.getElementById('clothCanvas');
+      if (canvas && currentTab === 2) {
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+        ctx.clearRect(0, 0, W, H);
+
+        const wind = parseFloat(document.getElementById('windSlider').value);
+        const sphereZ = parseFloat(document.getElementById('sphereZSlider').value) * 95;
+        const iters = parseInt(document.getElementById('iterSlider').value, 10);
+        const dt = 0.16;
+        const sphereR = 56;
+        const scx = 0, scy = 15, scz = sphereZ;
+
+        // Symplectic velocity + position update
+        for (let i = 0; i < clothPts.length; i++) {
+          const p = clothPts[i];
+          if (p.pinned || i === dragIdx) continue;
+          const flutter = Math.sin(timeMs * 0.004 + p.x * 0.04 + p.y * 0.03);
+          p.vy += 1.65 * dt; // gravity
+          p.vz += (wind * 1.8 + flutter * wind * 0.8) * dt;
+          p.vx *= 0.985;
+          p.vy *= 0.985;
+          p.vz *= 0.985;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.z += p.vz * dt;
+        }
+
+        // Gauss-Seidel PBD Spring Constraints + Sphere SDF Collision
+        for (let k = 0; k < iters; k++) {
+          for (let s = 0; s < clothSprings.length; s++) {
+            const sp = clothSprings[s];
+            const p1 = clothPts[sp.a];
+            const p2 = clothPts[sp.b];
+            const dx = p2.x - p1.x, dy = p2.y - p1.y, dz = p2.z - p1.z;
+            const d = Math.hypot(dx, dy, dz) || 0.0001;
+            const stiff = sp.type === 'bend' ? 0.35 : 0.85;
+            const diff = ((d - sp.len) / d) * 0.5 * stiff;
+            if (!p1.pinned && sp.a !== dragIdx) {
+              p1.x += dx * diff; p1.y += dy * diff; p1.z += dz * diff;
+            }
+            if (!p2.pinned && sp.b !== dragIdx) {
+              p2.x -= dx * diff; p2.y -= dy * diff; p2.z -= dz * diff;
+            }
+          }
+
+          // Sphere collision constraint
+          for (let i = 0; i < clothPts.length; i++) {
+            const p = clothPts[i];
+            if (p.pinned) continue;
+            const dx = p.x - scx, dy = p.y - scy, dz = p.z - scz;
+            const dist = Math.hypot(dx, dy, dz) || 0.0001;
+            if (dist < sphereR + 4) {
+              const nx = dx / dist, ny = dy / dist, nz = dz / dist;
+              p.x = scx + nx * (sphereR + 4);
+              p.y = scy + ny * (sphereR + 4);
+              p.z = scz + nz * (sphereR + 4);
+            }
+          }
+        }
+
+        const proj = (x, y, z) => {
+          const scale = 380 / (380 - z * 0.7);
+          return { sx: W * 0.5 + x * scale, sy: H * 0.5 + y * scale, scale };
+        };
+
+        // Draw sphere collider
+        const spCenter = proj(scx, scy, scz);
+        const grad = ctx.createRadialGradient(
+          spCenter.sx - 16, spCenter.sy - 16, 6,
+          spCenter.sx, spCenter.sy, sphereR * spCenter.scale
+        );
+        grad.addColorStop(0, 'rgba(99, 102, 241, 0.55)');
+        grad.addColorStop(1, 'rgba(15, 23, 42, 0.85)');
+        ctx.fillStyle = grad;
+        ctx.strokeStyle = 'rgba(129, 140, 248, 0.55)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(spCenter.sx, spCenter.sy, sphereR * spCenter.scale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Draw structural & shear springs colored by strain
+        let maxStrain = 0;
+        for (let s = 0; s < clothSprings.length; s++) {
+          const sp = clothSprings[s];
+          if (sp.type === 'bend') continue;
+          const p1 = clothPts[sp.a], p2 = clothPts[sp.b];
+          const d = Math.hypot(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
+          const strain = (d - sp.len) / sp.len;
+          if (Math.abs(strain) > maxStrain) maxStrain = Math.abs(strain);
+
+          const s1 = proj(p1.x, p1.y, p1.z);
+          const s2 = proj(p2.x, p2.y, p2.z);
+
+          if (strain < -0.03) ctx.strokeStyle = '#38bdf8';
+          else if (strain < 0.06) ctx.strokeStyle = sp.type === 'struct' ? '#10b981' : 'rgba(16,185,129,0.38)';
+          else if (strain < 0.16) ctx.strokeStyle = '#f59e0b';
+          else ctx.strokeStyle = '#f43f5e';
+
+          ctx.lineWidth = sp.type === 'struct' ? 2.0 : 1.0;
+          ctx.beginPath();
+          ctx.moveTo(s1.sx, s1.sy);
+          ctx.lineTo(s2.sx, s2.sy);
+          ctx.stroke();
+        }
+
+        // Draw pinned hooks
+        for (let i = 0; i < clothPts.length; i++) {
+          const p = clothPts[i];
+          if (!p.pinned) continue;
+          const s = proj(p.x, p.y, p.z);
+          ctx.fillStyle = '#fbbf24';
+          ctx.beginPath();
+          ctx.arc(s.sx, s.sy, 5.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        document.getElementById('clothStatsText').textContent = `Max Strain: ${(maxStrain * 100).toFixed(1)}%`;
+      }
+      requestAnimationFrame(stepAndDrawCloth);
+    }
+
+    // Cloth mouse interaction
+    window.addEventListener('DOMContentLoaded', () => {
+      initCloth();
+      drawMathCanvas();
+      drawStiffCanvas();
+      drawGameCanvas();
+      requestAnimationFrame(stepAndDrawCloth);
+
+      const clothCanvas = document.getElementById('clothCanvas');
+      clothCanvas.addEventListener('mousedown', e => {
+        const rect = clothCanvas.getBoundingClientRect();
+        const mx = ((e.clientX - rect.left) / rect.width) * clothCanvas.width;
+        const my = ((e.clientY - rect.top) / rect.height) * clothCanvas.height;
+        let bestD = 32;
+        dragIdx = -1;
+        clothPts.forEach((p, i) => {
+          const scale = 380 / (380 - p.z * 0.7);
+          const sx = clothCanvas.width * 0.5 + p.x * scale;
+          const sy = clothCanvas.height * 0.5 + p.y * scale;
+          const d = Math.hypot(mx - sx, my - sy);
+          if (d < bestD) { bestD = d; dragIdx = i; }
+        });
+      });
+
+      window.addEventListener('mousemove', e => {
+        if (dragIdx < 0) return;
+        const rect = clothCanvas.getBoundingClientRect();
+        const mx = ((e.clientX - rect.left) / rect.width) * clothCanvas.width;
+        const my = ((e.clientY - rect.top) / rect.height) * clothCanvas.height;
+        clothPts[dragIdx].x = mx - clothCanvas.width * 0.5;
+        clothPts[dragIdx].y = my - clothCanvas.height * 0.5;
+      });
+
+      window.addEventListener('mouseup', () => { dragIdx = -1; });
+
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+    });
+
+    // ==================== TAB 2 LAB 2: Topology & Stiffness Stability ====================
+    let useShear = true, useBend = true;
+
+    function toggleTopo(which) {
+      if (which === 'shear') useShear = !useShear;
+      if (which === 'bend') useBend = !useBend;
+      document.getElementById('togShearBtn').className = useShear
+        ? 'py-2 px-2 rounded-xl font-bold border bg-amber-500/20 border-amber-500/50 text-amber-200'
+        : 'py-2 px-2 rounded-xl font-bold border bg-slate-800 border-slate-700 text-slate-500';
+      document.getElementById('togShearBtn').textContent = (useShear ? '✓ ' : '✗ ') + 'Shear (×)';
+
+      document.getElementById('togBendBtn').className = useBend
+        ? 'py-2 px-2 rounded-xl font-bold border bg-purple-500/20 border-purple-500/50 text-purple-200'
+        : 'py-2 px-2 rounded-xl font-bold border bg-slate-800 border-slate-700 text-slate-500';
+      document.getElementById('togBendBtn').textContent = (useBend ? '✓ ' : '✗ ') + 'Bending (2x)';
+      drawStiffCanvas();
+    }
+
+    function drawStiffCanvas() {
+      const canvas = document.getElementById('stiffCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const ks = parseFloat(document.getElementById('labKsSlider').value);
+      const dt = parseFloat(document.getElementById('labDtSlider').value);
+      document.getElementById('labKsVal').textContent = ks;
+      document.getElementById('labDtVal').textContent = dt.toFixed(3);
+
+      const omega = Math.sqrt(ks);
+      const prod = omega * dt;
+      const badge = document.getElementById('stiffBadge');
+      if (prod < 2.0) {
+        badge.className = 'p-3 rounded-xl border text-xs font-mono bg-emerald-500/15 border-emerald-500/40 text-emerald-200';
+        badge.textContent = `ω·Δt = ${prod.toFixed(2)} < 2.00 (Δt_crit = ${(2 / omega).toFixed(3)}s) → STABLE`;
+      } else {
+        badge.className = 'p-3 rounded-xl border text-xs font-mono bg-rose-500/20 border-rose-500/50 text-rose-200';
+        badge.textContent = `ω·Δt = ${prod.toFixed(2)} ≥ 2.00 (Δt_crit = ${(2 / omega).toFixed(3)}s) → OVERSHOOT EXPLOSION!`;
+      }
+
+      // Left half: 3x3 patch under shear & fold
+      const ox = 42, oy = 60, cell = 44;
+      const shearShift = useShear ? 4 : 26;
+      const bendSag = useBend ? 3 : 18;
+
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          const x = ox + c * cell + r * shearShift;
+          const y = oy + r * cell + (c === 1 ? bendSag : 0);
+          if (c < 2) {
+            const nx = ox + (c + 1) * cell + r * shearShift;
+            const ny = oy + r * cell + (c + 1 === 1 ? bendSag : 0);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(nx, ny); ctx.stroke();
+          }
+          if (r < 2) {
+            const nx = ox + c * cell + (r + 1) * shearShift;
+            const ny = oy + (r + 1) * cell + (c === 1 ? bendSag : 0);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(nx, ny); ctx.stroke();
+          }
+          if (useShear && r < 2 && c < 2) {
+            const nx = ox + (c + 1) * cell + (r + 1) * shearShift;
+            const ny = oy + (r + 1) * cell + (c + 1 === 1 ? bendSag : 0);
+            ctx.strokeStyle = 'rgba(245,158,11,0.65)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(nx, ny); ctx.stroke();
+          }
+        }
+      }
+
+      // Right half: 1D spring displacement over 18 steps
+      const gx0 = W * 0.48, gx1 = W - 20, gyMid = H * 0.52;
+      ctx.strokeStyle = 'rgba(148,163,184,0.25)';
+      ctx.beginPath(); ctx.moveTo(gx0, gyMid); ctx.lineTo(gx1, gyMid); ctx.stroke();
+
+      let x = 1.0, v = 0.0;
+      ctx.strokeStyle = prod < 2.0 ? '#10b981' : '#f43f5e';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      for (let step = 0; step <= 20; step++) {
+        const sx = gx0 + (step / 20) * (gx1 - gx0);
+        const sy = gyMid - Math.max(-2.2, Math.min(2.2, x)) * 55;
+        if (step === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+        v = v - ks * x * dt;
+        x = x + v * dt;
+      }
+      ctx.stroke();
+    }
+
+    // ==================== TAB 4: 3-Mission Game ====================
+    let currentMission = 1;
+    let missionPassed = { 1: false, 2: false, 3: false };
+    let gameM1Mode = 'struct_only';
+    let gameM2Mode = 'global';
+    let gameM3Mode = 'raw_euler';
+
+    function selectMission(m) {
+      currentMission = m;
+      document.getElementById('gameFeedbackBox').classList.add('hidden');
+      for (let i = 1; i <= 3; i++) {
+        document.getElementById('missionPanel' + i).classList.toggle('hidden', i !== m);
+        const btn = document.getElementById('missionBtn' + i);
+        btn.className = i === m
+          ? 'py-2 rounded-xl text-xs font-bold border bg-indigo-600 text-white border-indigo-400'
+          : missionPassed[i]
+          ? 'py-2 rounded-xl text-xs font-bold border bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+          : 'py-2 rounded-xl text-xs font-bold border bg-slate-800 text-slate-400 border-slate-700';
+      }
+      drawGameCanvas();
+    }
+
+    function setGameM1(mode) {
+      gameM1Mode = mode;
+      document.getElementById('m1BtnStruct').className = mode === 'struct_only'
+        ? 'p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200'
+        : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      document.getElementById('m1BtnFull').className = mode === 'full_provot'
+        ? 'p-2.5 rounded-xl border text-left font-mono bg-emerald-500/20 border-emerald-500 text-emerald-200'
+        : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      drawGameCanvas();
+    }
+
+    function setGameM2(mode) {
+      gameM2Mode = mode;
+      document.getElementById('m2BtnGlobal').className = mode === 'global'
+        ? 'p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200'
+        : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      document.getElementById('m2BtnAxial').className = mode === 'axial'
+        ? 'p-2.5 rounded-xl border text-left font-mono bg-emerald-500/20 border-emerald-500 text-emerald-200'
+        : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      drawGameCanvas();
+    }
+
+    function setGameM3(mode) {
+      gameM3Mode = mode;
+      document.getElementById('m3BtnRaw').className = mode === 'raw_euler'
+        ? 'p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200'
+        : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      document.getElementById('m3BtnPbd').className = mode === 'pbd_sdf'
+        ? 'p-2.5 rounded-xl border text-left font-mono bg-emerald-500/20 border-emerald-500 text-emerald-200'
+        : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      drawGameCanvas();
+    }
+
+    function verifyGameMission() {
+      const box = document.getElementById('gameFeedbackBox');
+      box.classList.remove('hidden');
+      let ok = false, msg = '';
+
+      if (currentMission === 1) {
+        ok = gameM1Mode === 'full_provot';
+        msg = ok
+          ? (currentLang === 'zh'
+            ? '✅ 关卡 1 通过！剪切弹簧 (Shear) 锁死了正方形对角线长度 √2h，弯曲弹簧 (Bending) 消除了 180° 折纸零空间！'
+            : '✅ Mission 1 Passed! Shear springs lock diagonal lengths √2h and Bending springs prevent 180° folding!')
+          : (currentLang === 'zh'
+            ? '⚠️ 仅有结构弹簧时，平行四边形错切变形不改变四条边长，处于刚度矩阵零空间！请开启完整 Provot 拓扑。'
+            : '⚠️ With Structural springs only, rhombus shear lies in the nullspace! Enable full Provot topology.');
+      } else if (currentMission === 2) {
+        ok = gameM2Mode === 'axial';
+        msg = ok
+          ? (currentLang === 'zh'
+            ? '✅ 关卡 2 通过！轴向投影阻尼 k_d((v_j - v_i)·d̂)d̂ 对垂直于弹簧轴的刚体摆动点积为 0，披风摆动自然流畅！'
+            : '✅ Mission 2 Passed! Axial dashpot projection k_d((v_j - v_i)·d̂)d̂ yields zero drag on rigid-body rotation!')
+          : (currentLang === 'zh'
+            ? '⚠️ 全局阻尼 -k_d*v_i 会把刚体平移与旋转速度全部吃掉，导致披风像泡在糖浆里！请切换为轴向投影阻尼。'
+            : '⚠️ Global damping -k_d*v_i damps rigid-body motion like molasses! Switch to Axial Dashpot Projection.');
+      } else {
+        ok = gameM3Mode === 'pbd_sdf';
+        msg = ok
+          ? (currentLang === 'zh'
+            ? '✅ 关卡 3 通过！PBD 距离约束松弛 + 球体 SDF 表面法向投影完美消除了高刚度爆炸与肩部穿模！'
+            : '✅ Mission 3 Passed! PBD constraint relaxation + Sphere SDF projection resolves stiffness overshoot and penetration!')
+          : (currentLang === 'zh'
+            ? '⚠️ 单步显式高刚度力超出了 Δt_crit = 2√(m/k_s) 并在碰撞球内穿模！请切换为 PBD + Sphere SDF 投影。'
+            : '⚠️ Single-step high stiffness violates Δt_crit and penetrates the sphere! Enable PBD + Sphere SDF projection.');
+      }
+
+      if (ok) missionPassed[currentMission] = true;
+      const count = Object.values(missionPassed).filter(Boolean).length;
+      document.getElementById('gameProgressBadge').textContent = `${count} / 3 Passed`;
+      box.className = ok
+        ? 'p-3.5 rounded-xl border text-xs leading-relaxed bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
+        : 'p-3.5 rounded-xl border text-xs leading-relaxed bg-rose-500/15 border-rose-500/40 text-rose-200';
+      box.textContent = msg;
+      selectMission(currentMission);
+    }
+
+    function drawGameCanvas() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      if (currentMission === 1) {
+        const full = gameM1Mode === 'full_provot';
+        const ox = 175, oy = 65, cell = 52;
+        const shear = full ? 4 : 38;
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 4; c++) {
+            const x = ox + c * cell + r * shear;
+            const y = oy + r * cell;
+            if (c < 3) {
+              ctx.strokeStyle = full ? '#10b981' : '#f43f5e';
+              ctx.lineWidth = 2.5;
+              ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ox + (c + 1) * cell + r * shear, y); ctx.stroke();
+            }
+            if (r < 3) {
+              ctx.strokeStyle = full ? '#10b981' : '#f43f5e';
+              ctx.lineWidth = 2.5;
+              ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ox + c * cell + (r + 1) * shear, oy + (r + 1) * cell); ctx.stroke();
+            }
+            if (full && r < 3 && c < 3) {
+              ctx.strokeStyle = 'rgba(245,158,11,0.6)';
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              ctx.moveTo(x, y); ctx.lineTo(ox + (c + 1) * cell + (r + 1) * shear, oy + (r + 1) * cell);
+              ctx.stroke();
+            }
+          }
+        }
+        ctx.fillStyle = full ? '#34d399' : '#fb7185';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText(full ? 'Shear Distortion: 3.8% (PASS)' : 'Shear Distortion: 58.4% (RHOMBUS COLLAPSE!)', 24, 32);
+      } else if (currentMission === 2) {
+        const axial = gameM2Mode === 'axial';
+        const px = W * 0.5, py = 70, L = 175;
+        const ang = axial ? 0.68 : 0.14;
+        const bx = px + Math.sin(ang) * L, by = py + Math.cos(ang) * L;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = 'rgba(148,163,184,0.35)';
+        ctx.beginPath(); ctx.arc(px, py, L, 0.2, Math.PI - 0.2); ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.strokeStyle = axial ? '#10b981' : '#f43f5e';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(bx, by); ctx.stroke();
+        ctx.fillStyle = axial ? '#34d399' : '#fb7185';
+        ctx.beginPath(); ctx.arc(bx, by, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText(axial ? 'Rigid Swing Energy Retained: 99.6% (PASS)' : 'Rigid Swing Energy Retained: 18.2% (MOLASSES DRAG!)', 24, 32);
+      } else {
+        const pbd = gameM3Mode === 'pbd_sdf';
+        const cx = W * 0.5, cy = H * 0.58, R = 75;
+        ctx.fillStyle = 'rgba(99,102,241,0.28)';
+        ctx.strokeStyle = '#818cf8';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+        ctx.strokeStyle = pbd ? '#10b981' : '#f43f5e';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (let i = -5; i <= 5; i++) {
+          let x = cx + i * 32;
+          let y = cy - 42 + Math.abs(i) * 12 + (pbd ? 0 : (i % 2 === 0 ? 35 : -28));
+          const dx = x - cx, dy = y - cy;
+          const d = Math.hypot(dx, dy);
+          if (pbd && d < R + 6) {
+            x = cx + (dx / d) * (R + 6);
+            y = cy + (dy / d) * (R + 6);
+          }
+          if (i === -5) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.fillStyle = pbd ? '#34d399' : '#fb7185';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText(pbd ? 'Max Strain: 1.9% | Sphere Penetration: 0.0mm (PASS)' : 'Max Strain: 312% | Sphere Penetration: 38.5mm (FAIL!)', 24, 32);
+      }
+    }
+  </script>
+</body>
+</html>
