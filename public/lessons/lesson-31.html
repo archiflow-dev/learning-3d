@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 31: 显示设备原理、VR 光学与图形学分支全景 | Learning 3D</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body {
+      background-color: #020617;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+    }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    input[type="range"] {
+      accent-color: #6366f1;
+    }
+    body.lang-zh .en-only { display: none !important; }
+    body.lang-en .zh-only { display: none !important; }
+  </style>
+</head>
+<body class="lang-zh min-h-screen pb-16">
+  <!-- Header -->
+  <header class="sticky top-0 z-50 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="px-3 py-1 rounded-full text-xs font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+          STAGE 6 · LESSON 31
+        </span>
+        <div>
+          <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-white">
+            <span class="zh-only">显示设备原理、VR 光学与图形学分支全景</span>
+            <span class="en-only">Display Principles, VR Optics &amp; Branches in Computer Graphics</span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            <span class="zh-only">UCD ECS 175 L21 &amp; MIT 6.837 L22 · 双目视差三角、VAC 冲突、VR 枕形预畸变、RGB/PenTile 子像素与图形学全分支</span>
+            <span class="en-only">UCD ECS 175 L21 &amp; MIT 6.837 L22 · Binocular Disparity, VAC, VR Lens Pre-Warp, Subpixel Layouts &amp; CG Branches</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="langToggleBtn" onclick="toggleLanguage()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 text-xs font-bold text-slate-100 transition flex items-center gap-1.5 shadow">
+          <span>🌐</span>
+          <span id="langBtnText">EN / 中文</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+    <!-- Navigation Tabs -->
+    <nav class="grid grid-cols-2 lg:grid-cols-4 gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800">
+      <button onclick="switchTab(1)" id="tabBtn1" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition bg-indigo-600 text-white shadow-lg shadow-indigo-600/25">
+        <span class="zh-only">📐 1. 3Blue1Brown 视差与透镜逆畸变直觉</span>
+        <span class="en-only">📐 1. 3Blue1Brown Disparity &amp; Lens Inverse</span>
+      </button>
+      <button onclick="switchTab(2)" id="tabBtn2" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60">
+        <span class="zh-only">🔬 2. 双实验台：VR 光学预畸变 + 子像素显微镜</span>
+        <span class="en-only">🔬 2. Dual Labs: VR Lens Pre-Warp + Subpixels</span>
+      </button>
+      <button onclick="switchTab(3)" id="tabBtn3" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60">
+        <span class="zh-only">🎥 3. UCD L21 &amp; MIT L22 图形学全景</span>
+        <span class="en-only">🎥 3. UCD L21 &amp; MIT L22 CG Panorama</span>
+      </button>
+      <button onclick="switchTab(4)" id="tabBtn4" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60">
+        <span class="zh-only">🎮 4. 闯关：首席 XR 光学与显示架构师 (3关)</span>
+        <span class="en-only">🎮 4. Game: Chief XR &amp; Display Architect (3 Missions)</span>
+      </button>
+    </nav>
+
+    <!-- ==================== TAB 1: 3Blue1Brown Intuition ==================== -->
+    <section id="tab1" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left Column: Deep Derivations -->
+        <div class="lg:col-span-6 space-y-5">
+          <!-- Card 1 -->
+          <div class="glass-panel rounded-2xl p-6 space-y-3">
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-bold">
+              <span class="zh-only">第一部分 · 双目视差三角测量与 VAC 冲突</span>
+              <span class="en-only">Part 1 · Binocular Disparity Triangulation &amp; VAC</span>
+            </div>
+            <h2 class="text-lg font-extrabold text-white">
+              <span class="zh-only">1. 双目视差公式 $d = \frac{b\cdot f}{Z}$ 与为什么 VR 看近物会眩晕？</span>
+              <span class="en-only">1. Binocular Disparity $d = \frac{b\cdot f}{Z}$ &amp; Vergence-Accommodation Conflict</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              设人类双眼的瞳距（IPD / Baseline）为 $b \approx 63\,\text{mm}$，左右眼针孔相机光心位于 $(-b/2, 0)$ 与 $(+b/2, 0)$，成像平面焦距为 $f$。对于空间中深度为 $Z$、横向位置为 $X$ 的三维点，由相似三角形定理可得它在左右视网膜上的投影横坐标分别为 $x_L = f\frac{X + b/2}{Z}$ 与 $x_R = f\frac{X - b/2}{Z}$。两者相减，横向位置 $X$ 完美抵消，得到著名的<strong>双目视差反比定律 (Binocular Disparity)</strong>：
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              With interpupillary baseline $b \approx 63\,\text{mm}$, left/right optical centers at $(\mp b/2, 0)$, and focal length $f$, a 3D point $(X,Z)$ projects to $x_L = f\frac{X+b/2}{Z}$ and $x_R = f\frac{X-b/2}{Z}$. Subtracting cancels $X$ and yields the <strong>Binocular Disparity Law</strong>:
+            </p>
+            <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 text-xs overflow-x-auto">
+              $$d = x_L - x_R = \frac{b\cdot f}{Z}, \qquad \theta_{\text{vergence}} = 2\arctan\!\left(\frac{b}{2Z}\right)$$
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              <strong>3Blue1Brown 生理几何直觉（辐辏-调节冲突 VAC）</strong>：在真实物理世界里，当你盯着 $Z = 0.3\,\text{m}$ 的手指时，双目视线向内夹角（<strong>辐辏 Vergence</strong>）汇聚在 $0.3\,\text{m}$，同时眼球睫状肌收缩晶状体将光学焦平面（<strong>调节 Accommodation</strong>）也精确对焦在 $0.3\,\text{m}$。但在固定焦距的 VR 头显中，无论虚拟物体的视差 $d$ 把你的视线夹角引向多近（$Z_{\text{verg}} = 0.3\,\text{m}$），发光屏幕经过透镜成的光学虚像却永远焊死在 $Z_{\text{focal}} \approx 1.8\,\text{m}$ 远处！这种<strong>“视线交点与晶状体焦点解耦”</strong>就是引发视觉疲劳的<strong>辐辏-调节冲突 (VAC)</strong>。
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              <strong>3Blue1Brown Geometric Intuition (VAC)</strong>: In the real world, binocular line-of-sight intersection (<strong>Vergence</strong> $Z_{\text{verg}}$) and crystalline lens focus (<strong>Accommodation</strong> $Z_{\text{focal}}$) are locked to the exact same depth. In fixed-focus VR headsets, disparity forces your eyes to converge at $Z_{\text{verg}}=0.3\,\text{m}$ while the optical virtual screen remains fixed at $Z_{\text{focal}}\approx 1.8\,\text{m}$!
+            </p>
+          </div>
+
+          <!-- Card 2 -->
+          <div class="glass-panel rounded-2xl p-6 space-y-3">
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+              <span class="zh-only">第二部分 · VR 透镜桶形畸变与枕形逆映射</span>
+              <span class="en-only">Part 2 · VR Barrel Distortion &amp; Pincushion Pre-Warp</span>
+            </div>
+            <h2 class="text-lg font-extrabold text-white">
+              <span class="zh-only">2. 为什么 VR 屏幕必须渲染成“向内凹陷的枕形”并分通道拆开 RGB？</span>
+              <span class="en-only">2. Why Must VR Render a Pincushion Image with Per-Channel RGB Warp?</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              为了让贴在眼前的微缩屏幕填满 $>100^\circ$ 超大视场角，VR 必须使用高屈光度菲涅尔或 Pancake 透镜。这类强凸透镜在边缘区域的放大率随离轴半径 $r = \sqrt{x^2+y^2}$ 急剧变化，产生强烈的<strong>光学桶形畸变 (Barrel Distortion $\mathcal{L}_{\text{lens}}$)</strong>。为了让最终进入视网膜的图像恢复横平竖直（恒等映射 $\mathcal{L}_{\text{lens}} \circ \mathcal{S}_{\text{shader}} = \text{Id}$），GPU 必须在后处理着色器中事先施加<strong>逆函数——径向枕形预畸变 (Brown–Conrady Pincushion Pre-Warp)</strong>：
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              Wide-FOV VR lenses introduce severe <strong>optical barrel distortion $\mathcal{L}_{\text{lens}}$</strong>. To make the retinal image rectilinear ($\mathcal{L}_{\text{lens}} \circ \mathcal{S}_{\text{shader}} = \text{Id}$), the GPU post-processing shader applies the inverse mapping—<strong>Brown–Conrady Pincushion Pre-Distortion</strong>:
+            </p>
+            <div class="bg-slate-950/90 border border-emerald-500/30 rounded-xl p-3 text-xs overflow-x-auto">
+              $$\mathbf{p}_{\text{pre}}(\mathbf{p}) = \mathbf{p}\cdot\big(1 + k_1 r^2 + k_2 r^4\big), \qquad r^2 = x^2 + y^2 \quad (k_1 > 0)$$
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              更妙的是：由于玻璃的折射率随波长递减（蓝光折射率 $n_B > n_G > n_R$，见第 14 课斯涅尔定律），透镜对蓝光的桶形弯曲比红光更强（横向色差 Lateral Chromatic Aberration）。我们无需昂贵的消色差复合镜片，只需在着色器里对红、绿、蓝三个通道使用略微递增的预畸变系数 $k_{1,R} < k_{1,G} < k_{1,B}$ 分别采样纹理，三色光经过透镜折射后就会在视网膜上完美重合！
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              Even better: because glass refractive index varies with wavelength ($n_B > n_G > n_R$), blue rays bend more than red (Lateral Chromatic Aberration). By applying slightly different radial coefficients $k_{1,R} < k_{1,G} < k_{1,B}$ per RGB channel in the shader, all three wavelengths converge onto the exact same retinal pixel for free!
+            </p>
+          </div>
+
+          <!-- Card 3 -->
+          <div class="glass-panel rounded-2xl p-6 space-y-3">
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold">
+              <span class="zh-only">第三部分 · 子像素几何排布与 ClearType 3倍超分辨</span>
+              <span class="en-only">Part 3 · Subpixel Geometry &amp; ClearType 3x Super-Resolution</span>
+            </div>
+            <h2 class="text-lg font-extrabold text-white">
+              <span class="zh-only">3. ClearType 如何凭空把字体横向清晰度提升 $3\times$？为什么 OLED 偏爱 Diamond PenTile？</span>
+              <span class="en-only">3. How Does ClearType Triple Horizontal Font Resolution, and Why Do OLEDs Use PenTile?</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              在放大镜下观察物理屏幕，一个像素并不是一个重合的发光点，而是由空间上并排分离的红 $R$、绿 $G$、蓝 $B$ 发光单元组成：
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              Under a microscope, a physical pixel is not a single co-located dot, but spatially separated Red, Green, and Blue emitters:
+            </p>
+            <ul class="space-y-2 text-xs text-slate-300 leading-relaxed">
+              <li class="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800">
+                <strong class="text-sky-300">① LCD RGB Stripe 与 ClearType 相移采样</strong>：
+                <span class="zh-only">标准 LCD 每个像素由左 $R\,(x-\frac{1}{3})$、中 $G\,(x)$、右 $B\,(x+\frac{1}{3})$ 三条竖直灯带组成。既然人眼看黑白文字时只关心总亮度轮廓，<strong>ClearType 次像素渲染</strong>直接以 $3\times$ 水平分辨率对字体矢量化光栅化，将相邻三个子采样点的覆盖率分别赋给 $R, G, B$ 通道，再经 $\frac{1}{3}[1,1,1]$ 滑动滤波抹除彩边，免费获得 $3$ 倍水平锐度！</span>
+                <span class="en-only">Standard LCDs place vertical $R, G, B$ stripes at offsets $(-1/3, 0, +1/3)$ of a pixel. <strong>ClearType</strong> rasterizes glyphs at $3\times$ horizontal resolution, mapping sub-samples directly to $R,G,B$ with a 3-tap box filter to suppress color fringing!</span>
+              </li>
+              <li class="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800">
+                <strong class="text-emerald-300">② OLED Diamond PenTile ($R\text{-}G\text{-}B\text{-}G$) 的视觉生理学智慧</strong>：
+                <span class="zh-only">有机发光二极管（OLED）中蓝色发光材料寿命最短、效率最低。由于人眼明视觉亮度 $Y = 0.2126R + \mathbf{0.7152G} + 0.0722B$ 高达 $71.5\%$ 的空间细节由绿光决定，Diamond PenTile 让每个像素都拥有完整的 $1:1$ 绿色子像素，而让相邻像素交替共享面积更大的红、蓝菱形子像素（即 $R\text{-}G\text{-}B\text{-}G$），在减少 $1/3$ 子像素总数的同时兼顾了寿命与视觉锐度！</span>
+                <span class="en-only">Because green dominates human luminance perception ($Y = 0.2126R + \mathbf{0.7152G} + 0.0722B$) and blue OLED emitters age fastest, <strong>Diamond PenTile ($R\text{-}G\text{-}B\text{-}G$)</strong> keeps $100\%$ green subpixel density while sharing larger Red and Blue diamonds across adjacent pixels!</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Right Column: Interactive 3Blue1Brown Visualizer -->
+        <div class="lg:col-span-6 space-y-5">
+          <div class="glass-panel rounded-2xl p-6 space-y-4 sticky top-24">
+            <div>
+              <h3 class="text-base font-extrabold text-white">
+                <span class="zh-only">🔬 双目立体视差 $d = bf/Z$ 与辐辏-调节冲突 (VAC) 几何仪</span>
+                <span class="en-only">🔬 Binocular Disparity $d = bf/Z$ &amp; Vergence-Accommodation (VAC) Visualizer</span>
+              </h3>
+              <p class="text-xs text-slate-400">
+                <span class="zh-only">拖动虚拟物体深度 $Z_{\text{virtual}}$ 与瞳距 $b$，观察左右视网膜视差 $d$ 与固定虚像屏 $Z_{\text{focal}}=1.8\text{m}$ 的脱节冲突</span>
+                <span class="en-only">Drag virtual depth $Z_{\text{virtual}}$ and IPD $b$ to inspect retinal disparity $d$ and the VAC gap against $Z_{\text{focal}}=1.8\text{m}$</span>
+              </p>
+            </div>
+
+            <canvas id="mathCanvas" width="600" height="390" class="w-full rounded-xl bg-slate-950 border border-slate-800 shadow-inner"></canvas>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-300 font-semibold">
+                    <span class="zh-only">虚拟目标深度 $Z_{\text{virtual}}$</span>
+                    <span class="en-only">Virtual Object Depth $Z_{\text{virtual}}$</span>
+                  </span>
+                  <span id="mathDepthVal" class="font-mono text-indigo-300 font-bold">0.55 m</span>
+                </div>
+                <input id="mathDepthSlider" type="range" min="0.25" max="2.60" step="0.05" value="0.55" oninput="drawMathCanvas()" class="w-full" />
+              </div>
+
+              <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-300 font-semibold">
+                    <span class="zh-only">双目瞳距 IPD ($b$)</span>
+                    <span class="en-only">Interpupillary Distance $b$</span>
+                  </span>
+                  <span id="mathIpdVal" class="font-mono text-emerald-300 font-bold">64 mm</span>
+                </div>
+                <input id="mathIpdSlider" type="range" min="52" max="74" step="1" value="64" oninput="drawMathCanvas()" class="w-full" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+              <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+                <div class="text-slate-400">
+                  <span class="zh-only">视网膜视差 $d = bf/Z$</span>
+                  <span class="en-only">Retinal Disparity $d$</span>
+                </div>
+                <div id="readDisparity" class="font-mono font-bold text-sky-400 mt-0.5">2.33 mm</div>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+                <div class="text-slate-400">
+                  <span class="zh-only">双目辐辏角 $\theta_{\text{verg}}$</span>
+                  <span class="en-only">Vergence Angle $\theta_{\text{verg}}$</span>
+                </div>
+                <div id="readVergence" class="font-mono font-bold text-amber-300 mt-0.5">6.66°</div>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+                <div class="text-slate-400">
+                  <span class="zh-only">VAC 屈光度冲突 $\Delta D$</span>
+                  <span class="en-only">VAC Diopter Mismatch $\Delta D$</span>
+                </div>
+                <div id="readVac" class="font-mono font-bold text-rose-400 mt-0.5">1.26 D (Fatigue!)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: Dual Interactive Labs ==================== -->
+    <section id="tab2" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Lab 1: VR Lens Pincushion Pre-Warp & Chromatic Aberration -->
+        <div class="lg:col-span-6 glass-panel rounded-2xl p-6 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span class="text-xs font-mono text-indigo-400 font-bold">INTERACTIVE LAB 01</span>
+              <h3 class="text-lg font-extrabold text-white">
+                <span class="zh-only">VR 透镜枕形预畸变与横向色差 (Chromatic Aberration) 校正仪</span>
+                <span class="en-only">VR Lens Pincushion Pre-Warp &amp; Chromatic Aberration Lab</span>
+              </h3>
+              <p class="text-xs text-slate-400">
+                <span class="zh-only">左眼：GPU 渲染出的枕形预畸变缓冲 · 右眼：透过菲涅尔桶形透镜在视网膜上还原出的真实图像</span>
+                <span class="en-only">Left Eye: GPU Pincushion Pre-Warped Buffer · Right Eye: Retinal Image After Barrel Lens</span>
+              </p>
+            </div>
+          </div>
+
+          <canvas id="vrCanvas" width="540" height="330" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+              <div class="flex justify-between mb-1"><span>Pre-Warp $k_1$</span><span id="vrK1Val" class="font-mono text-indigo-300 font-bold">+0.34</span></div>
+              <input id="vrK1Slider" type="range" min="-0.20" max="0.60" step="0.02" value="0.34" oninput="drawVrCanvas()" class="w-full" />
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+              <div class="flex justify-between mb-1"><span>Pre-Warp $k_2$</span><span id="vrK2Val" class="font-mono text-emerald-300 font-bold">+0.12</span></div>
+              <input id="vrK2Slider" type="range" min="-0.10" max="0.35" step="0.01" value="0.12" oninput="drawVrCanvas()" class="w-full" />
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+              <div class="flex justify-between mb-1"><span>Chroma $\Delta k_{\text{CA}}$</span><span id="vrCaVal" class="font-mono text-amber-300 font-bold">0.06</span></div>
+              <input id="vrCaSlider" type="range" min="0.00" max="0.16" step="0.01" value="0.06" oninput="drawVrCanvas()" class="w-full" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Lab 2: Subpixel Layout & ClearType Microscope -->
+        <div class="lg:col-span-6 glass-panel rounded-2xl p-6 space-y-4">
+          <div>
+            <span class="text-xs font-mono text-emerald-400 font-bold">INTERACTIVE LAB 02</span>
+            <h3 class="text-lg font-extrabold text-white">
+              <span class="zh-only">40× 子像素排布阵列 (RGB Stripe vs Diamond PenTile) 与 ClearType 显微镜</span>
+              <span class="en-only">40× Subpixel Layout (RGB Stripe vs. Diamond PenTile) &amp; ClearType Microscope</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="zh-only">切换面板物理子像素几何拓扑，并对比二值锯齿、整像素灰度抗锯齿与 3× ClearType 次像素超分辨</span>
+              <span class="en-only">Switch physical panel geometry and compare Bilevel, Grayscale AA, and 3× ClearType subpixel rendering</span>
+            </p>
+          </div>
+
+          <canvas id="subpixelCanvas" width="540" height="330" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <div class="space-y-1.5">
+              <div class="text-slate-400 font-semibold">
+                <span class="zh-only">物理面板子像素几何</span>
+                <span class="en-only">Panel Subpixel Layout</span>
+              </div>
+              <div class="flex gap-1.5">
+                <button onclick="setPanelLayout('stripe')" id="layBtnStripe" class="flex-1 py-1.5 rounded-lg font-bold border bg-indigo-600 text-white border-indigo-400">
+                  RGB Stripe
+                </button>
+                <button onclick="setPanelLayout('pentile')" id="layBtnPen" class="flex-1 py-1.5 rounded-lg font-bold border bg-slate-800 text-slate-300 border-slate-700">
+                  OLED PenTile
+                </button>
+              </div>
+            </div>
+
+            <div class="space-y-1.5">
+              <div class="text-slate-400 font-semibold">
+                <span class="zh-only">字体边缘光栅化模式</span>
+                <span class="en-only">Font Rasterization Mode</span>
+              </div>
+              <div class="flex gap-1.5">
+                <button onclick="setFontMode('bilevel')" id="fntBtnBi" class="flex-1 py-1.5 rounded-lg font-bold border bg-slate-800 text-slate-300 border-slate-700">
+                  1-bit
+                </button>
+                <button onclick="setFontMode('gray')" id="fntBtnGray" class="flex-1 py-1.5 rounded-lg font-bold border bg-slate-800 text-slate-300 border-slate-700">
+                  Gray AA
+                </button>
+                <button onclick="setFontMode('cleartype')" id="fntBtnCt" class="flex-1 py-1.5 rounded-lg font-bold border bg-emerald-600 text-white border-emerald-400">
+                  ClearType 3×
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: UCD L21 & MIT L22 Companion ==================== -->
+    <section id="tab3" class="hidden space-y-6">
+      <div class="glass-panel rounded-2xl p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-mono text-indigo-400 font-bold">UC DAVIS ECS 175 L21 &amp; MIT 6.837 L22</span>
+            <h2 class="text-xl font-extrabold text-white mt-1">
+              <span class="zh-only">图形学五大分支全景图与现代显示输出设备精要</span>
+              <span class="en-only">Panorama of Branches in Computer Graphics &amp; Output Devices</span>
+            </h2>
+          </div>
+          <div class="flex gap-2">
+            <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+21" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-xs font-bold text-indigo-200 transition">
+              ▶ UCD Lecture 21 (Prof. Kenneth Joy)
+            </a>
+            <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-xs font-bold text-red-200 transition">
+              ▶ MIT Lecture 22 (Prof. Justin Solomon)
+            </a>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs text-slate-300 leading-relaxed">
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-1.5">
+            <div class="text-sky-400 font-bold">1. Geometric Modeling &amp; DGP</div>
+            <p class="zh-only">从本课程 Stage 2 的 Bézier/B-Spline 样条、Catmull-Clark 细分曲面与 CSG，延伸到现代数字几何处理（拉普拉斯网格平滑、测地距离、隐式神经 SDF）。</p>
+            <p class="en-only">From Stage 2 splines, subdivision surfaces, and CSG to Digital Geometry Processing (Laplacian smoothing, geodesic distances, neural SDFs).</p>
+          </div>
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-1.5">
+            <div class="text-emerald-400 font-bold">2. Photorealistic &amp; Real-Time Rendering</div>
+            <p class="zh-only">从 Stage 3 &amp; 4 的 BVH 加速蒙特卡洛路径追踪、微表面 PBR、阴影映射到实时可微分渲染与 3D Gaussian Splatting。</p>
+            <p class="en-only">From Stage 3 &amp; 4 BVH path tracing, microfacet PBR, and shadow mapping to differentiable rendering and 3D Gaussian Splatting.</p>
+          </div>
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-1.5">
+            <div class="text-amber-400 font-bold">3. Animation &amp; Physical Simulation</div>
+            <p class="zh-only">从 Stage 5 的弧长运镜、双四元数骨骼蒙皮、辛欧拉与质点弹簧布料，延伸到流体力学（Navier-Stokes）、物质点法（MPM 冰雪沙土）与软体有限元。</p>
+            <p class="en-only">From Stage 5 skeletal skinning, symplectic ODEs, and cloth simulation to Navier–Stokes fluids, MPM snow/sand, and FEM soft bodies.</p>
+          </div>
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-1.5">
+            <div class="text-purple-400 font-bold">4. SciVis, Imaging &amp; XR Displays</div>
+            <p class="zh-only">从体渲染（CT/MRI 医疗光线投射）、流场拓扑可视化，到高刷新率 Micro-OLED、变焦光场显示（Light-Field Displays）与空间计算头显。</p>
+            <p class="en-only">From volume rendering (CT/MRI ray marching) and scientific visualization to Micro-OLEDs, varifocal light-field displays, and spatial computing.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-Mission Game ==================== -->
+    <section id="tab4" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-5 glass-panel rounded-2xl p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs font-mono text-amber-400 font-bold">3-MISSION CHALLENGE</span>
+              <h3 class="text-lg font-extrabold text-white">
+                <span class="zh-only">🎮 首席 XR 光学与显示系统总架构师</span>
+                <span class="en-only">🎮 Chief XR Optics &amp; Display Architect</span>
+              </h3>
+            </div>
+            <span id="gameProgressBadge" class="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-bold">
+              0 / 3 Passed
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="selectMission(1)" id="missionBtn1" class="py-2 rounded-xl text-xs font-bold border bg-indigo-600 text-white border-indigo-400">
+              <span class="zh-only">关卡 1 · 枕形预畸变</span>
+              <span class="en-only">Mission 1 · Pre-Warp</span>
+            </button>
+            <button onclick="selectMission(2)" id="missionBtn2" class="py-2 rounded-xl text-xs font-bold border bg-slate-800 text-slate-400 border-slate-700">
+              <span class="zh-only">关卡 2 · 消色差对齐</span>
+              <span class="en-only">Mission 2 · Chroma</span>
+            </button>
+            <button onclick="selectMission(3)" id="missionBtn3" class="py-2 rounded-xl text-xs font-bold border bg-slate-800 text-slate-400 border-slate-700">
+              <span class="zh-only">关卡 3 · 次像素超分</span>
+              <span class="en-only">Mission 3 · ClearType</span>
+            </button>
+          </div>
+
+          <!-- Mission 1 Panel -->
+          <div id="missionPanel1" class="space-y-3 text-xs text-slate-300">
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+              <div class="font-bold text-indigo-300">
+                <span class="zh-only">任务 1：校准 VR 菲涅尔透镜的枕形预畸变系数 $k_1$</span>
+                <span class="en-only">Mission 1: Calibrate VR Fresnel Pincushion Pre-Warp $k_1$</span>
+              </div>
+              <p class="zh-only">
+                头显光学透镜具有强烈的桶形畸变 $k_{\text{lens}} = -0.36$。请调节 GPU 后处理枕形预畸变系数 $k_1$，使透镜折射后的视网膜残余畸变 $|k_1 + k_{\text{lens}}| \le 0.03$！
+              </p>
+              <p class="en-only">
+                The VR lens has optical barrel distortion $k_{\text{lens}} = -0.36$. Tune GPU pincushion pre-warp $k_1$ so net retinal distortion $|k_1 + k_{\text{lens}}| \le 0.03$!
+              </p>
+            </div>
+            <div>
+              <div class="flex justify-between mb-1"><span>Shader Pre-Warp k₁</span><span id="m1KVal" class="font-mono text-indigo-300 font-bold">+0.04</span></div>
+              <input id="m1KSlider" type="range" min="0.00" max="0.50" step="0.02" value="0.04" oninput="drawGameCanvas()" class="w-full" />
+            </div>
+          </div>
+
+          <!-- Mission 2 Panel -->
+          <div id="missionPanel2" class="hidden space-y-3 text-xs text-slate-300">
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+              <div class="font-bold text-emerald-300">
+                <span class="zh-only">任务 2：消除 VR 边缘的紫边横向色差 (Chromatic Aberration)</span>
+                <span class="en-only">Mission 2: Eliminate Lateral Chromatic Aberration Fringing</span>
+              </div>
+              <p class="zh-only">
+                由于蓝光折射率高于红光 ($n_B > n_G > n_R$)，视野边缘出现了严重的红蓝分离彩虹边！请调节蓝通道径向补偿增益 $\Delta k_B$（目标值 $0.08$），使 R/G/B 三色光在视网膜边缘精确重合！
+              </p>
+              <p class="en-only">
+                Because $n_B > n_G > n_R$, peripheral vision shows severe red-blue fringing! Tune Blue-channel radial compensation $\Delta k_B$ (target $0.08$) so R/G/B rays converge!
+              </p>
+            </div>
+            <div>
+              <div class="flex justify-between mb-1"><span>Blue Channel Radial Compensation Δk_B</span><span id="m2CaVal" class="font-mono text-sky-300 font-bold">0.00</span></div>
+              <input id="m2CaSlider" type="range" min="0.00" max="0.14" step="0.01" value="0.00" oninput="drawGameCanvas()" class="w-full" />
+            </div>
+          </div>
+
+          <!-- Mission 3 Panel -->
+          <div id="missionPanel3" class="hidden space-y-3 text-xs text-slate-300">
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+              <div class="font-bold text-amber-300">
+                <span class="zh-only">任务 3：解锁桌面显示器 $3\times$ 水平字体锐度</span>
+                <span class="en-only">Mission 3: Unlock 3× Horizontal Subpixel Font Clarity</span>
+              </div>
+              <p class="zh-only">
+                在标准 RGB Stripe 显示器上，小字号文本边缘糊成一团。请将光栅化管线切换为 <strong>ClearType $3\times$ 次像素相移采样 + 三抽头色边滤波</strong>！
+              </p>
+              <p class="en-only">
+                Small text looks blurry on an RGB Stripe monitor. Switch the font pipeline to <strong>ClearType 3× Subpixel Phase-Shifted Sampling + 3-Tap Filter</strong>!
+              </p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="setGameM3('whole_px')" id="m3BtnWhole" class="p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200">
+                1× Whole-Pixel Gray<br/><span class="text-[10px] opacity-75">Coarse &amp; Blurry</span>
+              </button>
+              <button onclick="setGameM3('cleartype_3x')" id="m3BtnCt" class="p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400">
+                3× Subpixel ClearType<br/><span class="text-[10px] opacity-75">R/G/B 1/3-Pixel Offsets</span>
+              </button>
+            </div>
+          </div>
+
+          <button onclick="verifyGameMission()" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-emerald-600/25 transition">
+            <span class="zh-only">⚡ 运行光学与显示验收测试</span>
+            <span class="en-only">⚡ Run Optics &amp; Display Verification</span>
+          </button>
+
+          <div id="gameFeedbackBox" class="hidden p-3.5 rounded-xl border text-xs leading-relaxed"></div>
+        </div>
+
+        <div class="lg:col-span-7 glass-panel rounded-2xl p-6 flex flex-col justify-between">
+          <canvas id="gameCanvas" width="600" height="360" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentLang = 'zh';
+    let currentTab = 1;
+    let panelLayout = 'stripe';
+    let fontMode = 'cleartype';
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.body.classList.toggle('lang-zh', currentLang === 'zh');
+      document.body.classList.toggle('lang-en', currentLang === 'en');
+      drawMathCanvas();
+      drawVrCanvas();
+      drawSubpixelCanvas();
+      drawGameCanvas();
+    }
+
+    function switchTab(tabId) {
+      currentTab = tabId;
+      for (let i = 1; i <= 4; i++) {
+        const sec = document.getElementById('tab' + i);
+        const btn = document.getElementById('tabBtn' + i);
+        if (i === tabId) {
+          sec.classList.remove('hidden');
+          btn.className = 'tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition bg-indigo-600 text-white shadow-lg shadow-indigo-600/25';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = 'tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60';
+        }
+      }
+      if (tabId === 1) drawMathCanvas();
+      if (tabId === 2) { drawVrCanvas(); drawSubpixelCanvas(); }
+      if (tabId === 4) drawGameCanvas();
+    }
+
+    // ==================== TAB 1: Binocular Disparity & VAC ====================
+    function drawMathCanvas() {
+      const canvas = document.getElementById('mathCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const Z = parseFloat(document.getElementById('mathDepthSlider').value);
+      const ipdMm = parseFloat(document.getElementById('mathIpdSlider').value);
+      document.getElementById('mathDepthVal').textContent = Z.toFixed(2) + ' m';
+      document.getElementById('mathIpdVal').textContent = ipdMm + ' mm';
+
+      const cx = W * 0.5;
+      const eyeY = H - 48;
+      const halfB = (ipdMm / 64) * 72;
+      const leftEyeX = cx - halfB;
+      const rightEyeX = cx + halfB;
+
+      const mapZtoY = z => eyeY - (z / 2.8) * (H - 95);
+      const focalY = mapZtoY(1.8);
+      const objY = mapZtoY(Z);
+
+      // Fixed VR Optical Focal Plane (Z_focal = 1.8m)
+      ctx.setLineDash([6, 5]);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(60, focalY);
+      ctx.lineTo(W - 60, focalY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(currentLang === 'zh' ? '固定光学虚像调焦平面 Z_focal = 1.80 m (0.56 D)' : 'Fixed Optical Focal Plane Z_focal = 1.80 m (0.56 D)', 66, focalY - 8);
+
+      // Vergence rays from Left & Right Eyes to Virtual Object
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(leftEyeX, eyeY);
+      ctx.lineTo(cx, objY);
+      ctx.moveTo(rightEyeX, eyeY);
+      ctx.lineTo(cx, objY);
+      ctx.stroke();
+
+      // VAC Mismatch bracket
+      const vacDiopters = Math.abs(1 / Z - 1 / 1.8);
+      ctx.strokeStyle = vacDiopters > 0.6 ? '#f43f5e' : '#10b981';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(W - 88, focalY);
+      ctx.lineTo(W - 88, objY);
+      ctx.stroke();
+      ctx.fillStyle = vacDiopters > 0.6 ? '#fb7185' : '#34d399';
+      ctx.fillText(`VAC ΔD = ${vacDiopters.toFixed(2)} D`, W - 185, (focalY + objY) * 0.5 + 4);
+
+      // Eyes & Target
+      [leftEyeX, rightEyeX].forEach((ex, idx) => {
+        ctx.fillStyle = '#1e293b';
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(ex, eyeY, 16, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = 'bold 10px monospace';
+        ctx.fillText(idx === 0 ? 'L Eye' : 'R Eye', ex - 15, eyeY + 30);
+      });
+
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(cx, objY, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillText(`Z_verg = ${Z.toFixed(2)} m`, cx + 14, objY + 4);
+
+      // Readouts
+      const fMm = 20;
+      const dispMm = (ipdMm * fMm) / (Z * 1000);
+      const vergDeg = (2 * Math.atan((ipdMm * 0.001) / (2 * Z)) * 180) / Math.PI;
+      document.getElementById('readDisparity').textContent = dispMm.toFixed(2) + ' mm';
+      document.getElementById('readVergence').textContent = vergDeg.toFixed(2) + '°';
+      document.getElementById('readVac').textContent = vacDiopters.toFixed(2) + ' D' + (vacDiopters > 0.7 ? ' (VAC!)' : '');
+    }
+
+    // ==================== TAB 2 LAB 1: VR Lens Pre-Warp & Chromatic Aberration ====================
+    function drawVrCanvas() {
+      const canvas = document.getElementById('vrCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const k1 = parseFloat(document.getElementById('vrK1Slider').value);
+      const k2 = parseFloat(document.getElementById('vrK2Slider').value);
+      const ca = parseFloat(document.getElementById('vrCaSlider').value);
+      document.getElementById('vrK1Val').textContent = (k1 >= 0 ? '+' : '') + k1.toFixed(2);
+      document.getElementById('vrK2Val').textContent = (k2 >= 0 ? '+' : '') + k2.toFixed(2);
+      document.getElementById('vrCaVal').textContent = ca.toFixed(2);
+
+      const drawGridEye = (cx, cy, rad, isRetinal, title) => {
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(title, cx - 108, 24);
+
+        const lensK1 = -0.34, lensK2 = -0.12, lensCa = 0.06;
+        const channels = [
+          { col: 'rgba(244, 63, 94, 0.85)', dk: isRetinal ? (k1 + lensK1) - (ca - lensCa) : k1 - ca },
+          { col: 'rgba(16, 185, 129, 0.85)', dk: isRetinal ? (k1 + lensK1) : k1 },
+          { col: 'rgba(56, 189, 248, 0.85)', dk: isRetinal ? (k1 + lensK1) + (ca - lensCa) : k1 + ca }
+        ];
+        const dk2 = isRetinal ? (k2 + lensK2) : k2;
+
+        channels.forEach(ch => {
+          ctx.strokeStyle = ch.col;
+          ctx.lineWidth = 1.6;
+          for (let g = -0.8; g <= 0.81; g += 0.2) {
+            // Horizontal grid line
+            ctx.beginPath();
+            for (let x = -0.8; x <= 0.81; x += 0.08) {
+              const r2 = x * x + g * g;
+              const scale = 1 + ch.dk * r2 + dk2 * r2 * r2;
+              const sx = cx + x * scale * rad;
+              const sy = cy + g * scale * rad;
+              if (x === -0.8) ctx.moveTo(sx, sy);
+              else ctx.lineTo(sx, sy);
+            }
+            ctx.stroke();
+
+            // Vertical grid line
+            ctx.beginPath();
+            for (let y = -0.8; y <= 0.81; y += 0.08) {
+              const r2 = g * g + y * y;
+              const scale = 1 + ch.dk * r2 + dk2 * r2 * r2;
+              const sx = cx + g * scale * rad;
+              const sy = cy + y * scale * rad;
+              if (y === -0.8) ctx.moveTo(sx, sy);
+              else ctx.lineTo(sx, sy);
+            }
+            ctx.stroke();
+          }
+        });
+      };
+
+      drawGridEye(W * 0.26, H * 0.54, 110, false, currentLang === 'zh' ? '1. GPU 枕形预畸变缓冲 (分通道 RGB)' : '1. GPU Pincushion Pre-Warp Buffer');
+      drawGridEye(W * 0.74, H * 0.54, 110, true, currentLang === 'zh' ? '2. 透过菲涅尔透镜后的视网膜成像' : '2. Retinal Image Through Barrel Lens');
+    }
+
+    // ==================== TAB 2 LAB 2: Subpixel Layout & ClearType ====================
+    function setPanelLayout(lay) {
+      panelLayout = lay;
+      document.getElementById('layBtnStripe').className = lay === 'stripe' ? 'flex-1 py-1.5 rounded-lg font-bold border bg-indigo-600 text-white border-indigo-400' : 'flex-1 py-1.5 rounded-lg font-bold border bg-slate-800 text-slate-300 border-slate-700';
+      document.getElementById('layBtnPen').className = lay === 'pentile' ? 'flex-1 py-1.5 rounded-lg font-bold border bg-indigo-600 text-white border-indigo-400' : 'flex-1 py-1.5 rounded-lg font-bold border bg-slate-800 text-slate-300 border-slate-700';
+      drawSubpixelCanvas();
+    }
+
+    function setFontMode(mode) {
+      fontMode = mode;
+      document.getElementById('fntBtnBi').className = mode === 'bilevel' ? 'flex-1 py-1.5 rounded-lg font-bold border bg-emerald-600 text-white border-emerald-400' : 'flex-1 py-1.5 rounded-lg font-bold border bg-slate-800 text-slate-300 border-slate-700';
+      document.getElementById('fntBtnGray').className = mode === 'gray' ? 'flex-1 py-1.5 rounded-lg font-bold border bg-emerald-600 text-white border-emerald-400' : 'flex-1 py-1.5 rounded-lg font-bold border bg-slate-800 text-slate-300 border-slate-700';
+      document.getElementById('fntBtnCt').className = mode === 'cleartype' ? 'flex-1 py-1.5 rounded-lg font-bold border bg-emerald-600 text-white border-emerald-400' : 'flex-1 py-1.5 rounded-lg font-bold border bg-slate-800 text-slate-300 border-slate-700';
+      drawSubpixelCanvas();
+    }
+
+    function drawSubpixelCanvas() {
+      const canvas = document.getElementById('subpixelCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const cols = 10, rows = 7, cell = 38;
+      const ox = (W - cols * cell) * 0.5, oy = 42;
+
+      // Diagonal glyph stroke center: x_stroke(r) = 2.8 + r * 0.65
+      const covAt = (xSub, r) => {
+        const center = 2.6 + r * 0.65;
+        const dist = Math.abs(xSub - center);
+        return Math.max(0, Math.min(1, 1.35 - dist));
+      };
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const px = ox + c * cell, py = oy + r * cell;
+          ctx.strokeStyle = 'rgba(148,163,184,0.18)';
+          ctx.strokeRect(px, py, cell, cell);
+
+          let iR = 0, iG = 0, iB = 0;
+          if (fontMode === 'bilevel') {
+            const on = covAt(c + 0.5, r) > 0.5 ? 1 : 0;
+            iR = iG = iB = on;
+          } else if (fontMode === 'gray') {
+            const g = covAt(c + 0.5, r);
+            iR = iG = iB = g;
+          } else {
+            iR = covAt(c + 0.16, r);
+            iG = covAt(c + 0.50, r);
+            iB = covAt(c + 0.84, r);
+          }
+
+          if (panelLayout === 'stripe') {
+            const sw = (cell - 8) / 3;
+            ctx.fillStyle = `rgba(244, 63, 94, ${0.12 + 0.88 * iR})`;
+            ctx.fillRect(px + 3, py + 4, sw - 1, cell - 8);
+            ctx.fillStyle = `rgba(16, 185, 129, ${0.12 + 0.88 * iG})`;
+            ctx.fillRect(px + 3 + sw, py + 4, sw - 1, cell - 8);
+            ctx.fillStyle = `rgba(56, 189, 248, ${0.12 + 0.88 * iB})`;
+            ctx.fillRect(px + 3 + 2 * sw, py + 4, sw - 1, cell - 8);
+          } else {
+            // Diamond PenTile RGBG: every pixel has a Green oval + alternating Red or Blue diamond
+            ctx.fillStyle = `rgba(16, 185, 129, ${0.15 + 0.85 * iG})`;
+            ctx.beginPath();
+            ctx.arc(px + cell * 0.32, py + cell * 0.5, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            const isRedSlot = (r + c) % 2 === 0;
+            ctx.fillStyle = isRedSlot
+              ? `rgba(244, 63, 94, ${0.15 + 0.85 * iR})`
+              : `rgba(56, 189, 248, ${0.15 + 0.85 * iB})`;
+            ctx.beginPath();
+            ctx.arc(px + cell * 0.72, py + cell * 0.5, isRedSlot ? 8.5 : 9.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(
+        panelLayout === 'stripe'
+          ? 'LCD RGB Vertical Stripe (3 subpixels/px) · 3× Horizontal Phase Shift'
+          : 'OLED Diamond PenTile RGBG (100% Green density, shared R/B diamonds)',
+        ox,
+        24
+      );
+    }
+
+    // ==================== TAB 4: 3-Mission Game ====================
+    let currentMission = 1;
+    let missionPassed = { 1: false, 2: false, 3: false };
+    let gameM3Mode = 'whole_px';
+
+    function selectMission(m) {
+      currentMission = m;
+      document.getElementById('gameFeedbackBox').classList.add('hidden');
+      for (let i = 1; i <= 3; i++) {
+        document.getElementById('missionPanel' + i).classList.toggle('hidden', i !== m);
+        const btn = document.getElementById('missionBtn' + i);
+        btn.className = i === m
+          ? 'py-2 rounded-xl text-xs font-bold border bg-indigo-600 text-white border-indigo-400'
+          : missionPassed[i]
+          ? 'py-2 rounded-xl text-xs font-bold border bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+          : 'py-2 rounded-xl text-xs font-bold border bg-slate-800 text-slate-400 border-slate-700';
+      }
+      drawGameCanvas();
+    }
+
+    function setGameM3(mode) {
+      gameM3Mode = mode;
+      document.getElementById('m3BtnWhole').className = mode === 'whole_px' ? 'p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200' : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      document.getElementById('m3BtnCt').className = mode === 'cleartype_3x' ? 'p-2.5 rounded-xl border text-left font-mono bg-emerald-500/20 border-emerald-500 text-emerald-200' : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      drawGameCanvas();
+    }
+
+    function verifyGameMission() {
+      const box = document.getElementById('gameFeedbackBox');
+      box.classList.remove('hidden');
+      let ok = false, msg = '';
+
+      if (currentMission === 1) {
+        const k1 = parseFloat(document.getElementById('m1KSlider').value);
+        const err = Math.abs(k1 - 0.36);
+        ok = err <= 0.03;
+        msg = ok
+          ? (currentLang === 'zh'
+            ? `✅ 关卡 1 通过！枕形预畸变 k₁ = +${k1.toFixed(2)} 完美抵消了菲涅尔透镜的桶形畸变 (-0.36)，视网膜网格恢复横平竖直！`
+            : `✅ Mission 1 Passed! Pincushion pre-warp k₁ = +${k1.toFixed(2)} cancels lens barrel distortion (-0.36)!`)
+          : (currentLang === 'zh'
+            ? `⚠️ 当前残余径向误差 |k₁ - 0.36| = ${err.toFixed(2)} > 0.03！请将 k₁ 调至 +0.36 左右。`
+            : `⚠️ Residual distortion |k₁ - 0.36| = ${err.toFixed(2)} > 0.03! Tune k₁ near +0.36.`);
+      } else if (currentMission === 2) {
+        const ca = parseFloat(document.getElementById('m2CaSlider').value);
+        const err = Math.abs(ca - 0.08);
+        ok = err <= 0.015;
+        msg = ok
+          ? (currentLang === 'zh'
+            ? '✅ 关卡 2 通过！分通道径向预缩放 Δk_B = 0.08 完美补偿了玻璃色散 n_B > n_G > n_R，视野边缘紫边彻底消失！'
+            : '✅ Mission 2 Passed! Per-channel radial warp Δk_B = 0.08 eliminates lateral chromatic aberration!')
+          : (currentLang === 'zh'
+            ? `⚠️ 当前色差偏置 Δk_B = ${ca.toFixed(2)} 尚未对齐蓝光焦距（目标 0.08）！`
+            : `⚠️ Current Δk_B = ${ca.toFixed(2)} does not match lens dispersion (target 0.08)!`);
+      } else {
+        ok = gameM3Mode === 'cleartype_3x';
+        msg = ok
+          ? (currentLang === 'zh'
+            ? '✅ 关卡 3 通过！利用 R(-1/3)、G(0)、B(+1/3) 空间相移独立采样，字体水平有效分辨率提升 3 倍！'
+            : '✅ Mission 3 Passed! Phase-shifted R/G/B subpixel sampling triples horizontal text resolution!')
+          : (currentLang === 'zh'
+            ? '⚠️ 整像素灰度采样将 R/G/B 绑死为同一数值，浪费了 3 倍空间子像素密度！请切换为 ClearType 3×。'
+            : '⚠️ Whole-pixel grayscale wastes 3× subpixel spatial density! Switch to ClearType 3×.');
+      }
+
+      if (ok) missionPassed[currentMission] = true;
+      const count = Object.values(missionPassed).filter(Boolean).length;
+      document.getElementById('gameProgressBadge').textContent = `${count} / 3 Passed`;
+      box.className = ok
+        ? 'p-3.5 rounded-xl border text-xs leading-relaxed bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
+        : 'p-3.5 rounded-xl border text-xs leading-relaxed bg-rose-500/15 border-rose-500/40 text-rose-200';
+      box.textContent = msg;
+      selectMission(currentMission);
+    }
+
+    function drawGameCanvas() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const cx = W * 0.5, cy = H * 0.55;
+      if (currentMission === 1) {
+        const k1 = parseFloat(document.getElementById('m1KSlider').value);
+        document.getElementById('m1KVal').textContent = '+' + k1.toFixed(2);
+        const netK = k1 - 0.36;
+        const ok = Math.abs(netK) <= 0.03;
+        ctx.strokeStyle = ok ? '#10b981' : '#f43f5e';
+        ctx.lineWidth = 2;
+        for (let g = -0.8; g <= 0.81; g += 0.2) {
+          ctx.beginPath();
+          for (let x = -0.8; x <= 0.81; x += 0.08) {
+            const r2 = x * x + g * g;
+            const s = 1 + netK * r2;
+            const sx = cx + x * s * 135, sy = cy + g * s * 135;
+            if (x === -0.8) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+          }
+          ctx.stroke();
+        }
+        ctx.fillStyle = ok ? '#34d399' : '#fb7185';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText(`Net Retinal Distortion |k₁ - 0.36| = ${Math.abs(netK).toFixed(2)} (${ok ? 'RECTILINEAR ✓' : 'WARPED ✗'})`, 24, 32);
+      } else if (currentMission === 2) {
+        const ca = parseFloat(document.getElementById('m2CaSlider').value);
+        document.getElementById('m2CaVal').textContent = ca.toFixed(2);
+        const rem = Math.abs(ca - 0.08);
+        const ok = rem <= 0.015;
+        [
+          { col: '#f43f5e', r: 105 },
+          { col: '#10b981', r: 105 },
+          { col: '#38bdf8', r: 105 + (0.08 - ca) * 320 }
+        ].forEach(ch => {
+          ctx.strokeStyle = ch.col;
+          ctx.lineWidth = 3;
+          ctx.strokeRect(cx - ch.r, cy - ch.r, ch.r * 2, ch.r * 2);
+        });
+        ctx.fillStyle = ok ? '#34d399' : '#fb7185';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText(`Chromatic Fringe Offset = ${(rem * 100).toFixed(1)} px (${ok ? 'CONVERGED ✓' : 'COLOR FRINGE ✗'})`, 24, 32);
+      } else {
+        const ok = gameM3Mode === 'cleartype_3x';
+        ctx.fillStyle = ok ? '#34d399' : '#fb7185';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText(ok ? 'ClearType 3× Subpixel Phase Shift: Effective 300+ PPI Clarity ✓' : 'Whole-Pixel Grayscale: 1× Effective Horizontal Resolution ✗', 24, 32);
+        for (let i = 0; i < 8; i++) {
+          const x = 140 + i * 42, y = 75 + i * 26;
+          ctx.fillStyle = '#f43f5e';
+          ctx.fillRect(x, y, 12, 24);
+          ctx.fillStyle = '#10b981';
+          ctx.fillRect(x + (ok ? 13 : 0), y, 12, 24);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillRect(x + (ok ? 26 : 0), y, 12, 24);
+        }
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      drawMathCanvas();
+      drawVrCanvas();
+      drawSubpixelCanvas();
+      drawGameCanvas();
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+    });
+  </script>
+</body>
+</html>
