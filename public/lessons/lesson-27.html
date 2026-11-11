@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 27: 粒子系统与常微分方程数值积分 (ODEs, Phase Space &amp; RK4) | Learning 3D</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
+  <style>
+    body { background: #020617; color: #f8fafc; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .glass { background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.7); }
+    .tab-active { background: linear-gradient(135deg, #4f46e5, #0891b2); color: white; box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35); }
+    input[type="range"] { accent-color: #6366f1; }
+    .katex { font-size: 1.04em; }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+  <!-- Sticky Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center font-black text-white shadow hover:scale-105 transition" title="Back to Portal">3D</a>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Stage 5 • Lesson 27</span>
+            <span class="text-xs text-slate-400">MIT 6.837 L07 • 3Blue1Brown Differential Equations</span>
+          </div>
+          <h1 class="font-bold text-base sm:text-lg text-white tracking-tight">
+            <span class="lang-zh">粒子系统与常微分方程数值积分：相空间、显式/隐式/辛欧拉、中点法与 RK4</span>
+            <span class="lang-en hidden">Particle Systems &amp; ODE Integrators: Phase Space, Explicit/Implicit/Symplectic Euler, Midpoint &amp; RK4</span>
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button id="langToggleBtn" onclick="toggleLang()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition shadow-sm">
+          <span>🌐</span>
+          <span id="langBtnText">EN / 中文</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-3 flex flex-wrap gap-2">
+      <button onclick="switchTab('math')" id="tab-btn-math" class="tab-btn tab-active px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2">
+        <span>📐</span>
+        <span class="lang-zh">1. 核心数学与 3Blue1Brown 直觉</span>
+        <span class="lang-en hidden">1. Core Math &amp; 3B1B Intuition</span>
+      </button>
+      <button onclick="switchTab('lab')" id="tab-btn-lab" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🔬</span>
+        <span class="lang-zh">2. 相空间稳定性竞技场与粒子力场沙盒</span>
+        <span class="lang-en hidden">2. Stability Arena &amp; Particle Sandbox</span>
+      </button>
+      <button onclick="switchTab('videos')" id="tab-btn-videos" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🎬</span>
+        <span class="lang-zh">3. 名校课程视频与笔记</span>
+        <span class="lang-en hidden">3. Course Videos &amp; Notes</span>
+      </button>
+      <button onclick="switchTab('game')" id="tab-btn-game" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🎮</span>
+        <span class="lang-zh">4. 闯关游戏：物理引擎首席数值架构师</span>
+        <span class="lang-en hidden">4. Game: Chief Physics Integrator Architect</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-8">
+    <!-- ==================== TAB 1: MATH & 3B1B INTUITION ==================== -->
+    <section id="tab-math" class="tab-panel space-y-8">
+      <!-- Hero Banner -->
+      <div class="glass rounded-2xl p-6 sm:p-8 border-l-4 border-l-indigo-500">
+        <div class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">
+          <span class="lang-zh">3Blue1Brown 相空间与向量场直觉 • 为什么沿着圆的切线走一步，能量就必然按勾股定理爆炸？</span>
+          <span class="lang-en hidden">3Blue1Brown Phase-Space Intuition • Why Stepping Along a Circle's Tangent Explodes Energy by Pythagoras</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4">
+          <span class="lang-zh">从相空间状态向量 $\mathbf{Y} = [\mathbf{x}, \mathbf{v}]^T$ 到显式欧拉斜边爆炸、辛欧拉保面积 ($\det=1$) 与 RK4</span>
+          <span class="lang-en hidden">From Phase-Space State $\mathbf{Y} = [\mathbf{x}, \mathbf{v}]^T$ to Explicit Euler Explosion, Symplectic Area Preservation ($\det=1$) &amp; RK4</span>
+        </h2>
+        <p class="text-slate-300 leading-relaxed text-sm sm:text-base">
+          <span class="lang-zh">
+            无论是火花、流体、布料还是天体引力，世间万物的物理运动都由牛顿第二定律 $\mathbf{F} = m\ddot{\mathbf{x}}$ 支配。在计算机里，时间不是连续流淌的，而是以帧步长 $\Delta t = h$ 一格一格跳跃的。
+            这引发了物理仿真中最著名的三大灵魂追问：
+            <strong>第一</strong>，为什么最直观的<strong>前向显式欧拉法 (Forward Explicit Euler)</strong> 在模拟哪怕最简单的一根无阻尼弹簧时，每走一步能量就会乘以 $(1 + h^2)$，几秒钟内直接炸飞出屏幕？
+            <strong>第二</strong>，为什么仅仅把“先更新位置还是先更新速度”的两行代码顺序调换一下（变成<strong>半隐式/辛欧拉 Symplectic Euler</strong>），转移矩阵的行列式就奇迹般地恒等于 $\det(A) \equiv 1$，弹簧瞬间变得永久稳定？
+            <strong>第三</strong>，当面对极硬的弹簧（Stiff ODEs）时，为什么连四阶龙格-库塔（RK4）都会崩溃，唯独<strong>后向隐式欧拉 (Backward Implicit Euler)</strong> 能稳如泰山？
+          </span>
+          <span class="lang-en hidden">
+            Every physical simulation—sparks, cloth, fluids, orbital mechanics—is governed by Newton's Second Law $\mathbf{F} = m\ddot{\mathbf{x}}$ stepped across discrete time intervals $\Delta t = h$.
+            Three profound questions arise immediately:
+            <strong>First</strong>, why does the intuitive <strong>Forward Explicit Euler</strong> method multiply the energy of a simple undamped spring by $(1 + h^2)$ on every single step, exploding to infinity?
+            <strong>Second</strong>, why does swapping just two lines of code (updating velocity before position: <strong>Symplectic Euler</strong>) make the transition matrix determinant identically $\det(A) \equiv 1$, stabilizing the orbit forever?
+            <strong>Third</strong>, for ultra-stiff springs, why does even 4th-Order Runge–Kutta (RK4) blow up while <strong>Backward Implicit Euler</strong> survives unconditionally?
+          </span>
+        </p>
+      </div>
+
+      <!-- Part 1: Phase Space Reduction & Explicit vs Implicit Euler Pythagorean Proof -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <span class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-black flex items-center justify-center">1</span>
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              <span class="lang-zh">二阶 ODE 降阶为相空间一阶向量场 &amp; 显式/隐式欧拉的勾股定理证明</span>
+              <span class="lang-en hidden">Phase-Space Order Reduction &amp; Pythagorean Proof of Explicit Explosion vs. Implicit Damping</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">MIT 6.837 L07：为什么显式欧拉走的是直角三角形的斜边，而隐式欧拉走的是直角边？</span>
+              <span class="lang-en hidden">MIT 6.837 L07: Why Explicit Euler steps onto the hypotenuse while Implicit Euler steps onto the leg</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold uppercase text-rose-400">
+              <span class="lang-zh">显式欧拉 (Explicit Euler)：切线垂直于半径 $\implies$ 斜边必大于直角边！</span>
+              <span class="lang-en hidden">Explicit Euler: Tangent $\perp$ Radius $\implies$ Hypotenuse &gt; Radius!</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <span class="lang-zh">
+                将位置 $x$ 和速度 $v = \dot{x}$ 拼成相空间状态向量 $\mathbf{Y} = [x, v]^T$。对于单位角频率简谐弹簧 $\ddot{x} = -x$，一阶微分方程为 $\dot{\mathbf{Y}} = [v, -x]^T$。
+                注意 $\mathbf{Y}\cdot\dot{\mathbf{Y}} = xv - xv = 0$，即<strong>导数向量场处处与半径垂直</strong>！
+                <strong>前向显式欧拉</strong>沿起点 $\mathbf{Y}_n$ 的切线走一步 $h$：
+              </span>
+              <span class="lang-en hidden">
+                Combine position $x$ and velocity $v = \dot{x}$ into the phase-space state $\mathbf{Y} = [x, v]^T$. For a harmonic oscillator $\ddot{x} = -x$, $\dot{\mathbf{Y}} = [v, -x]^T$, which is <strong>strictly perpendicular to $\mathbf{Y}$</strong> ($\mathbf{Y}\cdot\dot{\mathbf{Y}} = 0$).
+                <strong>Explicit Euler</strong> steps along the tangent at $\mathbf{Y}_n$:
+              </span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto border border-rose-500/30">
+              $$\mathbf{Y}_{n+1} = \mathbf{Y}_n + h\dot{\mathbf{Y}}_n = \begin{bmatrix} 1 & h \\ -h & 1 \end{bmatrix}\mathbf{Y}_n \implies \|\mathbf{Y}_{n+1}\| = \sqrt{1 + h^2}\,\|\mathbf{Y}_n\|$$
+            </div>
+            <p class="text-xs text-rose-300 leading-relaxed">
+              <span class="lang-zh">
+                💥 <strong>几何判据</strong>：在直角三角形中，新状态 $\mathbf{Y}_{n+1}$ 是斜边！每走一步，系统总能量 $E \propto \|\mathbf{Y}\|^2$ 严格膨胀 $(1 + h^2)$ 倍，形成向外发散的死亡螺旋！
+              </span>
+              <span class="lang-en hidden">
+                💥 <strong>Geometric Verdict</strong>: $\mathbf{Y}_{n+1}$ is the hypotenuse of a right triangle! Every step multiplies total energy $E \propto \|\mathbf{Y}\|^2$ by $(1 + h^2) &gt; 1$, spiraling out to infinity!
+              </span>
+            </p>
+          </div>
+
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold uppercase text-purple-400">
+              <span class="lang-zh">后向隐式欧拉 (Implicit Euler)：用终点斜率倒推 $\implies$ 直角边必小于斜边！</span>
+              <span class="lang-en hidden">Backward Implicit Euler: Endpoint Tangent $\implies$ Leg &lt; Hypotenuse!</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <span class="lang-zh">
+                <strong>后向隐式欧拉</strong>改用<strong>下一步未知终点 $\mathbf{Y}_{n+1}$</strong> 处的切向量来更新：$\mathbf{Y}_{n+1} = \mathbf{Y}_n + h f(\mathbf{Y}_{n+1})$。移项求解线性方程组：
+              </span>
+              <span class="lang-en hidden">
+                <strong>Backward Implicit Euler</strong> evaluates the derivative at the <strong>unknown future state $\mathbf{Y}_{n+1}$</strong>: $\mathbf{Y}_{n+1} = \mathbf{Y}_n + h f(\mathbf{Y}_{n+1})$. Solving the linear system gives:
+              </span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto border border-purple-500/30">
+              $$\mathbf{Y}_{n+1} = \begin{bmatrix} 1 & -h \\ h & 1 \end{bmatrix}^{-1}\mathbf{Y}_n = \frac{1}{1+h^2}\begin{bmatrix} 1 & h \\ -h & 1 \end{bmatrix}\mathbf{Y}_n \implies \|\mathbf{Y}_{n+1}\| = \frac{\|\mathbf{Y}_n\|}{\sqrt{1+h^2}}$$
+            </div>
+            <p class="text-xs text-purple-300 leading-relaxed">
+              <span class="lang-zh">
+                🛡️ <strong>几何判据</strong>：由于 $\mathbf{Y}_{n+1} \perp h f(\mathbf{Y}_{n+1})$ 且二者之和等于 $\mathbf{Y}_n$，现在<strong>旧状态 $\mathbf{Y}_n$ 成了斜边，新状态 $\mathbf{Y}_{n+1}$ 成了直角边</strong>！因此不论 $h$ 多大，模长永远收缩 $\frac{1}{\sqrt{1+h^2}} &lt; 1$（无条件稳定，但带数值阻尼）。
+              </span>
+              <span class="lang-en hidden">
+                🛡️ <strong>Geometric Verdict</strong>: Since $\mathbf{Y}_{n+1} \perp h f(\mathbf{Y}_{n+1})$ and they sum to $\mathbf{Y}_n$, the <strong>old state $\mathbf{Y}_n$ is the hypotenuse and $\mathbf{Y}_{n+1}$ is a leg</strong>! Energy shrinks by $\frac{1}{1+h^2} &lt; 1$ for any $h &gt; 0$!
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Symplectic Euler (det = 1), Midpoint & RK4 -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <span class="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-black flex items-center justify-center">2</span>
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              <span class="lang-zh">辛欧拉 (Symplectic Euler, $\det A \equiv 1$)、中点法 (RK2) 与四阶龙格-库塔 (RK4)</span>
+              <span class="lang-en hidden">Symplectic Euler ($\det A \equiv 1$), Midpoint (RK2) &amp; 4th-Order Runge–Kutta (RK4)</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">为什么只调换一行代码顺序，行列式就从 $1+h^2$ 变成了严格的 $1$？</span>
+              <span class="lang-en hidden">Why swapping two lines of code changes the determinant from $1+h^2$ to exactly $1$</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <!-- Card 1: Symplectic Euler -->
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-cyan-500/40 space-y-3">
+            <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Symplectic Euler • $\det A = 1$</span>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">半隐式/辛欧拉：先算新速度，立刻更新位置</span>
+              <span class="lang-en hidden">Symplectic Euler: Velocity First, Then Position</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">先用旧位置算 $v_{n+1} = v_n - h x_n$，再用<strong>新速度</strong>算 $x_{n+1} = x_n + h v_{n+1} = (1-h^2)x_n + h v_n$。这是两个行列式为 $1$ 的水平/垂直剪切矩阵（Shear Matrices）的乘积：</span>
+              <span class="lang-en hidden">Update $v_{n+1} = v_n - h x_n$ first, then use $v_{n+1}$ immediately for $x_{n+1} = x_n + h v_{n+1}$. This factors into two unit-determinant shear matrices:</span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-2.5 text-xs overflow-x-auto">
+              $$A_{\text{symp}} = \begin{bmatrix} 1 & h \\ 0 & 1 \end{bmatrix}\begin{bmatrix} 1 & 0 \\ -h & 1 \end{bmatrix} = \begin{bmatrix} 1-h^2 & h \\ -h & 1 \end{bmatrix}$$
+              $$\det(A_{\text{symp}}) = (1-h^2) + h^2 \equiv \mathbf{1}!$$
+            </div>
+          </div>
+
+          <!-- Card 2: Midpoint RK2 -->
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-amber-500/40 space-y-3">
+            <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">2nd-Order • Midpoint Method</span>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">二阶中点法 (Midpoint / RK2)</span>
+              <span class="lang-en hidden">Midpoint Method (RK2, $O(h^2)$)</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">既然起点斜率偏外、终点斜率偏内，那我们就先试探性走<strong>半步 $h/2$</strong> 到时间中点，采样中点处的切向量来走完整一步，消去一阶泰勒误差项：</span>
+              <span class="lang-en hidden">Since the start tangent overshoots and the end tangent undershoots, probe halfway to $t + h/2$ first, then use the midpoint slope for the full step:</span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-2.5 text-xs overflow-x-auto">
+              $$\mathbf{Y}_{\text{mid}} = \mathbf{Y}_n + \frac{h}{2}f(\mathbf{Y}_n)$$
+              $$\mathbf{Y}_{n+1} = \mathbf{Y}_n + h\, f(\mathbf{Y}_{\text{mid}})$$
+            </div>
+          </div>
+
+          <!-- Card 3: RK4 -->
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-emerald-500/40 space-y-3">
+            <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Gold Standard • 4th-Order RK4</span>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">四阶龙格-库塔 (Runge–Kutta RK4)</span>
+              <span class="lang-en hidden">4th-Order Runge–Kutta (RK4, $O(h^4)$)</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">在一步之内巧妙探测 4 个斜率（起点 $\mathbf{k}_1$、两次半步中点校正 $\mathbf{k}_2, \mathbf{k}_3$、终点 $\mathbf{k}_4$），按辛普森积分法则 $1:2:2:1$ 加权平均，泰勒展开一直精确匹配到 $h^4$ 项：</span>
+              <span class="lang-en hidden">Evaluates 4 slopes per step ($\mathbf{k}_1$ at start, $\mathbf{k}_2,\mathbf{k}_3$ at midpoints, $\mathbf{k}_4$ at end) weighted by Simpson's rule $1:2:2:1$, matching the Taylor series through $h^4$:</span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-2.5 text-xs overflow-x-auto">
+              $$\mathbf{k}_1 = f(\mathbf{Y}_n), \quad \mathbf{k}_2 = f(\mathbf{Y}_n + \tfrac{h}{2}\mathbf{k}_1)$$
+              $$\mathbf{k}_3 = f(\mathbf{Y}_n + \tfrac{h}{2}\mathbf{k}_2), \quad \mathbf{k}_4 = f(\mathbf{Y}_n + h\mathbf{k}_3)$$
+              $$\mathbf{Y}_{n+1} = \mathbf{Y}_n + \frac{h}{6}(\mathbf{k}_1 + 2\mathbf{k}_2 + 2\mathbf{k}_3 + \mathbf{k}_4)$$
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer in Tab 1: Single-Step Phase-Space Tangent Microscope -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3 text-xs">
+              <span class="font-bold text-indigo-300">
+                <span class="lang-zh">交互式单步相空间切线几何放大镜（对比 5 种积分器从 $(1,0)$ 迈出一步 $h$ 的落点）</span>
+                <span class="lang-en hidden">Interactive Single-Step Phase-Space Microscope (Compare 1 Step of Size $h$ from $(1,0)$)</span>
+              </span>
+              <span id="mathStepBadge" class="font-mono px-2.5 py-1 rounded bg-slate-900 text-cyan-300 border border-slate-800">h = 0.55 rad</span>
+            </div>
+            <canvas id="mathStepCanvas" width="680" height="350" class="w-full rounded-xl bg-slate-950 border border-slate-800/80"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🎛️ 调节单步步长 $h = \omega \Delta t$ 观察能量缩放率</span>
+              <span class="lang-en hidden">🎛️ Adjust Step Size $h = \omega \Delta t$ &amp; Inspect Energy Ratios</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">无量纲步长 $h = \omega \Delta t \in [0.1, 0.95]$</span><span class="lang-en hidden">Step Size $h = \omega \Delta t \in [0.1, 0.95]$</span></span>
+                <span id="valMathH" class="font-mono text-indigo-400 font-bold">0.55</span>
+              </div>
+              <input id="sliderMathH" type="range" min="0.10" max="0.95" step="0.05" value="0.55" oninput="drawMathStep()" class="w-full" />
+            </div>
+
+            <div class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 space-y-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-rose-400 font-bold">🔴 Explicit Euler $E_{n+1}/E_n = 1+h^2$:</span>
+                <span id="statExpE" class="font-mono font-bold text-rose-300">1.302x (Explodes)</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-purple-400 font-bold">🟣 Implicit Euler $E_{n+1}/E_n = \frac{1}{1+h^2}$:</span>
+                <span id="statImpE" class="font-mono font-bold text-purple-300">0.768x (Damps)</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-cyan-400 font-bold">🔵 Symplectic Euler $\det(A)$:</span>
+                <span class="font-mono font-bold text-cyan-300">1.000x (Area-Preserving)</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-amber-400 font-bold">🟡 Midpoint (RK2) $E_{n+1}/E_n$:</span>
+                <span id="statMidE" class="font-mono font-bold text-amber-300">1.023x</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-emerald-400 font-bold">🟢 4th-Order RK4 $E_{n+1}/E_n$:</span>
+                <span id="statRk4E" class="font-mono font-bold text-emerald-300">0.9997x (Exact Circle)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: DUAL INTERACTIVE LABS ==================== -->
+    <section id="tab-lab" class="tab-panel hidden space-y-8">
+      <!-- Lab 1: 5-Integrator Phase-Space Stability & Energy Drift Arena -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Laboratory 01 • 5-Integrator Phase-Space Trajectory &amp; Energy Conservation Arena</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">实验台 1：五大 ODE 数值积分器相空间轨迹与能量漂移同屏竞技场</span>
+              <span class="lang-en hidden">Lab 1: 5-Integrator Phase-Space Orbit &amp; Energy Drift Side-by-Side Arena</span>
+            </h3>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <canvas id="lab1Canvas" width="720" height="400" class="w-full rounded-xl bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🎛️ 调节积分步长 $\Delta t$ 与可视曲线开关</span>
+              <span class="lang-en hidden">🎛️ Adjust Time Step $\Delta t$ &amp; Toggle Integrators</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">时间步长 $\Delta t$ (调大观察发散与收敛!)</span><span class="lang-en hidden">Time Step $\Delta t$</span></span>
+                <span id="lab1ValDt" class="font-mono text-indigo-400 font-bold">0.18</span>
+              </div>
+              <input id="lab1SliderDt" type="range" min="0.04" max="0.42" step="0.02" value="0.18" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">推进步数 $N_{\text{steps}}$</span><span class="lang-en hidden">Simulation Steps $N_{\text{steps}}$</span></span>
+                <span id="lab1ValSteps" class="font-mono text-cyan-400 font-bold">65</span>
+              </div>
+              <input id="lab1SliderSteps" type="range" min="15" max="140" step="5" value="65" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <div class="space-y-1.5 text-xs pt-1">
+              <label class="flex items-center gap-2 text-rose-300 cursor-pointer">
+                <input id="chkExp" type="checkbox" checked onchange="renderLab1()" />
+                <span>🔴 Explicit Euler (Spirals Outward)</span>
+              </label>
+              <label class="flex items-center gap-2 text-purple-300 cursor-pointer">
+                <input id="chkImp" type="checkbox" checked onchange="renderLab1()" />
+                <span>🟣 Implicit Euler (Spirals Inward)</span>
+              </label>
+              <label class="flex items-center gap-2 text-cyan-300 cursor-pointer">
+                <input id="chkSymp" type="checkbox" checked onchange="renderLab1()" />
+                <span>🔵 Symplectic Euler (Stable Ellipse)</span>
+              </label>
+              <label class="flex items-center gap-2 text-amber-300 cursor-pointer">
+                <input id="chkMid" type="checkbox" checked onchange="renderLab1()" />
+                <span>🟡 Midpoint RK2 ($O(\Delta t^2)$)</span>
+              </label>
+              <label class="flex items-center gap-2 text-emerald-300 cursor-pointer">
+                <input id="chkRk4" type="checkbox" checked onchange="renderLab1()" />
+                <span>🟢 4th-Order RK4 ($O(\Delta t^4)$)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lab 2: Live Particle System Force-Field & Integrator Sandbox -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Laboratory 02 • Interactive Particle System Force-Field &amp; Integrator Sandbox</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">实验台 2：实时粒子系统力场沙盒（中心弹簧引力阱 + 地面反弹 + 积分器切换）</span>
+              <span class="lang-en hidden">Lab 2: Live Particle Force-Field Sandbox (Harmonic Attractor Well + Bounce + Integrator Switch)</span>
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setLab2Integrator('explicit')" id="btnPExp" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              🔴 Explicit Euler (Explodes!)
+            </button>
+            <button onclick="setLab2Integrator('symplectic')" id="btnPSymp" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 text-white shadow transition">
+              🔵 Symplectic Euler ($\det=1$)
+            </button>
+            <button onclick="setLab2Integrator('rk4')" id="btnPRk4" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              🟢 Runge–Kutta RK4
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <canvas id="lab2Canvas" width="720" height="390" class="w-full rounded-xl bg-slate-950 cursor-crosshair"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">⚡ 粒子力场参数与重置发射</span>
+              <span class="lang-en hidden">⚡ Particle Force Parameters &amp; Respawn</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">中心弹簧引力刚度 $k_{\text{spring}}$</span><span class="lang-en hidden">Attractor Spring Stiffness $k$</span></span>
+                <span id="lab2ValK" class="font-mono text-indigo-400 font-bold">2.5</span>
+              </div>
+              <input id="lab2SliderK" type="range" min="0.5" max="6.0" step="0.5" value="2.5" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">积分步长 $\Delta t$</span><span class="lang-en hidden">Integrator Time Step $\Delta t$</span></span>
+                <span id="lab2ValPdt" class="font-mono text-cyan-400 font-bold">0.12</span>
+              </div>
+              <input id="lab2SliderPdt" type="range" min="0.04" max="0.28" step="0.02" value="0.12" class="w-full" />
+            </div>
+
+            <button onclick="resetParticles()" class="w-full py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow transition">
+              🔄 <span class="lang-zh">重新发射星环粒子群 (Respawn Particle Ring)</span><span class="lang-en hidden">Respawn Orbital Particle Ring</span>
+            </button>
+
+            <div class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 text-xs text-slate-300 space-y-1.5 leading-relaxed">
+              <div class="font-bold text-cyan-300">
+                <span class="lang-zh">💡 实验提示：点击画布移动引力中心！</span>
+                <span class="lang-en hidden">💡 Tip: Click Canvas to Move Attractor!</span>
+              </div>
+              <p>
+                <span class="lang-zh">
+                  在无阻尼中心弹簧引力场 $\mathbf{F} = -k(\mathbf{x} - \mathbf{c})$ 下，切换到 <strong>Explicit Euler</strong> 会看到所有星环粒子迅速加速飞出画布边界；而切换到 <strong>Symplectic Euler</strong> 或 <strong>RK4</strong>，粒子群将永远围绕引力中心稳定公转！
+                </span>
+                <span class="lang-en hidden">
+                  In an undamped harmonic attractor $\mathbf{F} = -k(\mathbf{x}-\mathbf{c})$, switching to <strong>Explicit Euler</strong> flings the entire particle ring off-screen, while <strong>Symplectic Euler</strong> and <strong>RK4</strong> maintain stable orbits indefinitely!
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: COURSE VIDEOS & NOTES ==================== -->
+    <section id="tab-videos" class="tab-panel hidden space-y-8">
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Course References • MIT 6.837 &amp; 3Blue1Brown</span>
+          <h3 class="text-2xl font-extrabold text-white mt-1">
+            <span class="lang-zh">名校公开课视频索引与同步精读笔记</span>
+            <span class="lang-en hidden">University Lecture Video Index &amp; Study Guide</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">MIT 6.837 • Lecture 07</span>
+              <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">MIT Playlist ↗</a>
+            </div>
+            <h4 class="text-lg font-bold text-white">Particle Systems &amp; ODEs (Prof. Justin Solomon)</h4>
+            <ul class="text-xs sm:text-sm text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+              <li>
+                <span class="lang-zh"><strong>相空间降阶法</strong>：将 $N$ 个三维粒子的二阶牛顿方程 $\mathbf{F}=m\ddot{\mathbf{x}}$ 转化为 $6N$ 维一阶 ODE $\dot{\mathbf{Y}} = f(\mathbf{Y}, t)$。</span>
+                <span class="lang-en hidden"><strong>Phase-Space Reduction</strong>: Converting $N$ 3D particles from 2nd-order $\mathbf{F}=m\ddot{\mathbf{x}}$ into a $6N$-dimensional 1st-order ODE $\dot{\mathbf{Y}}=f(\mathbf{Y},t)$.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>测试方程 $\dot{y} = \lambda y$ 与稳定域 (Region of Absolute Stability)</strong>：分析显式欧拉 $|1 + h\lambda| \le 1$ 在虚轴 $\lambda = \pm i\omega$ 上恒不成立的代数根源。</span>
+                <span class="lang-en hidden"><strong>Test Equation $\dot{y} = \lambda y$ &amp; Stability Regions</strong>: Why $|1 + h\lambda| \le 1$ fails everywhere along the imaginary axis $\lambda = \pm i\omega$.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>显式 vs. 隐式 vs. 辛积分器</strong>：精度阶数（$O(h), O(h^2), O(h^4)$）与刚性系统（Stiff ODE）的无条件 A-稳定性。</span>
+                <span class="lang-en hidden"><strong>Explicit vs. Implicit vs. Symplectic</strong>: Accuracy orders ($O(h), O(h^2), O(h^4)$) vs. unconditional A-stability on stiff equations.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">3Blue1Brown • Differential Equations</span>
+              <a href="https://www.youtube.com/playlist?list=PLZHQObOWTQDNPOjrT6KVlfJuKtYTftqH6" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">YouTube ↗</a>
+            </div>
+            <h4 class="text-lg font-bold text-white">Visualizing Phase Space &amp; Vector Fields (Grant Sanderson)</h4>
+            <ul class="text-xs sm:text-sm text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+              <li>
+                <span class="lang-zh"><strong>把二阶微分方程看作二维相平面上的流动</strong>：位置 $x$ 与速度 $v$ 构成的几何流线。</span>
+                <span class="lang-en hidden"><strong>2nd-Order ODEs as Flows in the Phase Plane</strong>: Visualizing $(x, v)$ streamlines geometrically.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>刘维尔定理与保面积辛几何</strong>：为什么哈密顿力学系统的相空间体积在真实演化与辛欧拉步进下严格守恒。</span>
+                <span class="lang-en hidden"><strong>Liouville's Theorem &amp; Symplectic Geometry</strong>: Why phase-space area is conserved by Hamiltonian flows and Symplectic Euler.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION PLAYABLE GAME ==================== -->
+    <section id="tab-game" class="tab-panel hidden space-y-8">
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Interactive 3-Mission Challenge • Chief Physics Integrator Architect</span>
+            <h3 class="text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">🎮 闯关游戏：物理引擎首席数值积分架构师 (3 大实战任务)</span>
+              <span class="lang-en hidden">🎮 Playable Game: Chief Physics Engine Integrator Architect (3 Missions)</span>
+            </h3>
+          </div>
+          <span id="gameScoreBadge" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            Completed: 0 / 3
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <button onclick="selectMission(1)" id="missionTab1" class="p-4 rounded-xl text-left border transition bg-indigo-600/20 border-indigo-500 text-white">
+            <div class="flex items-center justify-between text-xs font-bold text-indigo-300 mb-1">
+              <span>MISSION 01</span>
+              <span id="missionStatus1">⏳ In Progress</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">用辛欧拉 ($\det=1$) 终结显式欧拉能量爆炸</span>
+              <span class="lang-en hidden">Stop Explicit Euler Explosion with Symplectic Euler</span>
+            </div>
+          </button>
+
+          <button onclick="selectMission(2)" id="missionTab2" class="p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70">
+            <div class="flex items-center justify-between text-xs font-bold text-cyan-300 mb-1">
+              <span>MISSION 02</span>
+              <span id="missionStatus2">🔒 Pending</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">天体高精度轨道制导：启用四阶 RK4</span>
+              <span class="lang-en hidden">High-Precision Orbital Guidance with RK4</span>
+            </div>
+          </button>
+
+          <button onclick="selectMission(3)" id="missionTab3" class="p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70">
+            <div class="flex items-center justify-between text-xs font-bold text-purple-300 mb-1">
+              <span>MISSION 03</span>
+              <span id="missionStatus3">🔒 Pending</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">超刚性弹簧危机 ($\omega\Delta t &gt; 2.2$)：启用隐式欧拉</span>
+              <span class="lang-en hidden">Ultra-Stiff Spring Crisis ($\omega\Delta t &gt; 2.2$): Implicit Euler</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span id="gameMissionTitle" class="font-bold text-indigo-300">Mission 1</span>
+              <span id="gameLiveMetric" class="font-mono text-emerald-300">Metrics</span>
+            </div>
+            <canvas id="gameCanvas" width="660" height="340" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <div id="gameBriefBox" class="bg-slate-950/90 rounded-xl p-4 border border-indigo-500/30 text-xs text-slate-300 leading-relaxed"></div>
+
+            <div class="space-y-3 text-xs">
+              <div>
+                <label class="block font-bold text-slate-300 mb-1">
+                  <span class="lang-zh">1. 选择 ODE 数值积分器 (Numerical Integrator)</span>
+                  <span class="lang-en hidden">1. Select ODE Numerical Integrator</span>
+                </label>
+                <select id="gameSelectMethod" onchange="updateGame()" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white">
+                  <option value="explicit">Forward Explicit Euler (O(h) — Explodes on oscillations)</option>
+                  <option value="symplectic">Semi-Implicit Symplectic Euler (det A = 1, Stable for ωΔt &lt; 2)</option>
+                  <option value="midpoint">Midpoint Method RK2 (O(h²))</option>
+                  <option value="rk4">4th-Order Runge–Kutta RK4 (O(h⁴) High Precision)</option>
+                  <option value="implicit">Backward Implicit Euler (Unconditionally A-Stable for Stiff ODEs)</option>
+                </select>
+              </div>
+
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-slate-300"><span class="lang-zh">2. 系统无量纲刚度步长 $h = \omega \Delta t$</span><span class="lang-en hidden">2. Dimensionless Step $h = \omega \Delta t$</span></span>
+                  <span id="gameValH" class="font-mono text-cyan-400 font-bold">0.25</span>
+                </div>
+                <input id="gameSliderH" type="range" min="0.15" max="2.60" step="0.05" value="0.25" oninput="updateGame()" class="w-full" />
+              </div>
+            </div>
+
+            <button onclick="verifyMission()" class="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg transition">
+              🚀 <span class="lang-zh">验证物理积分器稳定性 (Verify Integrator)</span><span class="lang-en hidden">Verify Physics Integrator Stability</span>
+            </button>
+
+            <div id="gameFeedbackBox" class="hidden rounded-xl p-3.5 text-xs font-semibold"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentLang = 'zh';
+    let lab2Integrator = 'symplectic';
+    let particles = [];
+    let attractor = { x: 360, y: 195 };
+    let currentMission = 1;
+    const completedMissions = { 1: false, 2: false, 3: false };
+
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.querySelectorAll('.lang-zh').forEach(el => el.classList.toggle('hidden', currentLang !== 'zh'));
+      document.querySelectorAll('.lang-en').forEach(el => el.classList.toggle('hidden', currentLang !== 'en'));
+      drawMathStep();
+      renderLab1();
+      updateGameBrief();
+      updateGame();
+    }
+
+    function switchTab(tabId) {
+      ['math', 'lab', 'videos', 'game'].forEach(id => {
+        document.getElementById('tab-' + id).classList.toggle('hidden', id !== tabId);
+        const btn = document.getElementById('tab-btn-' + id);
+        if (id === tabId) {
+          btn.classList.add('tab-active');
+          btn.classList.remove('bg-slate-900', 'text-slate-300');
+        } else {
+          btn.classList.remove('tab-active');
+          btn.classList.add('bg-slate-900', 'text-slate-300');
+        }
+      });
+      if (tabId === 'math') drawMathStep();
+      if (tabId === 'lab') renderLab1();
+      if (tabId === 'game') { updateGameBrief(); updateGame(); }
+    }
+
+    // One step of harmonic oscillator dx/dt = v, dv/dt = -x
+    function stepHarmonic(x, v, h, method) {
+      if (method === 'explicit') {
+        return { x: x + h * v, v: v - h * x };
+      } else if (method === 'implicit') {
+        const denom = 1 + h * h;
+        return { x: (x + h * v) / denom, v: (v - h * x) / denom };
+      } else if (method === 'symplectic') {
+        const vNext = v - h * x;
+        const xNext = x + h * vNext;
+        return { x: xNext, v: vNext };
+      } else if (method === 'midpoint') {
+        const xMid = x + 0.5 * h * v;
+        const vMid = v - 0.5 * h * x;
+        return { x: x + h * vMid, v: v - h * xMid };
+      } else {
+        // RK4
+        const k1x = v, k1v = -x;
+        const k2x = v + 0.5 * h * k1v, k2v = -(x + 0.5 * h * k1x);
+        const k3x = v + 0.5 * h * k2v, k3v = -(x + 0.5 * h * k2x);
+        const k4x = v + h * k3v, k4v = -(x + h * k3x);
+        return {
+          x: x + (h / 6) * (k1x + 2 * k2x + 2 * k3x + k4x),
+          v: v + (h / 6) * (k1v + 2 * k2v + 2 * k3v + k4v)
+        };
+      }
+    }
+
+    // ==================== TAB 1 VISUALIZER ====================
+    function drawMathStep() {
+      const canvas = document.getElementById('mathStepCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const h = parseFloat(document.getElementById('sliderMathH').value);
+      document.getElementById('valMathH').textContent = h.toFixed(2);
+      document.getElementById('mathStepBadge').textContent = `h = ${h.toFixed(2)} rad`;
+
+      const pExp = stepHarmonic(1, 0, h, 'explicit');
+      const pImp = stepHarmonic(1, 0, h, 'implicit');
+      const pSymp = stepHarmonic(1, 0, h, 'symplectic');
+      const pMid = stepHarmonic(1, 0, h, 'midpoint');
+      const pRk4 = stepHarmonic(1, 0, h, 'rk4');
+
+      const eExp = pExp.x * pExp.x + pExp.v * pExp.v;
+      const eImp = pImp.x * pImp.x + pImp.v * pImp.v;
+      const eMid = pMid.x * pMid.x + pMid.v * pMid.v;
+      const eRk4 = pRk4.x * pRk4.x + pRk4.v * pRk4.v;
+
+      document.getElementById('statExpE').textContent = `${eExp.toFixed(3)}x (Explodes)`;
+      document.getElementById('statImpE').textContent = `${eImp.toFixed(3)}x (Damps)`;
+      document.getElementById('statMidE').textContent = `${eMid.toFixed(4)}x`;
+      document.getElementById('statRk4E').textContent = `${eRk4.toFixed(5)}x`;
+
+      const cx = W * 0.44, cy = H * 0.52, R = 135;
+      const toScreen = (x, v) => [cx + x * R, cy - v * R];
+
+      // Draw exact energy circle
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+
+      // Axes
+      ctx.strokeStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.moveTo(40, cy); ctx.lineTo(W - 40, cy);
+      ctx.moveTo(cx, 25); ctx.lineTo(cx, H - 25);
+      ctx.stroke();
+
+      // Draw right-triangle radius (0,0)->(1,0) and tangent step (1,0)->(1,-h) for Explicit Euler
+      const [s0x, s0y] = toScreen(1, 0);
+      const [sEx, sEy] = toScreen(pExp.x, pExp.v);
+
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(s0x, s0y); ctx.stroke();
+
+      // Hypotenuse (Explicit Euler radius)
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(sEx, sEy); ctx.stroke();
+      ctx.restore();
+
+      // Tangent arrow from (1,0) to (1,-h)
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(s0x, s0y); ctx.lineTo(sEx, sEy); ctx.stroke();
+
+      // Plot all 5 single-step landing points + Exact point (cos h, -sin h)
+      const [exX, exY] = toScreen(Math.cos(h), -Math.sin(h));
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(exX, exY, 8, 0, Math.PI * 2); ctx.stroke();
+
+      const pts = [
+        { p: pExp, col: '#f43f5e', label: 'Explicit' },
+        { p: pImp, col: '#a855f7', label: 'Implicit' },
+        { p: pSymp, col: '#06b6d4', label: 'Symplectic' },
+        { p: pMid, col: '#f59e0b', label: 'Midpoint' },
+        { p: pRk4, col: '#10b981', label: 'RK4' }
+      ];
+
+      pts.forEach(item => {
+        const [px, py] = toScreen(item.p.x, item.p.v);
+        ctx.fillStyle = item.col;
+        ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText(item.label, px + 10, py + 4);
+      });
+
+      // Start point (1,0)
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath(); ctx.arc(s0x, s0y, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillText('Y_n = (1, 0)', s0x + 10, s0y - 6);
+    }
+
+    // ==================== TAB 2 LAB 1: 5-INTEGRATOR ARENA ====================
+    function renderLab1() {
+      const canvas = document.getElementById('lab1Canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const dt = parseFloat(document.getElementById('lab1SliderDt').value);
+      const steps = parseInt(document.getElementById('lab1SliderSteps').value, 10);
+      document.getElementById('lab1ValDt').textContent = dt.toFixed(2);
+      document.getElementById('lab1ValSteps').textContent = String(steps);
+
+      const cx = 195, cy = 205, R = 95;
+      // Exact reference circle
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+
+      // Right Panel: Energy E(t)/E(0) graph
+      const gx = 395, gy = 45, gw = 295, gh = 310;
+      ctx.strokeStyle = '#1e293b';
+      ctx.strokeRect(gx, gy, gw, gh);
+
+      // Baseline E/E0 = 1.0 line
+      const baseEy = gy + gh * 0.55;
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#475569';
+      ctx.beginPath(); ctx.moveTo(gx, baseEy); ctx.lineTo(gx + gw, baseEy); ctx.stroke();
+      ctx.restore();
+
+      const configs = [
+        { id: 'chkExp', method: 'explicit', col: '#f43f5e' },
+        { id: 'chkImp', method: 'implicit', col: '#a855f7' },
+        { id: 'chkSymp', method: 'symplectic', col: '#06b6d4' },
+        { id: 'chkMid', method: 'midpoint', col: '#f59e0b' },
+        { id: 'chkRk4', method: 'rk4', col: '#10b981' }
+      ];
+
+      configs.forEach(cfg => {
+        const enabled = document.getElementById(cfg.id).checked;
+        if (!enabled) return;
+
+        let x = 1.0, v = 0.0;
+        const pts = [{ x, v }];
+        for (let i = 0; i < steps; i++) {
+          const next = stepHarmonic(x, v, dt, cfg.method);
+          x = Math.max(-2.2, Math.min(2.2, next.x));
+          v = Math.max(-2.2, Math.min(2.2, next.v));
+          pts.push({ x, v });
+        }
+
+        // Draw phase orbit on left
+        ctx.strokeStyle = cfg.col;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        pts.forEach((p, idx) => {
+          const px = cx + p.x * R;
+          const py = cy - p.v * R;
+          if (idx === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+
+        // Draw Energy ratio curve E(n)/E(0) on right
+        ctx.beginPath();
+        pts.forEach((p, idx) => {
+          const eRatio = p.x * p.x + p.v * p.v;
+          const px = gx + (idx / steps) * gw;
+          const py = Math.max(gy + 4, Math.min(gy + gh - 4, baseEy - (eRatio - 1.0) * 85));
+          if (idx === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+      });
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '左: 相空间轨迹 (x, v)' : 'Left: Phase-Space Trajectory (x, v)', 35, 28);
+      ctx.fillText(currentLang === 'zh' ? '右: 归一化总机械能 E(t)/E(0) (虚线 = 1.0 守恒)' : 'Right: Normalized Total Energy E(t)/E(0)', gx, 28);
+    }
+
+    // ==================== TAB 2 LAB 2: LIVE PARTICLE SANDBOX ====================
+    function setLab2Integrator(mode) {
+      lab2Integrator = mode;
+      const map = { explicit: 'btnPExp', symplectic: 'btnPSymp', rk4: 'btnPRk4' };
+      Object.keys(map).forEach(k => {
+        const btn = document.getElementById(map[k]);
+        btn.className = k === mode
+          ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 text-white shadow transition'
+          : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition';
+      });
+    }
+
+    function resetParticles() {
+      particles = [];
+      const count = 48;
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2;
+        const r = 95 + (i % 3) * 18;
+        const px = attractor.x + Math.cos(angle) * r;
+        const py = attractor.y + Math.sin(angle) * r;
+        // Tangential orbital velocity
+        const speed = r * 1.45;
+        const vx = -Math.sin(angle) * speed;
+        const vy = Math.cos(angle) * speed;
+        particles.push({ x: px, y: py, vx, vy, hue: Math.round((i / count) * 360) });
+      }
+    }
+
+    function tickParticleSandbox() {
+      const canvas = document.getElementById('lab2Canvas');
+      if (canvas && !document.getElementById('tab-lab').classList.contains('hidden')) {
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.26)';
+        ctx.fillRect(0, 0, W, H);
+
+        const k = parseFloat(document.getElementById('lab2SliderK').value);
+        const dt = parseFloat(document.getElementById('lab2SliderPdt').value);
+        document.getElementById('lab2ValK').textContent = k.toFixed(1);
+        document.getElementById('lab2ValPdt').textContent = dt.toFixed(2);
+
+        const h = Math.sqrt(k) * dt;
+
+        // Draw attractor center
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath(); ctx.arc(attractor.x, attractor.y, 7, 0, Math.PI * 2); ctx.fill();
+
+        particles.forEach(p => {
+          const rx = p.x - attractor.x;
+          const ry = p.y - attractor.y;
+          const sx = stepHarmonic(rx, p.vx / Math.sqrt(k), h, lab2Integrator);
+          const sy = stepHarmonic(ry, p.vy / Math.sqrt(k), h, lab2Integrator);
+          p.x = attractor.x + sx.x;
+          p.y = attractor.y + sy.x;
+          p.vx = sx.v * Math.sqrt(k);
+          p.vy = sy.v * Math.sqrt(k);
+
+          ctx.fillStyle = `hsl(${p.hue}, 85%, 65%)`;
+          ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2); ctx.fill();
+        });
+      }
+      requestAnimationFrame(tickParticleSandbox);
+    }
+
+    // ==================== TAB 4: 3-MISSION GAME ====================
+    function selectMission(m) {
+      currentMission = m;
+      [1, 2, 3].forEach(id => {
+        const btn = document.getElementById('missionTab' + id);
+        btn.className = id === m
+          ? 'p-4 rounded-xl text-left border transition bg-indigo-600/20 border-indigo-500 text-white'
+          : 'p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70';
+      });
+
+      if (m === 1) {
+        document.getElementById('gameSelectMethod').value = 'explicit';
+        document.getElementById('gameSliderH').value = '0.25';
+      } else if (m === 2) {
+        document.getElementById('gameSelectMethod').value = 'symplectic';
+        document.getElementById('gameSliderH').value = '0.45';
+      } else {
+        document.getElementById('gameSelectMethod').value = 'symplectic';
+        document.getElementById('gameSliderH').value = '2.35';
+      }
+
+      document.getElementById('gameFeedbackBox').classList.add('hidden');
+      updateGameBrief();
+      updateGame();
+    }
+
+    function updateGameBrief() {
+      const box = document.getElementById('gameBriefBox');
+      const title = document.getElementById('gameMissionTitle');
+      if (currentMission === 1) {
+        title.textContent = currentLang === 'zh' ? '关卡 1：用辛欧拉 (det A = 1) 终结显式欧拉爆炸' : 'Mission 1: Stop Explicit Euler Explosion with Symplectic Euler';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务简报：</strong>在步长 $h = 0.25$ 下，Explicit Euler 的能量在 60 步后暴涨了 $(1+0.25^2)^{60} \\approx 38$ 倍！请将积分器切换为保面积的 <strong>Semi-Implicit Symplectic Euler</strong>！'
+          : '<strong>Brief:</strong> At $h=0.25$, Explicit Euler energy explodes $38\\times$ in 60 steps! Switch to area-preserving <strong>Semi-Implicit Symplectic Euler</strong>!';
+      } else if (currentMission === 2) {
+        title.textContent = currentLang === 'zh' ? '关卡 2：高精度天体轨道制导 — 启用四阶龙格-库塔 RK4' : 'Mission 2: High-Precision Orbital Guidance with RK4';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务简报：</strong>在大步长 $h \\in [0.35, 0.65]$ 下，二阶方法的相位与椭圆畸变过大。请启用四阶精度的 <strong>4th-Order Runge–Kutta (RK4)</strong>！'
+          : '<strong>Brief:</strong> At larger steps $h \\in [0.35, 0.65]$, low-order methods suffer phase drift. Enable <strong>4th-Order Runge–Kutta (RK4)</strong>!';
+      } else {
+        title.textContent = currentLang === 'zh' ? '关卡 3：超刚性弹簧危机 (h > 2.2) — 启用无条件稳定隐式欧拉' : 'Mission 3: Ultra-Stiff Spring Crisis (h > 2.2) — Implicit Euler';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务简报：</strong>当面对刚度极高的弹簧（$h = \\omega\\Delta t \\ge 2.20$）时，连 Symplectic Euler（稳定极限 $h &lt; 2$）和 RK4（稳定极限 $h &lt; 2.83$）都会剧烈震荡或爆炸！请保持 $h \\ge 2.20$ 并切换为无条件稳定的 <strong>Backward Implicit Euler</strong>！'
+          : '<strong>Brief:</strong> For an ultra-stiff spring ($h = \\omega\\Delta t \\ge 2.20$), even Symplectic Euler ($h &lt; 2$ limit) blows up! Keep $h \\ge 2.20$ and switch to unconditionally A-stable <strong>Backward Implicit Euler</strong>!';
+      }
+    }
+
+    function updateGame() {
+      const method = document.getElementById('gameSelectMethod').value;
+      const h = parseFloat(document.getElementById('gameSliderH').value);
+      document.getElementById('gameValH').textContent = h.toFixed(2);
+
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.fillStyle = '#090d1f';
+      ctx.fillRect(0, 0, W, H);
+
+      const cx = W * 0.5, cy = H * 0.5, R = 105;
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+
+      let x = 1.0, v = 0.0;
+      let exploded = false;
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(cx + x * R, cy - v * R);
+
+      for (let i = 0; i < 60; i++) {
+        const next = stepHarmonic(x, v, h, method);
+        x = next.x; v = next.v;
+        if (Math.hypot(x, v) > 2.5) {
+          exploded = true;
+          break;
+        }
+        ctx.lineTo(cx + x * R, cy - v * R);
+      }
+      ctx.stroke();
+
+      document.getElementById('gameLiveMetric').textContent =
+        `Method: ${method.toUpperCase()} | h=${h.toFixed(2)} | Status: ${exploded ? '💥 EXPLODED!' : '✅ STABLE'}`;
+    }
+
+    function verifyMission() {
+      const method = document.getElementById('gameSelectMethod').value;
+      const h = parseFloat(document.getElementById('gameSliderH').value);
+      const fb = document.getElementById('gameFeedbackBox');
+      fb.classList.remove('hidden');
+
+      let ok = false;
+      if (currentMission === 1) ok = (method === 'symplectic' || method === 'rk4') && h <= 1.5;
+      else if (currentMission === 2) ok = method === 'rk4' && h >= 0.30 && h <= 0.85;
+      else ok = method === 'implicit' && h >= 2.20;
+
+      if (ok) {
+        completedMissions[currentMission] = true;
+        document.getElementById('missionStatus' + currentMission).textContent = '✅ Passed';
+        fb.className = 'rounded-xl p-3.5 text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+        fb.textContent = currentLang === 'zh'
+          ? `🎉 恭喜通过关卡 ${currentMission}！你的数值积分器在相空间与刚性条件下完全稳定！`
+          : `🎉 Mission ${currentMission} Complete! Your numerical integrator is verified stable!`;
+      } else {
+        fb.className = 'rounded-xl p-3.5 text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40';
+        fb.textContent = currentLang === 'zh'
+          ? '⚠️ 参数未达标：请根据当前关卡简报选择正确的积分器（Symplectic Euler / RK4 / Backward Implicit Euler）与对应的步长 h！'
+          : '⚠️ Check the mission brief and select the matching integrator (Symplectic Euler / RK4 / Backward Implicit Euler) and step size h!';
+      }
+
+      const doneCount = Object.values(completedMissions).filter(Boolean).length;
+      document.getElementById('gameScoreBadge').textContent = `Completed: ${doneCount} / 3`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      drawMathStep();
+      renderLab1();
+      resetParticles();
+      const c2 = document.getElementById('lab2Canvas');
+      if (c2) {
+        c2.addEventListener('click', e => {
+          const rect = c2.getBoundingClientRect();
+          attractor.x = ((e.clientX - rect.left) / rect.width) * c2.width;
+          attractor.y = ((e.clientY - rect.top) / rect.height) * c2.height;
+        });
+      }
+      requestAnimationFrame(tickParticleSandbox);
+      updateGameBrief();
+      updateGame();
+    });
+  </script>
+</body>
+</html>

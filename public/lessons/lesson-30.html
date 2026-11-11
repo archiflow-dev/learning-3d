@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 30: 图像处理、卷积核与实时后处理管线 (Post-Processing) | Learning 3D</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body {
+      background-color: #020617;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+    }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    input[type="range"] {
+      accent-color: #6366f1;
+    }
+    body.lang-zh .en-only { display: none !important; }
+    body.lang-en .zh-only { display: none !important; }
+  </style>
+</head>
+<body class="lang-zh min-h-screen pb-16">
+  <!-- Header -->
+  <header class="sticky top-0 z-50 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="px-3 py-1 rounded-full text-xs font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+          STAGE 6 · LESSON 30
+        </span>
+        <div>
+          <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-white">
+            <span class="zh-only">图像处理、卷积核与实时后处理管线 (Post-Processing)</span>
+            <span class="en-only">Image Processing, Convolution Kernels &amp; Real-Time Post-Processing</span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            <span class="zh-only">MIT 6.837 Lecture 21 · 秩-1 可分离高斯卷积、Sobel 梯度外积、HDR 泛光 (Bloom) 与 Reinhard / ACES 色调映射</span>
+            <span class="en-only">MIT 6.837 Lecture 21 · Rank-1 Separable Gaussian Blur, Sobel Gradients, HDR Bloom &amp; Reinhard / ACES Tone Mapping</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="langToggleBtn" onclick="toggleLanguage()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 text-xs font-bold text-slate-100 transition flex items-center gap-1.5 shadow">
+          <span>🌐</span>
+          <span id="langBtnText">EN / 中文</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+    <!-- Navigation Tabs -->
+    <nav class="grid grid-cols-2 lg:grid-cols-4 gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800">
+      <button onclick="switchTab(1)" id="tabBtn1" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition bg-indigo-600 text-white shadow-lg shadow-indigo-600/25">
+        <span class="zh-only">📐 1. 3Blue1Brown 秩-1 外积与色调映射直觉</span>
+        <span class="en-only">📐 1. 3Blue1Brown Rank-1 Outer Product &amp; ACES</span>
+      </button>
+      <button onclick="switchTab(2)" id="tabBtn2" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60">
+        <span class="zh-only">🔬 2. 双实验台：卷积核实验室 + HDR ACES 工作台</span>
+        <span class="en-only">🔬 2. Dual Labs: 3×3 Kernel Lab + HDR Bloom/ACES</span>
+      </button>
+      <button onclick="switchTab(3)" id="tabBtn3" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60">
+        <span class="zh-only">🎥 3. MIT 6.837 L21 课堂同步精要</span>
+        <span class="en-only">🎥 3. MIT 6.837 L21 Course Companion</span>
+      </button>
+      <button onclick="switchTab(4)" id="tabBtn4" class="tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60">
+        <span class="zh-only">🎮 4. 闯关：首席后处理管线架构师 (3关)</span>
+        <span class="en-only">🎮 4. Game: Chief Post-Processing Architect (3 Missions)</span>
+      </button>
+    </nav>
+
+    <!-- ==================== TAB 1: 3Blue1Brown Intuition ==================== -->
+    <section id="tab1" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left Column: Deep Derivations -->
+        <div class="lg:col-span-6 space-y-5">
+          <!-- Card 1 -->
+          <div class="glass-panel rounded-2xl p-6 space-y-3">
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-bold">
+              <span class="zh-only">第一部分 · 秩-1 矩阵外积与可分离高斯模糊</span>
+              <span class="en-only">Part 1 · Rank-1 Outer Product &amp; Separable Gaussian Blur</span>
+            </div>
+            <h2 class="text-lg font-extrabold text-white">
+              <span class="zh-only">1. 为什么 2D 高斯模糊能把 $O(N^2)$ 降维打击成 $O(2N)$？</span>
+              <span class="en-only">1. Why Does Separable Gaussian Blur Reduce $O(N^2)$ to $O(2N)$?</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              二维离散卷积 $(I * K)[x,y] = \sum_{u=-r}^r\sum_{v=-r}^r I[x-u,y-v]\,K[u,v]$ 对每个像素需要采样周围 $N\times N$（$N=2r+1$）个邻居，复杂度高达 $O(N^2)$。当模糊直径 $N=31$ 时，4K 画面每帧需要做惊人的 $3840\times 2160\times 961 \approx \mathbf{80\;\text{亿次}}$ 纹理采样！然而，二维各向同性高斯函数具有一个绝妙的指数加法性质：
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              Brute-force 2D convolution $(I * K)[x,y] = \sum_u\sum_v I[x-u,y-v]K[u,v]$ requires $N^2$ texture taps per pixel. For $N=31$ at 4K, that is $8\text{ billion}$ taps per frame! However, the 2D isotropic Gaussian possesses a remarkable exponential factorization:
+            </p>
+            <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 text-xs overflow-x-auto">
+              $$G_\sigma(u,v) = \frac{1}{2\pi\sigma^2}e^{-\frac{u^2+v^2}{2\sigma^2}} = \left(\frac{1}{\sqrt{2\pi}\sigma}e^{-\frac{u^2}{2\sigma^2}}\right)\!\cdot\!\left(\frac{1}{\sqrt{2\pi}\sigma}e^{-\frac{v^2}{2\sigma^2}}\right) = g_\sigma(u)\,g_\sigma(v)$$
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              <strong>3Blue1Brown 线性代数直觉</strong>：这意味着 $N\times N$ 的高斯核矩阵 $K$ 每一列都是同一个列向量 $\mathbf{g}$ 的倍数——它的<strong>矩阵秩 $\text{rank}(K) = 1$</strong>，恰好等于列向量 $\mathbf{g}$ 与行向量 $\mathbf{g}^T$ 的<strong>外积 (Outer Product)</strong>：$K = \mathbf{g}\mathbf{g}^T$！根据卷积结合律：
+              $$I * (\mathbf{g}\mathbf{g}^T) = (I * \mathbf{g}) * \mathbf{g}^T$$
+              我们只需先用 $1\times N$ 行向量对全图做一次<strong>水平一维模糊</strong>（每像素 $N$ 次采样），再对中间结果用 $N\times 1$ 列向量做一次<strong>垂直一维模糊</strong>（每像素 $N$ 次采样），数学结果与 $N\times N$ 二维卷积<strong>分毫不差</strong>，而采样次数从 $N^2$ 直接暴降为 $2N$！
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              <strong>3Blue1Brown Linear Algebra Intuition</strong>: The $N\times N$ Gaussian matrix $K$ has <strong>$\text{rank}(K) = 1$</strong>: it is the outer product $K = \mathbf{g}\mathbf{g}^T$ of a 1D column vector $\mathbf{g}$ and row vector $\mathbf{g}^T$! By convolution associativity, $I * (\mathbf{g}\mathbf{g}^T) = (I * \mathbf{g}) * \mathbf{g}^T$: a horizontal 1D pass followed by a vertical 1D pass gives the exact same result in $2N$ taps instead of $N^2$!
+            </p>
+          </div>
+
+          <!-- Card 2 -->
+          <div class="glass-panel rounded-2xl p-6 space-y-3">
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+              <span class="zh-only">第二部分 · Sobel 边缘算子与直流能量守恒</span>
+              <span class="en-only">Part 2 · Sobel Gradient Operator &amp; DC Energy Conservation</span>
+            </div>
+            <h2 class="text-lg font-extrabold text-white">
+              <span class="zh-only">2. Sobel 算子也是秩-1 外积！为什么不同卷积核元素和必为 1 或 0？</span>
+              <span class="en-only">2. Sobel Is Also a Rank-1 Outer Product! Why Must Kernel Weights Sum to 1 or 0?</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              为了求图像水平偏导数 $\frac{\partial I}{\partial x}$ 同时抑制高频噪点，<strong>Sobel 算子</strong>在垂直方向做 $[1,2,1]^T$ 二项式平滑，在水平方向做 $[-1,0,+1]$ 中心差分——它同样是一个<strong>秩-1 外积可分离核</strong>：
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              To estimate $\frac{\partial I}{\partial x}$ while suppressing noise, the <strong>Sobel Operator</strong> combines vertical $[1,2,1]^T$ smoothing with horizontal $[-1,0,+1]$ central differencing—another <strong>rank-1 separable outer product</strong>:
+            </p>
+            <div class="bg-slate-950/90 border border-emerald-500/30 rounded-xl p-3 text-xs overflow-x-auto">
+              $$S_x = \begin{bmatrix} 1 \\ 2 \\ 1 \end{bmatrix} \begin{bmatrix} -1 & 0 & +1 \end{bmatrix} = \begin{bmatrix} -1 & 0 & +1 \\ -2 & 0 & +2 \\ -1 & 0 & +1 \end{bmatrix}, \qquad \|\nabla I\| = \sqrt{(I*S_x)^2 + (I*S_y)^2}$$
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              <strong>权重和铁律 ($\sum_{u,v} K[u,v]$)</strong>：如果输入是一张纯白常值图像 $I[x,y] \equiv C$，卷积输出为 $C\cdot\sum K[u,v]$。因此：① <strong>模糊核与锐化核（反锐化掩模 $I_{\text{sharp}} = I + \alpha(I - I*G)$）的所有权重之和必须严格等于 $1$</strong>，否则整张画面的平均亮度会暴涨或变暗；② <strong>微分/边缘检测核（Sobel、Laplacian）的所有权重之和必须严格等于 $0$</strong>，这样平坦纯色区域的梯度响应才精确为零！
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              <strong>Kernel Sum Rule ($\sum K[u,v]$)</strong>: On a constant flat region $I \equiv C$, output is $C\sum K[u,v]$. Thus: ① <strong>Blur &amp; Sharpen kernels must sum to $1$</strong> to preserve overall brightness; ② <strong>Derivative/Edge kernels (Sobel, Laplacian) must sum to $0$</strong> so flat regions yield zero edge response!
+            </p>
+          </div>
+
+          <!-- Card 3 -->
+          <div class="glass-panel rounded-2xl p-6 space-y-3">
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold">
+              <span class="zh-only">第三部分 · HDR 泛光 (Bloom) 与 ACES 色调映射曲线</span>
+              <span class="en-only">Part 3 · HDR Bloom &amp; Reinhard vs. ACES Filmic Tone Mapping</span>
+            </div>
+            <h2 class="text-lg font-extrabold text-white">
+              <span class="zh-only">3. 如何把无穷大的太阳光强 $[0, \infty)$ 优雅地塞进显示器 $[0, 1]$？</span>
+              <span class="en-only">3. How Do We Compress $[0, \infty)$ HDR Radiance into $[0, 1]$ LDR Displays?</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              在 PBR 物理渲染管线中，太阳高光、爆炸火球与霓虹灯管的线性辐射亮度 $x \in [0, \infty)$ 远超 $1.0$。如果粗暴截断 $\min(x, 1.0)$（Hard Clip），所有大于 $1$ 的高光层次瞬间变成一片死白，且三个通道先后触顶会导致严重的<strong>色相漂移（如橙色火焰退化成刺眼柠檬黄）</strong>！
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              In PBR rendering, sun glints, explosions, and neon lights produce linear radiance $x \in [0, \infty)$ far exceeding $1.0$. Naive clamping $\min(x, 1.0)$ destroys highlight detail into flat white blobs and skews hues!
+            </p>
+            <div class="bg-slate-950/90 border border-amber-500/30 rounded-xl p-3 text-xs overflow-x-auto">
+              $$T_{\text{Reinhard}}(x) = \frac{x}{1 + x}, \qquad T_{\text{ACES}}(x) = \text{clamp}\!\left(\frac{x(2.51x + 0.03)}{x(2.43x + 0.59) + 0.14},\; 0,\; 1\right)$$
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed zh-only">
+              <strong>Reinhard vs. ACES Filmic 几何对比</strong>：Reinhard 算子 $\frac{x}{1+x}$ 在 $x\to 0$ 时斜率为 $1$、$x\to\infty$ 时水平渐近于 $1$，但暗部对比度偏灰平；<strong>ACES (Academy Color Encoding System) 电影级 S-Curve</strong> 在分子分母引入二次多项式，不仅在暗部构建了压黑增透的<strong>趾部 (Toe)</strong>，还在高光区构建了胶片感平滑滚降的<strong>肩部 (Shoulder)</strong>。而在色调映射之前，将亮度超过阈值 $L > T_{\text{th}}$ 的高光提取出来做多级可分离高斯模糊并叠加回原图（<strong>HDR Bloom</strong>），正好模拟了人眼晶状体与相机镜头的光学散射（Point Spread Function），让玩家在普通显示器上感受到“刺眼发光”的错觉！
+            </p>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed en-only">
+              <strong>Reinhard vs. ACES Filmic</strong>: While Reinhard $\frac{x}{1+x}$ asymptotically maps $[0,\infty)\to[0,1)$, it washes out dark contrast. <strong>ACES Filmic</strong> uses a rational quadratic S-curve with a crisp dark <strong>Toe</strong> and smooth highlight <strong>Shoulder</strong>. Extracting bright pixels ($L > T_{\text{th}}$) and blurring them via separable Gaussian pyramids before tone mapping creates <strong>HDR Bloom</strong>, mimicking human ocular scattering!
+            </p>
+          </div>
+        </div>
+
+        <!-- Right Column: Interactive 3Blue1Brown Visualizer -->
+        <div class="lg:col-span-6 space-y-5">
+          <div class="glass-panel rounded-2xl p-6 space-y-4 sticky top-24">
+            <div>
+              <h3 class="text-base font-extrabold text-white">
+                <span class="zh-only">🔬 可分离卷积复杂度 ($N^2$ vs $2N$) 与色调映射 S-Curve 显微镜</span>
+                <span class="en-only">🔬 Separable Blur ($N^2$ vs. $2N$) &amp; Tone-Mapping Curve Microscope</span>
+              </h3>
+              <p class="text-xs text-slate-400">
+                <span class="zh-only">左半屏：秩-1 外积 $\mathbf{g}\mathbf{g}^T$ 采样加速比 · 右半屏：Hard Clip vs Reinhard vs ACES Filmic 响应曲线</span>
+                <span class="en-only">Left: Rank-1 outer product $\mathbf{g}\mathbf{g}^T$ speedup · Right: Hard Clip vs. Reinhard vs. ACES Filmic curve</span>
+              </p>
+            </div>
+
+            <canvas id="mathCanvas" width="600" height="390" class="w-full rounded-xl bg-slate-950 border border-slate-800 shadow-inner"></canvas>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-300 font-semibold">
+                    <span class="zh-only">高斯卷积核直径 $N = 2r+1$</span>
+                    <span class="en-only">Gaussian Kernel Size $N$</span>
+                  </span>
+                  <span id="mathKernelNVal" class="font-mono text-indigo-300 font-bold">21 × 21</span>
+                </div>
+                <input id="mathKernelNSlider" type="range" min="3" max="35" step="2" value="21" oninput="drawMathCanvas()" class="w-full" />
+              </div>
+
+              <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-300 font-semibold">
+                    <span class="zh-only">输入 HDR 辐射亮度 $L_{\text{in}}$</span>
+                    <span class="en-only">Input HDR Radiance $L_{\text{in}}$</span>
+                  </span>
+                  <span id="mathHdrInVal" class="font-mono text-amber-300 font-bold">3.20 nits</span>
+                </div>
+                <input id="mathHdrInSlider" type="range" min="0.1" max="8.0" step="0.1" value="3.2" oninput="drawMathCanvas()" class="w-full" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+              <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+                <div class="text-slate-400">
+                  <span class="zh-only">2D 暴力 vs 1D×2 可分离</span>
+                  <span class="en-only">2D Brute vs. Separable</span>
+                </div>
+                <div id="readTaps" class="font-mono font-bold text-emerald-400 mt-0.5">441 vs 42 (10.5x)</div>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+                <div class="text-slate-400">Reinhard $x/(1+x)$</div>
+                <div id="readReinhard" class="font-mono font-bold text-sky-400 mt-0.5">0.762</div>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+                <div class="text-slate-400">ACES Filmic S-Curve</div>
+                <div id="readAces" class="font-mono font-bold text-amber-300 mt-0.5">0.893</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: Dual Interactive Labs ==================== -->
+    <section id="tab2" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Lab 1: 3x3 Convolution Kernel & Sobel Edge Inspector -->
+        <div class="lg:col-span-6 glass-panel rounded-2xl p-6 space-y-4">
+          <div>
+            <span class="text-xs font-mono text-indigo-400 font-bold">INTERACTIVE LAB 01</span>
+            <h3 class="text-lg font-extrabold text-white">
+              <span class="zh-only">2D 离散卷积核、Sobel 梯度与锐化矩阵实验室</span>
+              <span class="en-only">2D Convolution Kernel, Sobel Gradient &amp; Sharpen Workbench</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="zh-only">切换经典算子并微调中心权重 $K_{0,0}$，实时观察 $3\times 3$ 矩阵、权重和 $\sum K$ 与图像卷积结果</span>
+              <span class="en-only">Select presets or tune center weight $K_{0,0}$ to inspect the $3\times 3$ kernel, weight sum $\sum K$, and convolved image</span>
+            </p>
+          </div>
+
+          <canvas id="convCanvas" width="540" height="330" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+
+          <div class="flex flex-wrap gap-2 text-xs">
+            <button onclick="setKernelPreset('gaussian')" id="kBtnGauss" class="px-3 py-1.5 rounded-lg font-bold border bg-indigo-600 text-white border-indigo-400">
+              Gaussian Blur 3×3
+            </button>
+            <button onclick="setKernelPreset('sobel')" id="kBtnSobel" class="px-3 py-1.5 rounded-lg font-bold border bg-slate-800 text-slate-300 border-slate-700">
+              Sobel Edge ||∇I||
+            </button>
+            <button onclick="setKernelPreset('laplace')" id="kBtnLap" class="px-3 py-1.5 rounded-lg font-bold border bg-slate-800 text-slate-300 border-slate-700">
+              Laplacian ∇²I
+            </button>
+            <button onclick="setKernelPreset('sharpen')" id="kBtnSharp" class="px-3 py-1.5 rounded-lg font-bold border bg-slate-800 text-slate-300 border-slate-700">
+              Unsharp Sharpen
+            </button>
+          </div>
+
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-slate-300 font-semibold">
+                <span class="zh-only">中心权重微调偏置 $\Delta K_{0,0}$ (测试直流能量守恒 $\sum K = 1$)</span>
+                <span class="en-only">Center Weight Offset $\Delta K_{0,0}$ (Test DC Energy $\sum K = 1$)</span>
+              </span>
+              <span id="kBiasVal" class="font-mono text-emerald-300 font-bold">+0.00</span>
+            </div>
+            <input id="kBiasSlider" type="range" min="-0.8" max="1.2" step="0.05" value="0" oninput="drawConvCanvas()" class="w-full" />
+          </div>
+        </div>
+
+        <!-- Lab 2: HDR Post-Processing, Bloom & ACES Tone Mapping -->
+        <div class="lg:col-span-6 glass-panel rounded-2xl p-6 space-y-4">
+          <div>
+            <span class="text-xs font-mono text-emerald-400 font-bold">INTERACTIVE LAB 02</span>
+            <h3 class="text-lg font-extrabold text-white">
+              <span class="zh-only">实时 HDR 后处理管线：曝光、泛光 (Bloom) 与 ACES 色调映射台</span>
+              <span class="en-only">Real-Time HDR Post-Processing: Exposure, Bloom &amp; ACES Tone Mapping</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="zh-only">调节 HDR 曝光度、Bloom 发光阈值与强度，对比 Hard Clip 死白与 ACES Filmic 电影级高光滚降</span>
+              <span class="en-only">Tune HDR Exposure, Bloom Threshold &amp; Intensity, and compare Hard Clip vs. Reinhard vs. ACES Filmic</span>
+            </p>
+          </div>
+
+          <canvas id="hdrCanvas" width="540" height="330" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+
+          <div class="flex gap-2 text-xs">
+            <button onclick="setToneMode('aces')" id="tmBtnAces" class="flex-1 py-1.5 rounded-lg font-bold border bg-amber-500/25 border-amber-400 text-amber-200">
+              ★ ACES Filmic S-Curve
+            </button>
+            <button onclick="setToneMode('reinhard')" id="tmBtnRein" class="flex-1 py-1.5 rounded-lg font-bold border bg-slate-800 border-slate-700 text-slate-300">
+              Reinhard x/(1+x)
+            </button>
+            <button onclick="setToneMode('clip')" id="tmBtnClip" class="flex-1 py-1.5 rounded-lg font-bold border bg-slate-800 border-slate-700 text-slate-300">
+              Hard Clip min(x,1)
+            </button>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 text-xs">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+              <div class="flex justify-between mb-1"><span>Exposure</span><span id="hdrExpVal" class="font-mono text-amber-300">1.6</span></div>
+              <input id="hdrExpSlider" type="range" min="0.4" max="3.5" step="0.1" value="1.6" oninput="drawHdrCanvas()" class="w-full" />
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+              <div class="flex justify-between mb-1"><span>Bloom Thresh</span><span id="hdrThVal" class="font-mono text-sky-300">1.1</span></div>
+              <input id="hdrThSlider" type="range" min="0.4" max="2.5" step="0.1" value="1.1" oninput="drawHdrCanvas()" class="w-full" />
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+              <div class="flex justify-between mb-1"><span>Bloom Glow</span><span id="hdrBloomVal" class="font-mono text-emerald-300">0.65</span></div>
+              <input id="hdrBloomSlider" type="range" min="0" max="1.5" step="0.05" value="0.65" oninput="drawHdrCanvas()" class="w-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: MIT 6.837 Lecture 21 Companion ==================== -->
+    <section id="tab3" class="hidden space-y-6">
+      <div class="glass-panel rounded-2xl p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-mono text-indigo-400 font-bold">MIT 6.837 · FALL 2021 · LECTURE 21</span>
+            <h2 class="text-xl font-extrabold text-white mt-1">
+              <span class="zh-only">Lecture 21：图像处理与后处理管线 (Image Processing, Prof. Justin Solomon)</span>
+              <span class="en-only">Lecture 21: Image Processing &amp; Post-Processing (Prof. Justin Solomon)</span>
+            </h2>
+          </div>
+          <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noopener noreferrer" class="px-4 py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-xs font-bold text-red-200 transition">
+            ▶ Watch MIT 6.837 Lecture 21 Playlist
+          </a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-5 space-y-2">
+            <div class="text-indigo-400 font-bold">
+              <span class="zh-only">1. 空间域卷积 vs 频率域乘积定理</span>
+              <span class="en-only">1. Spatial Convolution vs. Frequency Multiplication</span>
+            </div>
+            <p class="zh-only">
+              与第 16 课采样抗锯齿一脉相承：空间域的卷积严格等价于傅里叶频率域的逐点相乘 $\mathcal{F}\{I * K\} = \mathcal{F}\{I\}\cdot\mathcal{F}\{K\}$。高斯函数的傅里叶变换仍然是高斯函数（没有像 Box Filter 那样的高频 sinc 振铃负瓣），因此高斯核是最理想的无振铃低通滤波器！
+            </p>
+            <p class="en-only">
+              Connecting back to Lesson 16: spatial convolution equals frequency-domain multiplication $\mathcal{F}\{I * K\} = \mathcal{F}\{I\}\cdot\mathcal{F}\{K\}$. Because the Fourier transform of a Gaussian is another Gaussian (with no sinc ringing sidelobes), Gaussian blur is the ideal ring-free low-pass filter.
+            </p>
+          </div>
+
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-5 space-y-2">
+            <div class="text-emerald-400 font-bold">
+              <span class="zh-only">2. 保边双边滤波 (Bilateral Filtering)</span>
+              <span class="en-only">2. Edge-Preserving Bilateral Filtering</span>
+            </div>
+            <p class="zh-only">
+              普通高斯模糊只根据像素空间距离 $\|p - q\|$ 分配权重，会把锋利的物体轮廓也模糊掉。Justin Solomon 教授讲解的<strong>双边滤波器</strong>同时乘上值域颜色差高斯项 $G_{\sigma_r}(\|I_p - I_q\|)$，在磨皮降噪或实时光线追踪降噪（SVGF）中既能抹平噪点，又能刀切般保留几何边缘！
+            </p>
+            <p class="en-only">
+              Standard Gaussian blur weights neighbors solely by spatial distance $\|p-q\|$, blurring across sharp edges. The <strong>Bilateral Filter</strong> multiplies a range Gaussian $G_{\sigma_r}(\|I_p - I_q\|)$, smoothing noise while preserving crisp boundaries.
+            </p>
+          </div>
+
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-5 space-y-2">
+            <div class="text-amber-400 font-bold">
+              <span class="zh-only">3. 现代引擎后处理管线执行顺序</span>
+              <span class="en-only">3. Modern GPU Post-Processing Order</span>
+            </div>
+            <p class="zh-only">
+              在 Unreal / Unity / WebGPU 渲染管线中，正确的后处理顺序至关重要：① 在线性 HDR 缓冲区（<code>RGBA16Float</code>）完成景深（DoF）、运动模糊与多级可分离高斯泛光（Bloom）；② 乘上曝光系数并执行 <strong>ACES 色调映射</strong>将 $[0,\infty)$ 映射到 $[0,1]$；③ 最后执行一次 $\gamma^{1/2.2}$ sRGB 编码输出。
+            </p>
+            <p class="en-only">
+              In modern engines, post-processing order is critical: ① Execute DoF, Motion Blur, and multi-mip separable Bloom in Linear HDR (<code>RGBA16Float</code>); ② Apply Exposure and <strong>ACES Tone Mapping</strong> $[0,\infty)\to[0,1]$; ③ Apply final $\gamma^{1/2.2}$ sRGB encoding.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-Mission Game ==================== -->
+    <section id="tab4" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-5 glass-panel rounded-2xl p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs font-mono text-amber-400 font-bold">3-MISSION CHALLENGE</span>
+              <h3 class="text-lg font-extrabold text-white">
+                <span class="zh-only">🎮 首席引擎后处理架构师</span>
+                <span class="en-only">🎮 Chief Post-Processing Architect</span>
+              </h3>
+            </div>
+            <span id="gameProgressBadge" class="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-bold">
+              0 / 3 Passed
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="selectMission(1)" id="missionBtn1" class="py-2 rounded-xl text-xs font-bold border bg-indigo-600 text-white border-indigo-400">
+              <span class="zh-only">关卡 1 · 可分离加速</span>
+              <span class="en-only">Mission 1 · Separable</span>
+            </button>
+            <button onclick="selectMission(2)" id="missionBtn2" class="py-2 rounded-xl text-xs font-bold border bg-slate-800 text-slate-400 border-slate-700">
+              <span class="zh-only">关卡 2 · 能量守恒核</span>
+              <span class="en-only">Mission 2 · Kernel Sum</span>
+            </button>
+            <button onclick="selectMission(3)" id="missionBtn3" class="py-2 rounded-xl text-xs font-bold border bg-slate-800 text-slate-400 border-slate-700">
+              <span class="zh-only">关卡 3 · ACES 与泛光</span>
+              <span class="en-only">Mission 3 · ACES HDR</span>
+            </button>
+          </div>
+
+          <!-- Mission 1 Panel -->
+          <div id="missionPanel1" class="space-y-3 text-xs text-slate-300">
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+              <div class="font-bold text-indigo-300">
+                <span class="zh-only">任务 1：拯救 4K 高斯模糊的帧率崩盘 ($31\times 31$)</span>
+                <span class="en-only">Mission 1: Rescue 4K Gaussian Blur Frame Rate ($31\times 31$)</span>
+              </div>
+              <p class="zh-only">
+                实习生写的全屏毛玻璃背景使用单通道 $31\times 31$ 二维循环采样（每像素 $961$ 次纹理读取），导致 GPU 耗时高达 $18.4\text{ms}$！请利用高斯核 $\text{rank}(K)=1$ 外积可分离性，重构为<strong>水平 1D + 垂直 1D 双通道管线（每像素仅 $62$ 次读取）</strong>！
+              </p>
+              <p class="en-only">
+                A brute-force $31\times 31$ 2D blur takes $961$ texture taps/pixel ($18.4\text{ms}$)! Refactor into a <strong>Rank-1 Separable 1D Horizontal + 1D Vertical two-pass pipeline ($62$ taps/pixel)</strong>!
+              </p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="setGameM1('brute2d')" id="m1BtnBrute" class="p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200">
+                Single-Pass 2D (N²)<br/><span class="text-[10px] opacity-75">961 taps/px · 18.4 ms</span>
+              </button>
+              <button onclick="setGameM1('sep1d')" id="m1BtnSep" class="p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400">
+                Separable 1D×2 (2N)<br/><span class="text-[10px] opacity-75">62 taps/px · 1.18 ms</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mission 2 Panel -->
+          <div id="missionPanel2" class="hidden space-y-3 text-xs text-slate-300">
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+              <div class="font-bold text-emerald-300">
+                <span class="zh-only">任务 2：修复全局过曝的锐化卷积核 ($\sum K = 1$)</span>
+                <span class="en-only">Mission 2: Fix the Over-Exposed Sharpen Kernel ($\sum K = 1$)</span>
+              </div>
+              <p class="zh-only">
+                一个 $3\times 3$ 锐化卷积核的四个正交邻居权重各为 $-1$（四周权重之和为 $-4$）。当前中心权重被错误设为 $c = 7$，导致 $\sum K = 7 - 4 = 3 \neq 1$，画面整体亮了 3 倍！请将中心权重 $c$ 调回守恒值以令 $\sum K = 1.0$！
+              </p>
+              <p class="en-only">
+                A $3\times 3$ sharpen kernel has 4 neighbors of weight $-1$ each (sum $= -4$). Tune the center weight $c$ so that total kernel weight $\sum K = c - 4 = 1.0$!
+              </p>
+            </div>
+            <div>
+              <div class="flex justify-between mb-1"><span>Center Weight c</span><span id="m2CenterVal" class="font-mono text-amber-300 font-bold">7.0</span></div>
+              <input id="m2CenterSlider" type="range" min="3.0" max="8.0" step="0.5" value="7.0" oninput="drawGameCanvas()" class="w-full" />
+            </div>
+          </div>
+
+          <!-- Mission 3 Panel -->
+          <div id="missionPanel3" class="hidden space-y-3 text-xs text-slate-300">
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+              <div class="font-bold text-amber-300">
+                <span class="zh-only">任务 3：拯救死白太阳与赛博霓虹高光 (ACES + Bloom)</span>
+                <span class="en-only">Mission 3: Rescue Clipped Sun &amp; Neon Highlights (ACES + Bloom)</span>
+              </div>
+              <p class="zh-only">
+                赛博朋克夜景的霓虹灯辐射亮度高达 $8.5\text{ nits}$，当前使用 `Hard Clip` 导致灯牌变成死白方块且毫无光晕！请切换为 <strong>ACES Filmic S-Curve + HDR 可分离泛光 (Bloom)</strong>！
+              </p>
+              <p class="en-only">
+                Neon signs at $8.5\text{ nits}$ are crushed into flat white blocks by `Hard Clip`! Enable <strong>ACES Filmic Tone Mapping + HDR Separable Bloom</strong>!
+              </p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="setGameM3('hard_clip')" id="m3BtnClip" class="p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200">
+                LDR Hard Clip<br/><span class="text-[10px] opacity-75">Blown-out White Blob</span>
+              </button>
+              <button onclick="setGameM3('aces_bloom')" id="m3BtnAces" class="p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400">
+                ACES Filmic + HDR Bloom<br/><span class="text-[10px] opacity-75">Smooth Roll-Off &amp; Glow</span>
+              </button>
+            </div>
+          </div>
+
+          <button onclick="verifyGameMission()" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-emerald-600/25 transition">
+            <span class="zh-only">⚡ 运行后处理管线验收测试</span>
+            <span class="en-only">⚡ Run Post-Processing Verification</span>
+          </button>
+
+          <div id="gameFeedbackBox" class="hidden p-3.5 rounded-xl border text-xs leading-relaxed"></div>
+        </div>
+
+        <div class="lg:col-span-7 glass-panel rounded-2xl p-6 flex flex-col justify-between">
+          <canvas id="gameCanvas" width="600" height="360" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentLang = 'zh';
+    let currentTab = 1;
+    let kernelPreset = 'gaussian';
+    let toneMode = 'aces';
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.body.classList.toggle('lang-zh', currentLang === 'zh');
+      document.body.classList.toggle('lang-en', currentLang === 'en');
+      drawMathCanvas();
+      drawConvCanvas();
+      drawHdrCanvas();
+      drawGameCanvas();
+    }
+
+    function switchTab(tabId) {
+      currentTab = tabId;
+      for (let i = 1; i <= 4; i++) {
+        const sec = document.getElementById('tab' + i);
+        const btn = document.getElementById('tabBtn' + i);
+        if (i === tabId) {
+          sec.classList.remove('hidden');
+          btn.className = 'tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition bg-indigo-600 text-white shadow-lg shadow-indigo-600/25';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = 'tab-btn py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition text-slate-400 hover:text-white hover:bg-slate-800/60';
+        }
+      }
+      if (tabId === 1) drawMathCanvas();
+      if (tabId === 2) { drawConvCanvas(); drawHdrCanvas(); }
+      if (tabId === 4) drawGameCanvas();
+    }
+
+    function acesFilmic(x) {
+      return Math.min(1, Math.max(0, (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14)));
+    }
+
+    function reinhard(x) {
+      return x / (1 + x);
+    }
+
+    // ==================== TAB 1: Separable Outer Product & Tone Mapping ====================
+    function drawMathCanvas() {
+      const canvas = document.getElementById('mathCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const N = parseInt(document.getElementById('mathKernelNSlider').value, 10);
+      const hdrIn = parseFloat(document.getElementById('mathHdrInSlider').value);
+      document.getElementById('mathKernelNVal').textContent = `${N} × ${N}`;
+      document.getElementById('mathHdrInVal').textContent = hdrIn.toFixed(2) + ' nits';
+
+      // Divider
+      ctx.strokeStyle = 'rgba(148,163,184,0.18)';
+      ctx.beginPath();
+      ctx.moveTo(W * 0.48, 16);
+      ctx.lineTo(W * 0.48, H - 16);
+      ctx.stroke();
+
+      // LEFT: Rank-1 Outer Product g * g^T visualization & Bar chart
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '1. 秩-1 外积 K = g·gᵀ (N² vs 2N 采样)' : '1. Rank-1 Outer Product K = g·gᵀ (N² vs 2N)', 18, 24);
+
+      const taps2D = N * N;
+      const taps1D = 2 * N;
+      const speedup = (taps2D / taps1D).toFixed(1);
+      document.getElementById('readTaps').textContent = `${taps2D} vs ${taps1D} (${speedup}x)`;
+
+      // Draw outer product grid icon (7x7 symbolic)
+      const gSize = 7, cell = 19, gx = 52, gy = 64;
+      for (let r = 0; r < gSize; r++) {
+        const wy = Math.exp(-0.5 * Math.pow((r - 3) / 1.4, 2));
+        // Left column vector g
+        ctx.fillStyle = `rgba(99, 102, 241, ${0.2 + 0.8 * wy})`;
+        ctx.fillRect(gx - 28, gy + r * cell, 18, cell - 2);
+        for (let c = 0; c < gSize; c++) {
+          const wx = Math.exp(-0.5 * Math.pow((c - 3) / 1.4, 2));
+          if (r === 0) {
+            // Top row vector g^T
+            ctx.fillStyle = `rgba(16, 185, 129, ${0.2 + 0.8 * wx})`;
+            ctx.fillRect(gx + c * cell, gy - 26, cell - 2, 18);
+          }
+          ctx.fillStyle = `rgba(245, 158, 11, ${0.15 + 0.85 * wx * wy})`;
+          ctx.fillRect(gx + c * cell, gy + r * cell, cell - 2, cell - 2);
+        }
+      }
+
+      // Cost comparison bars at bottom left
+      const by0 = H - 38, maxH = 115;
+      const h2d = Math.min(maxH, (taps2D / 1225) * maxH);
+      const h1d = Math.max(6, (taps1D / 1225) * maxH);
+      ctx.fillStyle = '#f43f5e';
+      ctx.fillRect(52, by0 - h2d, 64, h2d);
+      ctx.fillStyle = '#10b981';
+      ctx.fillRect(150, by0 - h1d, 64, h1d);
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '11px monospace';
+      ctx.fillText(`2D: ${taps2D}`, 54, by0 + 16);
+      ctx.fillText(`1D×2: ${taps1D}`, 148, by0 + 16);
+
+      // RIGHT: Tone Mapping Curves (Hard Clip vs Reinhard vs ACES)
+      const rx0 = W * 0.53, rx1 = W - 22, ry0 = 48, ry1 = H - 42;
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '2. 色调映射曲线：Hard Clip vs Reinhard vs ACES' : '2. Tone Mapping: Hard Clip vs Reinhard vs ACES', rx0, 24);
+
+      ctx.strokeStyle = 'rgba(148,163,184,0.28)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(rx0, ry0);
+      ctx.lineTo(rx0, ry1);
+      ctx.lineTo(rx1, ry1);
+      ctx.stroke();
+
+      const mapX = x => rx0 + (x / 8.0) * (rx1 - rx0);
+      const mapY = y => ry1 - y * (ry1 - ry0);
+
+      const curves = [
+        { fn: x => Math.min(1, x), col: '#f43f5e', label: 'Hard Clip' },
+        { fn: reinhard, col: '#38bdf8', label: 'Reinhard' },
+        { fn: acesFilmic, col: '#fbbf24', label: 'ACES Filmic' }
+      ];
+
+      curves.forEach(c => {
+        ctx.strokeStyle = c.col;
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        for (let x = 0; x <= 8.0; x += 0.1) {
+          const sx = mapX(x), sy = mapY(c.fn(x));
+          if (x === 0) ctx.moveTo(sx, sy);
+          else ctx.lineTo(sx, sy);
+        }
+        ctx.stroke();
+      });
+
+      // Current HDR input vertical cursor
+      const curX = mapX(hdrIn);
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(curX, ry0);
+      ctx.lineTo(curX, ry1);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const vRein = reinhard(hdrIn);
+      const vAces = acesFilmic(hdrIn);
+      document.getElementById('readReinhard').textContent = vRein.toFixed(3);
+      document.getElementById('readAces').textContent = vAces.toFixed(3);
+
+      [
+        { y: Math.min(1, hdrIn), col: '#f43f5e' },
+        { y: vRein, col: '#38bdf8' },
+        { y: vAces, col: '#fbbf24' }
+      ].forEach(pt => {
+        ctx.fillStyle = pt.col;
+        ctx.beginPath();
+        ctx.arc(curX, mapY(pt.y), 5.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    // ==================== TAB 2 LAB 1: 3x3 Convolution Kernel ====================
+    function setKernelPreset(p) {
+      kernelPreset = p;
+      document.getElementById('kBiasSlider').value = 0;
+      const ids = { gaussian: 'kBtnGauss', sobel: 'kBtnSobel', laplace: 'kBtnLap', sharpen: 'kBtnSharp' };
+      Object.entries(ids).forEach(([k, id]) => {
+        document.getElementById(id).className = k === p
+          ? 'px-3 py-1.5 rounded-lg font-bold border bg-indigo-600 text-white border-indigo-400'
+          : 'px-3 py-1.5 rounded-lg font-bold border bg-slate-800 text-slate-300 border-slate-700';
+      });
+      drawConvCanvas();
+    }
+
+    function drawConvCanvas() {
+      const canvas = document.getElementById('convCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const bias = parseFloat(document.getElementById('kBiasSlider').value);
+      document.getElementById('kBiasVal').textContent = (bias >= 0 ? '+' : '') + bias.toFixed(2);
+
+      let K = [
+        [1 / 16, 2 / 16, 1 / 16],
+        [2 / 16, 4 / 16, 2 / 16],
+        [1 / 16, 2 / 16, 1 / 16]
+      ];
+      if (kernelPreset === 'sobel') {
+        K = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
+      } else if (kernelPreset === 'laplace') {
+        K = [[0, -1, 0], [-1, 4, -1], [0, -1, 0]];
+      } else if (kernelPreset === 'sharpen') {
+        K = [[0, -1, 0], [-1, 5, -1], [0, -1, 0]];
+      }
+      K[1][1] += bias;
+
+      let sumK = 0;
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) sumK += K[r][c];
+
+      // Draw 3x3 matrix on left
+      const mx = 24, my = 56, mc = 52;
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '3×3 卷积核 K[u,v]' : '3×3 Kernel Matrix K[u,v]', mx, 28);
+
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          const v = K[r][c];
+          ctx.fillStyle = v > 0.01 ? 'rgba(99,102,241,0.28)' : v < -0.01 ? 'rgba(244,63,94,0.28)' : 'rgba(30,41,59,0.8)';
+          ctx.strokeStyle = 'rgba(148,163,184,0.35)';
+          ctx.fillRect(mx + c * mc, my + r * mc, mc - 4, mc - 4);
+          ctx.strokeRect(mx + c * mc, my + r * mc, mc - 4, mc - 4);
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = 'bold 11px monospace';
+          ctx.fillText(v.toFixed(2), mx + c * mc + 8, my + r * mc + 28);
+        }
+      }
+
+      ctx.fillStyle = Math.abs(sumK - 1) < 0.05 || Math.abs(sumK) < 0.05 ? '#34d399' : '#fb7185';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(`∑ K[u,v] = ${sumK.toFixed(2)}`, mx, my + 3 * mc + 24);
+
+      // Synthesize a 36x36 test pattern and convolve it
+      const N = 34, pSize = 7;
+      const src = [];
+      for (let y = 0; y < N; y++) {
+        const row = [];
+        for (let x = 0; x < N; x++) {
+          const inCircle = Math.hypot(x - 17, y - 17) < 9.5;
+          const inBar = x > 6 && x < 28 && y > 24 && y < 29;
+          row.push(inCircle ? 0.92 : inBar ? 0.75 : 0.14);
+        }
+        src.push(row);
+      }
+
+      const ox = 235, oy = 48;
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '实时卷积输出 (I * K)[x,y]' : 'Convolved Output (I * K)[x,y]', ox, 28);
+
+      for (let y = 1; y < N - 1; y++) {
+        for (let x = 1; x < N - 1; x++) {
+          let acc = 0, accY = 0;
+          for (let u = -1; u <= 1; u++) {
+            for (let v = -1; v <= 1; v++) {
+              acc += src[y + u][x + v] * K[u + 1][v + 1];
+              if (kernelPreset === 'sobel') {
+                accY += src[y + u][x + v] * K[v + 1][u + 1];
+              }
+            }
+          }
+          const out = kernelPreset === 'sobel' ? Math.hypot(acc, accY) : Math.abs(acc);
+          const byte = Math.min(255, Math.max(0, Math.round(out * 255)));
+          ctx.fillStyle = `rgb(${byte}, ${Math.round(byte * 0.94)}, ${Math.min(255, Math.round(byte * 1.08))})`;
+          ctx.fillRect(ox + x * pSize, oy + y * pSize, pSize, pSize);
+        }
+      }
+    }
+
+    // ==================== TAB 2 LAB 2: HDR Bloom & ACES ====================
+    function setToneMode(m) {
+      toneMode = m;
+      const ids = { aces: 'tmBtnAces', reinhard: 'tmBtnRein', clip: 'tmBtnClip' };
+      Object.entries(ids).forEach(([k, id]) => {
+        document.getElementById(id).className = k === m
+          ? 'flex-1 py-1.5 rounded-lg font-bold border bg-amber-500/25 border-amber-400 text-amber-200'
+          : 'flex-1 py-1.5 rounded-lg font-bold border bg-slate-800 border-slate-700 text-slate-300';
+      });
+      drawHdrCanvas();
+    }
+
+    function applyTone(r, g, b) {
+      const fn = toneMode === 'aces' ? acesFilmic : toneMode === 'reinhard' ? reinhard : x => Math.min(1, x);
+      return {
+        r: Math.pow(fn(r), 1 / 2.2),
+        g: Math.pow(fn(g), 1 / 2.2),
+        b: Math.pow(fn(b), 1 / 2.2)
+      };
+    }
+
+    function drawHdrCanvas() {
+      const canvas = document.getElementById('hdrCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const exp = parseFloat(document.getElementById('hdrExpSlider').value);
+      const thresh = parseFloat(document.getElementById('hdrThSlider').value);
+      const bloomAmt = parseFloat(document.getElementById('hdrBloomSlider').value);
+
+      document.getElementById('hdrExpVal').textContent = exp.toFixed(1);
+      document.getElementById('hdrThVal').textContent = thresh.toFixed(1);
+      document.getElementById('hdrBloomVal').textContent = bloomAmt.toFixed(2);
+
+      // Render synthetic HDR sunset + neon emissive spheres on a coarse grid
+      const step = 6;
+      const emitters = [
+        { x: W * 0.28, y: H * 0.45, rad: 38, r: 9.5, g: 3.4, b: 0.6 }, // HDR Solar Core
+        { x: W * 0.68, y: H * 0.52, rad: 32, r: 0.5, g: 6.8, b: 8.5 }  // HDR Cyber Cyan Neon
+      ];
+
+      for (let py = 0; py < H; py += step) {
+        for (let px = 0; px < W; px += step) {
+          let hr = 0.05, hg = 0.06, hb = 0.14;
+          emitters.forEach(em => {
+            const d = Math.hypot(px - em.x, py - em.y);
+            if (d < em.rad) {
+              const core = 1 - (d / em.rad) * 0.45;
+              hr += em.r * core;
+              hg += em.g * core;
+              hb += em.b * core;
+            }
+            // Separable Gaussian Bloom Halo
+            const lum = Math.max(em.r, em.g, em.b) * exp;
+            if (lum > thresh) {
+              const excess = lum - thresh;
+              const gaussGlow = Math.exp(-(d * d) / (2 * 46 * 46)) * bloomAmt * (excess / lum);
+              hr += em.r * gaussGlow;
+              hg += em.g * gaussGlow;
+              hb += em.b * gaussGlow;
+            }
+          });
+
+          const out = applyTone(hr * exp, hg * exp, hb * exp);
+          ctx.fillStyle = `rgb(${Math.round(out.r * 255)}, ${Math.round(out.g * 255)}, ${Math.round(out.b * 255)})`;
+          ctx.fillRect(px, py, step, step);
+        }
+      }
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(`Mode: ${toneMode.toUpperCase()} | Exposure: ${exp.toFixed(1)}x | Bloom: ${bloomAmt.toFixed(2)}`, 16, 22);
+    }
+
+    // ==================== TAB 4: 3-Mission Game ====================
+    let currentMission = 1;
+    let missionPassed = { 1: false, 2: false, 3: false };
+    let gameM1Mode = 'brute2d';
+    let gameM3Mode = 'hard_clip';
+
+    function selectMission(m) {
+      currentMission = m;
+      document.getElementById('gameFeedbackBox').classList.add('hidden');
+      for (let i = 1; i <= 3; i++) {
+        document.getElementById('missionPanel' + i).classList.toggle('hidden', i !== m);
+        const btn = document.getElementById('missionBtn' + i);
+        btn.className = i === m
+          ? 'py-2 rounded-xl text-xs font-bold border bg-indigo-600 text-white border-indigo-400'
+          : missionPassed[i]
+          ? 'py-2 rounded-xl text-xs font-bold border bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+          : 'py-2 rounded-xl text-xs font-bold border bg-slate-800 text-slate-400 border-slate-700';
+      }
+      drawGameCanvas();
+    }
+
+    function setGameM1(mode) {
+      gameM1Mode = mode;
+      document.getElementById('m1BtnBrute').className = mode === 'brute2d' ? 'p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200' : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      document.getElementById('m1BtnSep').className = mode === 'sep1d' ? 'p-2.5 rounded-xl border text-left font-mono bg-emerald-500/20 border-emerald-500 text-emerald-200' : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      drawGameCanvas();
+    }
+
+    function setGameM3(mode) {
+      gameM3Mode = mode;
+      document.getElementById('m3BtnClip').className = mode === 'hard_clip' ? 'p-2.5 rounded-xl border text-left font-mono bg-rose-500/20 border-rose-500 text-rose-200' : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      document.getElementById('m3BtnAces').className = mode === 'aces_bloom' ? 'p-2.5 rounded-xl border text-left font-mono bg-emerald-500/20 border-emerald-500 text-emerald-200' : 'p-2.5 rounded-xl border text-left font-mono bg-slate-800 border-slate-700 text-slate-400';
+      drawGameCanvas();
+    }
+
+    function verifyGameMission() {
+      const box = document.getElementById('gameFeedbackBox');
+      box.classList.remove('hidden');
+      let ok = false, msg = '';
+
+      if (currentMission === 1) {
+        ok = gameM1Mode === 'sep1d';
+        msg = ok
+          ? (currentLang === 'zh'
+            ? '✅ 关卡 1 通过！利用 rank(K)=1 外积分解 I*(g·gᵀ) = (I*g)*gᵀ，每像素采样从 961 次暴降至 62 次（15.5倍加速）！'
+            : '✅ Mission 1 Passed! Rank-1 separable 1D×2 blur reduces taps from 961 to 62 per pixel (15.5x speedup)!')
+          : (currentLang === 'zh'
+            ? '⚠️ 单通道 2D 高斯模糊每像素需 31²=961 次采样，帧耗时超标！请切换为可分离 1D×2 管线。'
+            : '⚠️ Brute-force 2D blur takes 961 taps/pixel! Switch to Separable 1D×2.');
+      } else if (currentMission === 2) {
+        const c = parseFloat(document.getElementById('m2CenterSlider').value);
+        const sumK = c - 4.0;
+        ok = Math.abs(sumK - 1.0) < 0.01;
+        msg = ok
+          ? (currentLang === 'zh'
+            ? '✅ 关卡 2 通过！中心权重 c = 5.0 使 ∑K = 5 - 4 = 1.0，锐化边缘的同时严格保持画面直流平均亮度守恒！'
+            : '✅ Mission 2 Passed! Center weight c = 5.0 yields ∑K = 1.0, sharpening edges while conserving DC brightness!')
+          : (currentLang === 'zh'
+            ? `⚠️ 当前 ∑K = ${sumK.toFixed(1)} ≠ 1.0，导致整体画面被放大 ${sumK.toFixed(1)} 倍！请将中心权重调至 5.0。`
+            : `⚠️ Current ∑K = ${sumK.toFixed(1)} ≠ 1.0! Set center weight c = 5.0.`);
+      } else {
+        ok = gameM3Mode === 'aces_bloom';
+        msg = ok
+          ? (currentLang === 'zh'
+            ? '✅ 关卡 3 通过！ACES Filmic S-Curve 平滑压缩高光肩部并保留色彩饱和度，配合可分离高斯 Bloom 呈现真实光晕！'
+            : '✅ Mission 3 Passed! ACES Filmic S-Curve + HDR Bloom restores highlight gradients and optical glow!')
+          : (currentLang === 'zh'
+            ? '⚠️ Hard Clip 直接截断 >1.0 的辐射度，导致死白色块与色相失真！请启用 ACES Filmic + HDR Bloom。'
+            : '⚠️ Hard Clip crushes >1.0 radiance into flat white! Enable ACES Filmic + HDR Bloom.');
+      }
+
+      if (ok) missionPassed[currentMission] = true;
+      const count = Object.values(missionPassed).filter(Boolean).length;
+      document.getElementById('gameProgressBadge').textContent = `${count} / 3 Passed`;
+      box.className = ok
+        ? 'p-3.5 rounded-xl border text-xs leading-relaxed bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
+        : 'p-3.5 rounded-xl border text-xs leading-relaxed bg-rose-500/15 border-rose-500/40 text-rose-200';
+      box.textContent = msg;
+      selectMission(currentMission);
+    }
+
+    function drawGameCanvas() {
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      if (currentMission === 1) {
+        const sep = gameM1Mode === 'sep1d';
+        ctx.fillStyle = sep ? '#34d399' : '#fb7185';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText(
+          sep
+            ? 'Separable 1D Horizontal + 1D Vertical: 62 taps/px | 1.18 ms (847 FPS ✓)'
+            : 'Brute-Force 2D 31×31 Loop: 961 taps/px | 18.40 ms (54 FPS ✗)',
+          24,
+          34
+        );
+        ctx.fillStyle = '#f43f5e';
+        ctx.fillRect(90, 95, 420, 42);
+        ctx.fillStyle = '#10b981';
+        ctx.fillRect(90, 175, sep ? 28 : 420, 42);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText('2D N² Cost (961 taps)', 96, 120);
+        ctx.fillText('Current Pipeline Cost', 96, 200);
+      } else if (currentMission === 2) {
+        const c = parseFloat(document.getElementById('m2CenterSlider').value);
+        document.getElementById('m2CenterVal').textContent = c.toFixed(1);
+        const sumK = c - 4.0;
+        const ok = Math.abs(sumK - 1.0) < 0.01;
+        ctx.fillStyle = ok ? '#34d399' : '#fb7185';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText(`Kernel Sum ∑K = ${sumK.toFixed(1)} (Target = 1.0 ${ok ? 'PASS ✓' : 'EXPOSURE DRIFT ✗'})`, 24, 34);
+
+        const lum = Math.min(255, Math.max(0, Math.round(120 * sumK)));
+        ctx.fillStyle = `rgb(${lum}, ${lum}, ${Math.min(255, Math.round(lum * 1.1))})`;
+        ctx.fillRect(160, 80, 280, 210);
+      } else {
+        const ok = gameM3Mode === 'aces_bloom';
+        ctx.fillStyle = ok ? '#34d399' : '#fb7185';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText(
+          ok
+            ? 'ACES Filmic + Separable Bloom: Smooth Shoulder & Optical Glow ✓'
+            : 'Hard Clip min(L, 1.0): Blown-Out White Core & Hue Skew ✗',
+          24,
+          34
+        );
+        const cx = W * 0.5, cy = H * 0.56;
+        if (ok) {
+          const g = ctx.createRadialGradient(cx, cy, 8, cx, cy, 125);
+          g.addColorStop(0, 'rgba(255, 235, 180, 1)');
+          g.addColorStop(0.35, 'rgba(245, 158, 11, 0.85)');
+          g.addColorStop(1, 'rgba(15, 23, 42, 0)');
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(cx, cy, 125, 0, Math.PI * 2); ctx.fill();
+        } else {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath(); ctx.arc(cx, cy, 62, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      drawMathCanvas();
+      drawConvCanvas();
+      drawHdrCanvas();
+      drawGameCanvas();
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+    });
+  </script>
+</body>
+</html>
