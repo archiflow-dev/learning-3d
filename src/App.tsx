@@ -29,6 +29,7 @@ import { Lesson26Skinning } from './lessons/Lesson26Skinning';
 import { Lesson27ParticleODEs } from './lessons/Lesson27ParticleODEs';
 import { Lesson28ClothSim } from './lessons/Lesson28ClothSim';
 import { Lesson29ColorScience } from './lessons/Lesson29ColorScience';
+import { Lesson30PostProcessing } from './lessons/Lesson30PostProcessing';
 
 const STORAGE_KEY = 'learning_3d_completed_lessons_v1';
 const LANG_KEY = 'learning_3d_lang_v1';
@@ -381,6 +382,13 @@ export const App: React.FC = () => {
             lang={lang}
             isCompleted={completedIds.includes('L29')}
             onToggleComplete={() => toggleLessonComplete('L29')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L30' ? (
+          <Lesson30PostProcessing
+            lang={lang}
+            isCompleted={completedIds.includes('L30')}
+            onToggleComplete={() => toggleLessonComplete('L30')}
             onBackToPortal={() => navigateToLesson(null)}
           />
         ) : activeLessonObj ? (

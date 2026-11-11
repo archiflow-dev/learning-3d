@@ -733,7 +733,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: '2D Convolution, Gaussian Blur, Edge Detection, Bloom & ACES Tone Mapping',
     concepts: ['2D 离散卷积与可分离高斯模糊', 'Sobel 梯度边缘检测', 'HDR 帧缓冲与泛光 (Bloom)', 'Reinhard vs ACES Filmic 色调映射曲线'],
     playgroundTitle: '实时后处理与色调映射曲线工作台',
-    playgroundDescription: '自定义 3×3 卷积核参数，调节 HDR 曝光度、Bloom 阈值并实时观察 ACES S-Curve 对高光的平滑压缩。',
+    playgroundDescription: '用 3Blue1Brown 秩-1 矩阵外积 K=g·gᵀ 推导为什么 2D 高斯模糊与 Sobel 算子可将 O(N²) 降维至 O(2N)，在双实验台自定义 3×3 卷积核并调节 HDR 曝光度、Bloom 发光阈值与 ACES Filmic S-Curve 色调映射，畅玩 3 关首席后处理架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
