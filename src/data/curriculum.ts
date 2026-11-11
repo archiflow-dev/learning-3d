@@ -337,7 +337,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Ray Generation, Ray-Sphere/Plane Intersection & Z-Buffer vs Ray Casting',
     concepts: ['针孔相机射线方程 r(t) = o + td', '射线与平面/球体解析求交', '二次方程判别式 Δ 几何意义', 'Object-order vs Image-order 渲染'],
     playgroundTitle: '像素射线发射与球体求交可视化器',
-    playgroundDescription: '点击虚拟成像平面上的任意像素发射 3D 射线，动态展示判别式 Δ > 0 / = 0 / < 0 与最近交点 t。',
+    playgroundDescription: '在几何半弦长直角三角形 (t_ca, d_⊥, t_hc) 与二次抛物线 f(t) 同步显微镜中理解判别式 Δ，在双视窗实验室点击任意像素发射 3D 射线并切换法线/深度/判别式缓冲，畅玩 3 关深空激光雷达指挥官游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
@@ -361,7 +362,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Barycentric Interpolation, Möller–Trumbore & Constructive Solid Geometry',
     concepts: ['重心坐标 (α,β,γ) 面积比定义', 'Möller–Trumbore 快速求交', 'CSG 射线区间布尔运算 (并/交/差)', '法向量逆转置变换 (M⁻¹)ᵀ'],
     playgroundTitle: '重心坐标插值与 CSG 射线布尔实验室',
-    playgroundDescription: '在三角形内拖动采样点观察面积比权重与属性插值；切换两个几何体的射线交点区间布尔运算。',
+    playgroundDescription: '用 3Blue1Brown 行列式体积推导 Möller–Trumbore 三角形求交与对偶逆转置法线矩阵 (M⁻¹)ᵀ，在双实验台体验重心坐标面积天平与 CSG 一维射线区间布尔运算（并/交/差与翻转法线 -N_B），畅玩 3 关重心与 CSG 透镜雕刻师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
@@ -379,7 +381,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Shadow Rays, Mirror Reflection, Snell Refraction & Ray Trees',
     concepts: ['Shadow Bias (ε) 防自遮挡', '镜面反射向量推导', '斯涅尔折射定律与全内反射 (TIR)', 'Fresnel 方程与递归光线树'],
     playgroundTitle: '交互式光线树 (Ray Tree) 与折射追踪器',
-    playgroundDescription: '调节玻璃球折射率 η 与入射角，实时展开反射、折射与阴影射线的完整递归树。',
+    playgroundDescription: '用正交向量分解 (d_∥ + d_⊥) 推导镜面反射与斯涅尔折射向量、观察全内反射 (TIR) 临界角与 Schlick 菲涅尔能量分配，在 Shadow Bias 显微镜修复自遮挡黑麻子，并在递归光线树实验室实时追踪玻璃球折射，畅玩 3 关光学与光纤总工程师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
@@ -403,7 +406,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'AABB Slab Test, Bounding Volume Hierarchies, SAH & KD-Trees',
     concepts: ['AABB Slab 射线求交算法', 'BVH 树构建与遍历', '表面积启发式 (SAH)', 'BVH (划分对象) vs KD-Tree (划分空间)'],
     playgroundTitle: 'BVH 树遍历步进透视镜',
-    playgroundDescription: '发射一条射线穿过复杂场景，单步动画演示 BVH 节点剔除过程，对比 O(N) 与 O(log N) 求交次数。',
+    playgroundDescription: '用 3Blue1Brown 积分几何 (Cauchy–Crofton 定理) 推导为什么光线击中包围盒的概率正比于表面积而非体积，亲手调节 Kay–Kajiya AABB Slab 区间交集与 SAH 切分代价曲线，在 BVH vs KD-Tree 步进实验室单步体验 front-to-back 子树剪枝，并畅玩 3 关 BVH 空间加速架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
@@ -421,7 +425,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Nyquist Frequency, Aliasing, Supersampling & Reconstruction Filters',
     concepts: ['走样 (Jaggies / Moiré) 的频域本质', 'Nyquist 采样定理', 'SSAA / MSAA / 分层抖动采样 (Stratified)', 'Box / Tent / Gaussian 重建滤波器'],
     playgroundTitle: '走样与超采样像素显微镜',
-    playgroundDescription: '在放大像素网格下观察高频棋盘格与斜边三角形，切换不同采样分布与滤波核对比反走样效果。',
+    playgroundDescription: '用 3Blue1Brown 傅里叶频谱克隆与折叠视角推导奈奎斯特采样定理，对比 Box / Tent / Gaussian / Sinc 重建滤波核的空频响应，在 28×28 超采样像素显微镜中点击任意像素检视分层抖动采样针与 MSAA 架构，并畅玩 3 关信号与反走样总工程师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
@@ -439,7 +444,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'The Rendering Equation, Monte Carlo Integration & Path Tracing',
     concepts: ['辐射度量学 (Radiance / Irradiance)', 'Kajiya 渲染方程', '蒙特卡洛积分与重要性采样', '软阴影、焦散与色彩溢色 (Color Bleeding)'],
     playgroundTitle: 'Cornell Box 渐进式路径追踪实验室',
-    playgroundDescription: '实时累计采样数 (SPP)，切换弹射次数 (Bounces) 与余弦重要性采样，直观观察噪点收敛与色彩溢色。',
+    playgroundDescription: '用 3Blue1Brown 努塞尔半球圆盘投影 (Nusselt Analog) 证明漫反射 BRDF 为什么等于 ρ/π 以及 Malley 余弦重要性采样如何完美消去 cosθ，在实时 Cornell Box 渐进式路径追踪器中观察 1/√N 噪点收敛、软阴影与红绿墙壁色彩溢色，并畅玩 3 关全局光照总架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
@@ -459,7 +465,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Perspective Projection Matrix, NDC Space & Sutherland-Hodgman Clipping',
     concepts: ['正交投影 vs 透视投影矩阵', '非线性深度 z/w 与 Z-Fighting', 'Cohen-Sutherland 线段裁剪', 'Sutherland-Hodgman 多边形逐边裁剪'],
     playgroundTitle: '视锥体挤压变形与多边形裁剪沙盒',
-    playgroundDescription: '同步观察透视视锥体如何被矩阵非线性变换为 [-1,1]³ NDC 立方体，并逐步演示跨边界多边形裁剪。',
+    playgroundDescription: '用 3Blue1Brown 齐次坐标延迟除法 (w_c = -z_e) 推导透视投影矩阵与 1/z 双曲线深度映射，连续变形观察视锥棱台如何被挤压成 [-1,1]³ NDC 立方体并引发 Z-Fighting，亲手体验 Cohen–Sutherland 四位编码线段裁剪与 Sutherland–Hodgman 多边形逐边分治裁剪，并畅玩 3 关投影与裁剪架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
@@ -483,7 +490,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Bresenham Line Drawing, Scanline Filling & GPU Edge Functions',
     concepts: ['Bresenham 整数画线法', '扫描线活性边表 (AET)', '现代 GPU 并行边缘函数 (Edge Equation)', 'Top-Left 共享边填充规则'],
     playgroundTitle: 'GPU 像素级三角形光栅化模拟器',
-    playgroundDescription: '在放大像素网格上拖动三角形顶点，实时显示每个像素中心的三个有向边函数符号与激活过程。',
+    playgroundDescription: '用 3Blue1Brown 隐函数半平面视角推导零浮点除法的 Bresenham 中点整数画线法与 Pineda 并行边缘函数，在双三角形接缝显微镜体验 Top-Left 填充规则如何根治漏缝与重绘，在 16×16 像素网格拖动三角形检视 2×2 Quad 辅助线程浪费与透视校正插值 (u/w)，并畅玩 3 关 GPU 光栅化架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
@@ -507,7 +515,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Painter Algorithm, BSP Trees, Z-Buffer & Deferred Shading Intro',
     concepts: ['画家算法与循环遮挡悖论', 'BSP 二叉空间分割树', '逐像素 Z-Buffer 深度测试', 'Early-Z 与延迟着色 (G-Buffer)'],
     playgroundTitle: '画家算法循环遮挡 vs Z-Buffer 对决台',
-    playgroundDescription: '构造三个相互穿插遮挡的三角形，直观演示按面排序为何失败，以及逐像素深度缓冲如何解决。',
+    playgroundDescription: '用 3Blue1Brown 偏序传递性视角证明为什么画家算法在循环遮挡风车 (A≺B≺C≺A) 下必然崩溃，拖动相机体验 DOOM 的 BSP 二叉空间分割树零排序遍历，在现代 GPU 深度管线实验室对比 Early-Z 过绘制热力图与延迟着色 G-Buffer 四大物理通道，并畅玩 3 关可见性总架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
@@ -531,7 +540,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Flat/Gouraud/Phong Shading, Blinn-Phong & Cook-Torrance Microfacet PBR',
     concepts: ['Lambert 漫反射与半程向量 H', 'Flat vs Gouraud vs Phong 着色频率', '能量守恒与 BRDF', 'Cook-Torrance 微表面模型 (D, F, G)'],
     playgroundTitle: '材质球着色演化与 PBR 微表面实验室',
-    playgroundDescription: '同屏对比 Flat/Gouraud/Phong，并实时调节 PBR 材质球的 Roughness、Metallic 与微表面法线分布曲线。',
+    playgroundDescription: '用 3Blue1Brown 微表面角平分线几何直觉推导半程向量 H=(L+V)/||L+V|| 与 Cook–Torrance BRDF (GGX D、Schlick F、Smith G 与 4(n·l)(n·v) 消去定理)，同屏对比 Flat/Gouraud/Phong 着色频率与实时 PBR 材质球，畅玩 3 关 PBR 首席材质技术美术师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
@@ -555,7 +565,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'UV Mapping, Perspective-Correct Interpolation, Mipmaps & Normal Mapping',
     concepts: ['屏幕空间仿射扭曲 vs 1/z 透视校正插值', '双线性与三线性过滤', 'Mipmap 层级计算与各向异性过滤', '切线空间法线贴图 (TBN Matrix)'],
     playgroundTitle: '透视校正插值与 Mipmap 层级可视化仪',
-    playgroundDescription: '一键对比错误的仿射纹理插值与正确的透视校正插值，开启 Mipmap 彩色层级视图并测试法线贴图光照。',
+    playgroundDescription: '用 3Blue1Brown 双曲透视几何与雅可比矩阵推导 1/Z 与 u/Z 屏幕线性插值定理、Mipmap 金字塔 d=log2(ρ) 与 TBN 切线空间法线矩阵，在双实验台对比 PS1 对角线仿射扭曲、Mipmap 彩虹 LOD 与各向异性过滤，并畅玩 3 关首席纹理与材质架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
@@ -579,7 +590,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Planar Projection Shadows, Silhouette Edges & Stencil Shadow Volumes',
     concepts: ['本影 (Umbra) 与半影 (Penumbra)', '平面投影阴影矩阵推导', '轮廓边检测与阴影体积挤出', 'Stencil Buffer +1/-1 深度通行计数'],
     playgroundTitle: '阴影体 (Shadow Volume) 射线计数沙盒',
-    playgroundDescription: '可视化几何体沿光线方向挤出的阴影体积锥，演示视线穿过前后壁时模板缓冲计数器的变化。',
+    playgroundDescription: '用 3Blue1Brown 齐次外积与拓扑环绕数定理推导 Blinn 平面投影阴影矩阵 M=(Π·L)I-LΠᵀ、轮廓边检测与 Stencil Buffer +1/-1 深度计数 (Z-Pass vs. Carmack\'s Reverse Z-Fail)，在双实验台亲手把相机拖入阴影锥内部复现 Z-Pass 反转并用卡马克反转修复，畅玩 3 关 Doom 3 阴影引擎架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
@@ -597,7 +609,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Two-Pass Shadow Mapping, Shadow Acne, Bias & Percentage Closer Filtering',
     concepts: ['光源空间深度图渲染', 'Shadow Acne 成因与 Slope-Scale Bias', 'Peter Panning 悬浮伪影', 'PCF 软阴影滤波核'],
     playgroundTitle: 'Shadow Map 双视角调试工作台',
-    playgroundDescription: '同屏展示光源深度纹理与主相机画面，亲手调参复现 Shadow Acne 摩尔纹并用 Bias 与 PCF 修复。',
+    playgroundDescription: '用 3Blue1Brown 纹素量化阶梯与赫维赛德阶跃函数不等式 H(E[z])≠E[H(z)] 推导斜率深度偏移 ε=(Δs/2)tan(θ)、Peter Panning 成因以及 PCF 与 PCSS 接触硬化软阴影，在双实验台同屏对比光源深度图与主相机画面，并畅玩 3 关首席阴影渲染工程师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
@@ -623,7 +636,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Camera Path Interpolation, Arc-Length Parameterization & Orientation Splines',
     concepts: ['关键帧插值与 Ease-In/Ease-Out', '为什么参数 t 匀速会导致镜头忽快忽慢', '弧长参数化查找表 (Arc-Length Reparameterization)', 'Frenet 标架与四元数朝向平滑'],
     playgroundTitle: '3D 电影运镜轨迹与弧长匀速编辑器',
-    playgroundDescription: '在 3D 样条路径上对比“参数 t 匀速”与“弧长 s 匀速”的相机运动速度，实时调整时间缓动曲线。',
+    playgroundDescription: '用 3Blue1Brown 微积分链式法则与反函数求导定理推导弧长参数化 u=s⁻¹(e(t)) 如何完美约掉曲线内禀导数模长 ||P\'(u)||，在双实验台同轨对比参数直驱与弧长匀速竞速、亲眼目睹 S 弯拐点处 Frenet 标架 180° 翻转并用 World-Up + Banking 修复，畅玩 3 关好莱坞首席虚拟运镜总监游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'UCD',
@@ -641,7 +655,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Rigging, Bind Pose Matrices & Linear Blend Skinning (LBS / SSD)',
     concepts: ['骨骼层级与 Bind Pose 逆矩阵', '线性混合蒙皮公式 ∑ w_i T_i B_i⁻¹ v', '顶点权重热力图', 'Candy-Wrapper 体积坍缩缺陷与双四元数蒙皮'],
     playgroundTitle: '骨骼蒙皮权重绘制与关节扭转实验室',
-    playgroundDescription: '旋转双骨关节并调节顶点混合权重，观察平滑蒙皮过渡以及大角度扭转时的糖果纸坍缩现象。',
+    playgroundDescription: '用 3Blue1Brown 坐标系切换与旋转流形弦长坍缩 cos(θ/2) 直觉推导绑定逆矩阵 M_i=T_i B_i⁻¹、线性混合蒙皮 (LBS) 糖果纸坍缩 (180° 扭转时 det=0) 与双四元数蒙皮 (DQS)，在双实验台体验权重热力图与 LBS/DQS 同屏扭转竞技场，畅玩 3 关首席角色蒙皮技术总监游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
@@ -659,7 +674,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Phase Space, Explicit/Implicit Euler, Midpoint & RK4 Stability',
     concepts: ['一阶与二阶常微分方程状态向量', '相空间向量场', '显式欧拉为何能量无界爆炸', '隐式欧拉、半隐式欧拉与 RK4 精度对比'],
     playgroundTitle: 'ODE 数值积分器稳定性竞技场',
-    playgroundDescription: '在弹簧谐振子相空间中同时运行 Explicit Euler、Symplectic Euler、Midpoint 与 RK4，调大 Δt 观察发散与收敛。',
+    playgroundDescription: '用 3Blue1Brown 相空间正交切线与勾股定理斜边直觉推导显式欧拉能量爆炸 (1+h²)、隐式欧拉无条件稳定衰减 1/(1+h²) 与半隐式（辛）欧拉保面积定理 det(A)=1，在五大积分器相空间竞技场与粒子涡旋力场沙盒实时对比 Explicit/Implicit/Symplectic/Midpoint/RK4，畅玩 3 关首席物理引擎架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
@@ -677,7 +693,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Structural/Shear/Bending Springs, Hooke Law, Damping & Collision Constraints',
     concepts: ['结构弹簧、剪切弹簧与弯曲弹簧拓扑', '胡克定律与速度阻尼力', '显式/半隐式时间步进与刚度危机', '球体碰撞检测与位置约束'],
     playgroundTitle: '3D 交互式布料风洞与张力可视化沙盒',
-    playgroundDescription: '用鼠标拖拽或取消布料固定针脚，开启风场与碰撞球，按受力大小实时着色内部弹簧张力。',
+    playgroundDescription: '用 3Blue1Brown 势能负梯度与刚度矩阵零空间直觉推导三维向量胡克定律、为什么阻尼力必须投影到弹簧轴向 (Δv·d̂)d̂、为什么仅有结构弹簧会平行四边形坍缩，在 3D 实时布料风洞拖拽拨动布料、解开针脚并观察弹簧张力热力图与球体 SDF 碰撞，畅玩 3 关首席布料物理总监游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',

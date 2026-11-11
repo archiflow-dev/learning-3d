@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 21: 光照与着色模型：从 Phong 到现代微表面 PBR | Shading Models & Cook-Torrance PBR</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body { background: #020617; color: #f1f5f9; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    canvas { touch-action: none; }
+    .math-box { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 0.75rem; padding: 1rem; }
+  </style>
+</head>
+<body class="min-h-screen selection:bg-indigo-500 selection:text-white">
+  <!-- Top Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 transition">
+          ← Course Index
+        </a>
+        <div>
+          <div class="flex items-center gap-2 text-xs font-bold text-indigo-400">
+            <span>Stage 4 • Rasterization Pipeline, Projection & Shaders</span>
+            <span>•</span>
+            <span>Lesson 21 / 32</span>
+          </div>
+          <h1 class="text-base sm:text-lg font-extrabold text-white">
+            L21: 光照与着色模型：从 Flat/Gouraud/Phong 到现代微表面 PBR (Cook–Torrance)
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button onclick="toggleLang()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition">
+          <span>🌐</span>
+          <span>EN / 中文</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap gap-2 pb-3">
+      <button onclick="switchTab(1)" id="tab-btn-1" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow">
+        1. 📐 3B1B 着色频率、半程向量 H 与微表面 D-F-G 直觉
+      </button>
+      <button onclick="switchTab(2)" id="tab-btn-2" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        2. 🌐 实时 PBR 材质球与 D / F / G 通道拆解实验室
+      </button>
+      <button onclick="switchTab(3)" id="tab-btn-3" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        3. 🎥 UCD L08 / MIT L13 & 工业级 GLSL PBR 源码
+      </button>
+      <button onclick="switchTab(4)" id="tab-btn-4" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        4. 🎮 3 关 PBR 与材质首席技术美术挑战
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-8">
+    <!-- ==================== TAB 1: 3B1B INTUITION ==================== -->
+    <section id="tab-1" class="space-y-8">
+      <!-- Part 1: Flat vs Gouraud vs Phong Shading Frequency -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-700/60 text-xs font-bold text-indigo-300">
+          <span>💡 Gouraud (1971) • Phong (1975) • Jim Blinn (1977) • Cook–Torrance (1982)</span>
+        </div>
+        <h2 class="text-xl sm:text-2xl font-extrabold text-white" data-zh="1. 别把“着色频率”和“反射模型”混为一谈！为什么 Gouraud 着色会把高光彻底吞掉？" data-en="1. Shading Frequency vs. Reflectance Model: Why Does Gouraud Shading Swallow Specular Highlights?">
+          1. 别把“着色频率”和“反射模型”混为一谈！为什么 Gouraud 着色会把高光彻底吞掉？
+        </h2>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-6 space-y-3.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p>
+              初学者常问：“Phong 着色和 Phong 光照模型有什么区别？”它们属于两个完全正交的维度：
+              <strong>着色频率 (Shading Frequency)</strong> 决定“在什么粒度上执行光照方程”（每三角形、每顶点、还是每像素）；而 <strong>反射模型 (BRDF)</strong> 决定“光照方程本身怎么写”！
+            </p>
+            <ul class="list-disc pl-5 space-y-2 text-xs">
+              <li>
+                <strong class="text-amber-300">Flat Shading（逐面片着色，1 次/三角形）</strong>：整个三角形共用唯一一个面法线 $\mathbf{N}_f = \text{normalize}((V_1-V_0)\times(V_2-V_0))$，画面像棱角分明的水晶切面。
+              </li>
+              <li>
+                <strong class="text-rose-300">Gouraud Shading（逐顶点着色 + 颜色插值，3 次/三角形）</strong>：在三个顶点 $V_0, V_1, V_2$ 处分别算出颜色 $C_0, C_1, C_2$，再用重心坐标在三角形内部线性插值颜色。
+                <br/><span class="text-rose-400 font-semibold">致命缺陷</span>：高光函数 $(\mathbf{N}\cdot\mathbf{H})^p$ 是高度非线性的尖峰！如果一束强光恰好打在大三角形的<strong>正中心</strong>（而三个顶点離高光中心都很远，算出来的顶点高光全为 $0$），那么无论怎么线性插值三个 $0$，<strong>三角形内部的高光都会彻底人间蒸发</strong>！
+              </li>
+              <li>
+                <strong class="text-emerald-300">Phong Shading（逐顶点法线插值 + 逐像素着色）</strong>：不在顶点算颜色，而是用重心坐标把<strong>顶点法线</strong>插值到每一个像素，<strong>逐像素重新归一化 $\mathbf{N}(x,y) = \text{normalize}(\alpha\mathbf{N}_0 + \beta\mathbf{N}_1 + \gamma\mathbf{N}_2)$</strong> 并计算光照——哪怕三角形再大，中心高光也圆润锐利！
+              </li>
+            </ul>
+          </div>
+
+          <!-- Interactive Visualizer 1A: Flat vs Gouraud vs Phong Highlight Catcher -->
+          <div class="lg:col-span-6 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="font-bold text-cyan-300">🔬 交互实验 1A：低模球面上的 Flat vs. Gouraud vs. Phong 高光对比</span>
+              <span class="text-amber-300 font-mono" id="freq-light-lbl">拖动下方滑块让高光扫过网格中心</span>
+            </div>
+
+            <canvas id="canvas-freq" width="520" height="225" class="w-full rounded-lg bg-slate-900 border border-slate-800"></canvas>
+
+            <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+              <div class="flex justify-between mb-1">
+                <span>光源水平瞄准位置 $x_{\text{light}}$ (观察中心高光是否丢失):</span>
+                <span id="lbl-freq-lx" class="font-mono font-bold text-cyan-400">0.00 (正对三角形中心!)</span>
+              </div>
+              <input id="slider-freq-lx" type="range" min="-0.8" max="0.8" step="0.02" value="0.0" oninput="updateFreqLab()" class="w-full accent-cyan-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: From Blinn-Phong Halfway Vector H to Cook-Torrance Microfacet PBR (D, F, G) -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <h3 class="text-lg sm:text-xl font-bold text-emerald-300">
+          2. 从半程向量 $\mathbf{H}$ 到微表面 PBR (Cook–Torrance)：为什么物理世界由 $D \cdot F \cdot G$ 统治？
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-6 space-y-3.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p>
+              <strong>3Blue1Brown 微观几何直觉：为什么半程向量 $\mathbf{H} = \frac{\mathbf{L} + \mathbf{V}}{\|\mathbf{L} + \mathbf{V}\|}$ 是整个现代 PBR 的基石？</strong>
+              把任何粗糙物体（磨砂金属、塑料、皮肤）放在电子显微镜下放大一万倍，你会发现它的表面是由无数个朝向各异的**微小理想平面镜（Microfacets，微平面）**组成的崎岖山谷！
+            </p>
+            <p>
+              现在问一个纯粹的几何问题：<strong>在这些成千上万个微平面中，究竟哪些微平面能把来自方向 $\mathbf{L}$ 的入射光，恰好反射进方向 $\mathbf{V}$ 的相机眼睛里？</strong>
+              根据反射定律（入射角等于反射角），只有那些<strong>微法线 $\mathbf{m}$ 恰好对准了 $\mathbf{L}$ 与 $\mathbf{V}$ 的角平分线——也就是半程向量 $\mathbf{H}$</strong> 的微平面（即满足 $\mathbf{m} = \mathbf{H}$ 的“有效微镜面”），才能把光子反射进相机！
+            </p>
+            <div class="math-box">
+              $$f_{\text{Cook-Torrance}}(\mathbf{l}, \mathbf{v}) = k_d \frac{\mathbf{c}_{\text{diff}}}{\pi} + \frac{\overbrace{D(\mathbf{h}, \alpha)}^{\text{朝向 }\mathbf{h}\text{ 的微镜面密度}} \cdot \overbrace{F(\mathbf{v}, \mathbf{h}, F_0)}^{\text{菲涅尔反射率}} \cdot \overbrace{G(\mathbf{l}, \mathbf{v}, \alpha)}^{\text{未被山峰挡住的比例}}}{4 (\mathbf{n} \cdot \mathbf{l}) (\mathbf{n} \cdot \mathbf{v})}$$
+            </div>
+            <ol class="list-decimal pl-5 space-y-2 text-xs">
+              <li>
+                <strong class="text-cyan-300">$D(\mathbf{h}, \alpha)$ — GGX 微表面法线分布函数 (NDF)</strong>：统计有多大比例的微平面法线恰好朝向 $\mathbf{h}$：
+                $$D_{\text{GGX}}(\mathbf{n}, \mathbf{h}, \alpha) = \frac{\alpha^2}{\pi \big((\mathbf{n}\cdot\mathbf{h})^2 (\alpha^2 - 1) + 1\big)^2}, \qquad (\alpha = \text{Roughness}^2)$$
+                与违反能量守恒的传统 Blinn–Phong 不同，当粗糙度变大时，GGX 波瓣变宽的同时<strong>峰值高度自动按比例大幅降低</strong>，保证半球积分能量恒等于 $1$！
+              </li>
+              <li>
+                <strong class="text-amber-300">$F(\mathbf{v}, \mathbf{h}, F_0)$ — Schlick 菲涅尔反射方程</strong>：
+                $$F(\mathbf{v}, \mathbf{h}) = F_0 + (1 - F_0)\big(1 - (\mathbf{v}\cdot\mathbf{h})\big)^5$$
+                <strong>金属 (Conductors) vs. 电介质 (Dielectrics)</strong>：非金属（塑料/水/玉石）垂直反射率极低（$F_0 \approx 0.04$ 无色灰白），折射进内部的光形成漫反射 $\mathbf{c}_{\text{diff}}$；而<strong>金属内部自由电子会瞬间吸收所有折射光（漫反射 $\mathbf{c}_{\text{diff}} \equiv \mathbf{0}$！）</strong>，其全部颜色来自带色彩倾向的高反射率 $F_0$（如黄金 $F_0 = (1.0, 0.78, 0.34)$），但在掠射边缘（$\mathbf{v}\cdot\mathbf{h} \to 0$）无论是金属还是塑料都会趋向 $100\%$ 全反射白光！
+              </li>
+              <li>
+                <strong class="text-emerald-300">$G(\mathbf{l}, \mathbf{v}, \alpha)$ — Smith 几何遮蔽与掩蔽函数 (Shadowing-Masking)</strong>：在粗糙的微观山谷中，有些微平面虽然朝向 $\mathbf{h}$，但入射光 $\mathbf{l}$ 被左侧山峰挡住了（<strong>Shadowing 阴影</strong>），或者反射光 $\mathbf{v}$ 被右侧山峰拦住了（<strong>Masking 掩蔽</strong>）！$G \in [0, 1]$ 精确扣除了这部分死角，并压制分母 $4(\mathbf{n}\cdot\mathbf{l})(\mathbf{n}\cdot\mathbf{v})$ 在掠射角处的无穷大爆炸！
+              </li>
+            </ol>
+          </div>
+
+          <!-- Interactive Visualizer 1B: Microfacet V-Cavity & GGX Polar Lobe -->
+          <div class="lg:col-span-6 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="font-bold text-emerald-300">🔬 交互实验 1B：微观微平面山谷遮蔽与 GGX 能量守恒极坐标波瓣</span>
+              <span id="micro-stats-badge" class="font-mono text-amber-300 font-bold">Roughness = 0.35</span>
+            </div>
+
+            <canvas id="canvas-microfacet" width="520" height="295" class="w-full rounded-lg bg-slate-900 border border-slate-800"></canvas>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="flex justify-between mb-1">
+                  <span>粗糙度 Roughness:</span>
+                  <span id="lbl-mf-rough" class="font-mono font-bold text-emerald-400">0.35</span>
+                </div>
+                <input id="slider-mf-rough" type="range" min="0.08" max="0.95" step="0.02" value="0.35" oninput="updateMicrofacetLab()" class="w-full accent-emerald-400" />
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="flex justify-between mb-1">
+                  <span>视线掠射角 $\theta_v$:</span>
+                  <span id="lbl-mf-angle" class="font-mono font-bold text-amber-400">45°</span>
+                </div>
+                <input id="slider-mf-angle" type="range" min="5" max="85" step="1" value="45" oninput="updateMicrofacetLab()" class="w-full accent-amber-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: REAL-TIME PBR MATERIAL SPHERE LAB ==================== -->
+    <section id="tab-2" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-extrabold text-white">
+              🌐 实时 Cook–Torrance PBR 材质球与 $D / F / G$ 分量拆解实验室
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">
+              自由调节粗糙度 (Roughness)、金属度 (Metallic) 与基础色，或一键切换右侧分量透视按钮，单独检视 GGX 法线分布 $D$、菲涅尔边缘反射 $F$ 与 Smith 几何遮蔽 $G$！
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5">
+            <button onclick="applyPBRPreset('gold')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/20 border border-amber-500/50 text-amber-300">🪙 24K 纯金</button>
+            <button onclick="applyPBRPreset('copper')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-orange-500/20 border border-orange-500/50 text-orange-300">🥉 拉丝紫铜</button>
+            <button onclick="applyPBRPreset('plastic')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-500/20 border border-rose-500/50 text-rose-300">🚗 红色清漆塑料</button>
+            <button onclick="applyPBRPreset('jade')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/20 border border-emerald-500/50 text-emerald-300">🪨 磨砂翠玉</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- Left: Real-Time PBR Sphere Canvas -->
+          <div class="lg:col-span-6 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div class="flex flex-wrap gap-1.5">
+              <button onclick="setPBRChannel('combined')" id="pbr-ch-combined" class="px-2.5 py-1 rounded text-[11px] font-bold bg-indigo-600 text-white">完整 PBR</button>
+              <button onclick="setPBRChannel('diffuse')" id="pbr-ch-diffuse" class="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 text-slate-300">仅漫反射 k_d</button>
+              <button onclick="setPBRChannel('specular')" id="pbr-ch-specular" class="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 text-slate-300">仅镜面反射</button>
+              <button onclick="setPBRChannel('D')" id="pbr-ch-D" class="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 text-slate-300">D (GGX 分布)</button>
+              <button onclick="setPBRChannel('F')" id="pbr-ch-F" class="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 text-slate-300">F (Fresnel 项)</button>
+              <button onclick="setPBRChannel('G')" id="pbr-ch-G" class="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 text-slate-300">G (Smith 遮蔽)</button>
+            </div>
+
+            <canvas id="canvas-pbr-sphere" width="400" height="400" class="w-full aspect-square rounded-xl bg-slate-900 border border-slate-800 cursor-pointer"></canvas>
+          </div>
+
+          <!-- Right: Sliders & Physical Telemetry -->
+          <div class="lg:col-span-6 bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 text-xs">
+            <div class="font-bold text-indigo-300 text-sm">🎛️ PBR 物理材质参数控制台 (Disney / UE4 标准工作流)</div>
+
+            <div class="space-y-3">
+              <div class="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="flex justify-between mb-1">
+                  <span class="text-slate-300">粗糙度 (Roughness $\in [0.05, 1.0]$):</span>
+                  <span id="lbl-pbr-rough" class="font-mono font-bold text-emerald-400">0.22</span>
+                </div>
+                <input id="slider-pbr-rough" type="range" min="0.05" max="1.0" step="0.01" value="0.22" oninput="updatePBRSphere()" class="w-full accent-emerald-400" />
+              </div>
+
+              <div class="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="flex justify-between mb-1">
+                  <span class="text-slate-300">金属度 (Metallic: $0=$ 绝缘体, $1=$ 导体金属):</span>
+                  <span id="lbl-pbr-metal" class="font-mono font-bold text-amber-400">1.00</span>
+                </div>
+                <input id="slider-pbr-metal" type="range" min="0.0" max="1.0" step="0.02" value="1.00" oninput="updatePBRSphere()" class="w-full accent-amber-400" />
+              </div>
+
+              <div class="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="flex justify-between mb-1">
+                  <span class="text-slate-300">主光源方位角 $\phi_{\text{light}}$:</span>
+                  <span id="lbl-pbr-light" class="font-mono font-bold text-cyan-400">35°</span>
+                </div>
+                <input id="slider-pbr-light" type="range" min="-80" max="80" step="2" value="35" oninput="updatePBRSphere()" class="w-full accent-cyan-400" />
+              </div>
+            </div>
+
+            <div id="pbr-physics-readout" class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 font-mono text-[11px] text-slate-300">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: UCD L08 & MIT L13 + GLSL PBR CODE ==================== -->
+    <section id="tab-3" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <div class="text-xs font-bold text-amber-400">🎥 配套名校公开课精要 • UC Davis ECS 175 L08 & MIT 6.837 L13</div>
+            <h2 class="text-xl font-extrabold text-white mt-1">
+              Shading Models, BRDF Energy Conservation & Cook–Torrance GLSL Implementation
+            </h2>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+8" target="_blank" rel="noreferrer" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-500/20 border border-indigo-500/50 text-indigo-300">
+              ▶ UC Davis Lecture 08 (Color and Shading) ↗
+            </a>
+            <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500/20 border border-amber-500/50 text-amber-300">
+              ▶ MIT 6.837 Lecture 13 (Shading) ↗
+            </a>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+          <div class="text-xs font-bold text-indigo-300">💻 工业级 Cook–Torrance GGX 微表面 PBR 核心着色器代码 (GLSL / HLSL)</div>
+          <pre class="text-xs font-mono text-slate-200 overflow-x-auto leading-relaxed"><code>// 1. Trowbridge-Reitz GGX 法线分布函数 D(n, h, α)
+float DistributionGGX(vec3 N, vec3 H, float roughness) {
+  float a  = roughness * roughness;
+  float a2 = a * a;
+  float NdotH  = max(dot(N, H), 0.0);
+  float denom = (NdotH * NdotH * (a2 - 1.0) + 1.0);
+  return a2 / (PI * denom * denom);
+}
+
+// 2. Schlick-GGX 几何遮蔽函数 G(n, v, l, k)
+float GeometrySchlickGGX(float NdotV, float roughness) {
+  float r = (roughness + 1.0);
+  float k = (r * r) / 8.0; // 直接光照重映射
+  return NdotV / (NdotV * (1.0 - k) + k);
+}
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+  return GeometrySchlickGGX(max(dot(N, V), 0.0), roughness) *
+         GeometrySchlickGGX(max(dot(N, L), 0.0), roughness);
+}
+
+// 3. Fresnel-Schlick 方程 F(v, h, F0)
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+  return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+// 4. 组合 Cook-Torrance BRDF (严格能量守恒：kD = (1 - F) * (1 - metallic))
+vec3 F0 = mix(vec3(0.04), albedo, metallic);
+vec3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
+float D = DistributionGGX(N, H, roughness);
+float G = GeometrySmith(N, V, L, roughness);
+vec3 specular = (D * G * F) / max(4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0), 0.0001);
+vec3 kD = (vec3(1.0) - F) * (1.0 - metallic);
+vec3 Lo = (kD * albedo / PI + specular) * radiance * max(dot(N, L), 0.0);</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-4" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="text-xs font-bold text-emerald-400">🎮 交互式通关挑战 • PBR & Shading Chief Technical Artist</div>
+            <h2 class="text-xl font-extrabold text-white mt-0.5">
+              3 关 PBR 与材质首席技术美术挑战赛
+            </h2>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-bold">
+            <span id="s-badge-1" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 1: 待通关</span>
+            <span id="s-badge-2" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 2: 待通关</span>
+            <span id="s-badge-3" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 3: 待通关</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <!-- Mission 1 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-cyan-400">关卡 1：拯救消失的盾牌中心高光</div>
+            <p class="text-slate-300 leading-relaxed">
+              一面由大三角形拼成的金属盾牌，当火把正对三角形中心照射时，高光完全消失了！在不增加模型顶点数的前提下，应当将着色频率切换为：
+            </p>
+            <select id="s-m1-sel" onchange="evalSMission1()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              <option value="flat">Flat Shading (逐三角形计算一次光照)</option>
+              <option value="gouraud">Gouraud Shading (逐顶点计算光照后插值颜色)</option>
+              <option value="phong">Phong Shading (逐像素插值并归一化法线 N，再逐像素计算 H·N 高光！)</option>
+            </select>
+            <div id="s-m1-fb" class="text-[11px] text-amber-300">
+              提示：为什么顶点算不出中心的高光？因为必须把法线插值到像素内部！
+            </div>
+          </div>
+
+          <!-- Mission 2 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-indigo-400">关卡 2：锻造物理真实的抛光纯金 (Conductor)</div>
+            <p class="text-slate-300 leading-relaxed">
+              根据导体电磁学原理，纯金属内部自由电子会瞬间吸收所有折射光。请选出抛光 24K 纯金在 PBR 中的正确物理参数特征：
+            </p>
+            <select id="s-m2-sel" onchange="evalSMission2()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              <option value="wrong1">漫反射 k_d = 金黄色，镜面反射 F0 = 0.04 灰白色</option>
+              <option value="gold">漫反射 k_d = 0 (无次表面散射)，基础反射率 F0 = (1.0, 0.78, 0.34) 带金色染色！</option>
+              <option value="wrong2">漫反射 k_d = 1.0，镜面反射 F0 = 1.0 (能量翻倍)</option>
+            </select>
+            <div id="s-m2-fb" class="text-[11px] text-slate-400">
+              提示：当 Metallic = 1.0 时，k_d = (1 - F) * (1 - metallic) 等于多少？
+            </div>
+          </div>
+
+          <!-- Mission 3 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-emerald-400">关卡 3：微表面能量守恒与掠射角压制</div>
+            <p class="text-slate-300 leading-relaxed">
+              在 Cook–Torrance 分母中存在 $4(\mathbf{n}\cdot\mathbf{l})(\mathbf{n}\cdot\mathbf{v})$。当视线趋近掠射边缘（$\mathbf{n}\cdot\mathbf{v} \to 0$）时，分子中的哪一项负责描述微平面山峰互相挡住视线、从而防止反射亮度发散到无穷大？
+            </p>
+            <select id="s-m3-sel" onchange="evalSMission3()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              <option value="D">D(h) — 法线分布函数</option>
+              <option value="F">F(v, h) — 菲涅尔方程</option>
+              <option value="G">G(l, v, α) — Smith 几何遮蔽与掩蔽函数 (Shadowing-Masking)！</option>
+            </select>
+            <div id="s-m3-fb" class="text-[11px] text-slate-400">
+              提示：掠射角下视线几乎贴着山峰走，绝大多数微山谷都被前方的山峰掩蔽 (Masked) 了！
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== LANGUAGE & TABS ====================
+    let currentLang = 'zh';
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.querySelectorAll('[data-zh]').forEach(el => {
+        el.textContent = currentLang === 'zh' ? el.getAttribute('data-zh') : el.getAttribute('data-en');
+      });
+      updateFreqLab();
+      updateMicrofacetLab();
+      updatePBRSphere();
+    }
+
+    function switchTab(idx) {
+      for (let i = 1; i <= 4; i++) {
+        const sec = document.getElementById('tab-' + i);
+        const btn = document.getElementById('tab-btn-' + i);
+        if (i === idx) {
+          sec.classList.remove('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800';
+        }
+      }
+      if (idx === 1) { updateFreqLab(); updateMicrofacetLab(); }
+      if (idx === 2) { updatePBRSphere(); }
+    }
+
+    // ==================== TAB 1A: FLAT VS GOURAUD VS PHONG ====================
+    function updateFreqLab() {
+      const lx = parseFloat(document.getElementById('slider-freq-lx').value);
+      document.getElementById('lbl-freq-lx').textContent =
+        lx.toFixed(2) + (Math.abs(lx) < 0.18 ? ' (正对大三角形中心，Gouraud 丢失高光!)' : ' (靠近顶点)');
+
+      const canvas = document.getElementById('canvas-freq');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const modes = [
+        { id: 'flat', title: '1. Flat (逐面片)', cx: 90 },
+        { id: 'gouraud', title: '2. Gouraud (逐顶点插值)', cx: 260 },
+        { id: 'phong', title: '3. Phong (逐像素法线)', cx: 430 }
+      ];
+
+      const R = 68, cy = 122;
+      const L = { x: lx, y: -0.25, z: Math.sqrt(Math.max(0.1, 1 - lx * lx - 0.0625)) };
+      const V = { x: 0, y: 0, z: 1 };
+      const Hvec = { x: L.x + V.x, y: L.y + V.y, z: L.z + V.z };
+      const hLen = Math.hypot(Hvec.x, Hvec.y, Hvec.z);
+      Hvec.x /= hLen; Hvec.y /= hLen; Hvec.z /= hLen;
+
+      const evalBlinn = (nx, ny, nz) => {
+        const ndotl = Math.max(0, nx * L.x + ny * L.y + nz * L.z);
+        const ndoth = Math.max(0, nx * Hvec.x + ny * Hvec.y + nz * Hvec.z);
+        const spec = Math.pow(ndoth, 42);
+        return Math.min(1.0, 0.12 + 0.48 * ndotl + 0.85 * spec);
+      };
+
+      // Coarse grid quantization step (simulating low-poly mesh facets of size 34px)
+      const qStep = 34;
+
+      modes.forEach(m => {
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(m.title, m.cx - 58, 26);
+
+        for (let dy = -R; dy <= R; dy += 2) {
+          for (let dx = -R; dx <= R; dx += 2) {
+            if (dx * dx + dy * dy > R * R) continue;
+            let I = 0;
+            if (m.id === 'flat') {
+              const fx = Math.floor((dx + R) / qStep) * qStep - R + qStep * 0.5;
+              const fy = Math.floor((dy + R) / qStep) * qStep - R + qStep * 0.5;
+              const nx = fx / R, ny = fy / R;
+              const nz = Math.sqrt(Math.max(0.05, 1 - nx * nx - ny * ny));
+              I = evalBlinn(nx, ny, nz);
+            } else if (m.id === 'gouraud') {
+              // Bilinearly interpolate vertex intensities at coarse grid corners
+              const gx = (dx + R) / qStep, gy = (dy + R) / qStep;
+              const ix = Math.floor(gx), iy = Math.floor(gy);
+              const tx = gx - ix, ty = gy - iy;
+              const vertIntensity = (vx, vy) => {
+                const px = (vx * qStep - R) / R;
+                const py = (vy * qStep - R) / R;
+                const pz = Math.sqrt(Math.max(0.05, 1 - px * px - py * py));
+                return evalBlinn(px, py, pz);
+              };
+              const i00 = vertIntensity(ix, iy), i10 = vertIntensity(ix + 1, iy);
+              const i01 = vertIntensity(ix, iy + 1), i11 = vertIntensity(ix + 1, iy + 1);
+              I = (1 - tx) * (1 - ty) * i00 + tx * (1 - ty) * i10 + (1 - tx) * ty * i01 + tx * ty * i11;
+            } else {
+              // Per-pixel exact normal
+              const nx = dx / R, ny = dy / R;
+              const nz = Math.sqrt(Math.max(0.02, 1 - nx * nx - ny * ny));
+              I = evalBlinn(nx, ny, nz);
+            }
+
+            const c = Math.round(I * 245);
+            ctx.fillStyle = `rgb(${Math.round(c * 0.35)}, ${Math.round(c * 0.72)}, ${c})`;
+            ctx.fillRect(m.cx + dx, cy + dy, 2.2, 2.2);
+          }
+        }
+      });
+    }
+
+    // ==================== TAB 1B: MICROFACET V-CAVITY & GGX POLAR LOBE ====================
+    function ggxD(ndoth, rough) {
+      const a = rough * rough;
+      const a2 = a * a;
+      const d = ndoth * ndoth * (a2 - 1.0) + 1.0;
+      return a2 / (Math.PI * d * d);
+    }
+
+    function smithG(ndotv, ndotl, rough) {
+      const r = rough + 1.0;
+      const k = (r * r) / 8.0;
+      const gv = ndotv / (ndotv * (1.0 - k) + k);
+      const gl = ndotl / (ndotl * (1.0 - k) + k);
+      return gv * gl;
+    }
+
+    function updateMicrofacetLab() {
+      const rough = parseFloat(document.getElementById('slider-mf-rough').value);
+      const angDeg = parseFloat(document.getElementById('slider-mf-angle').value);
+      document.getElementById('lbl-mf-rough').textContent = rough.toFixed(2);
+      document.getElementById('lbl-mf-angle').textContent = angDeg + '°';
+
+      const canvas = document.getElementById('canvas-microfacet');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // Left Half: Microscopic V-Cavity Profile
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('微观 V 型山谷剖面：粗糙度越高，微平面法线越发散且遮蔽越多', 16, 20);
+
+      const baseY = 235;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      const peaks = 8;
+      const spanW = 235;
+      for (let i = 0; i <= peaks * 2; i++) {
+        const x = 18 + (i / (peaks * 2)) * spanW;
+        const isPeak = (i % 2 === 0);
+        const amp = rough * 52;
+        const y = isPeak ? baseY - amp : baseY + amp * 0.4;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Right Half: GGX Polar Lobe D(h)
+      const pCx = 390, pCy = 235, pScale = 68;
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('GGX 法线分布极坐标波瓣 D(θ_h)', 305, 20);
+
+      ctx.strokeStyle = '#334155';
+      ctx.beginPath();
+      ctx.arc(pCx, pCy, 110, Math.PI, 0, false);
+      ctx.moveTo(pCx - 115, pCy);
+      ctx.lineTo(pCx + 115, pCy);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      for (let i = 0; i <= 120; i++) {
+        const theta = (i / 120) * Math.PI - Math.PI * 0.5;
+        const ndoth = Math.cos(theta);
+        const dVal = Math.min(2.6, ggxD(ndoth, rough));
+        const r = dVal * pScale;
+        const x = pCx + Math.sin(theta) * r;
+        const y = pCy - Math.cos(theta) * r;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      const rad = (angDeg * Math.PI) / 180;
+      const ndotv = Math.cos(rad);
+      const gVal = smithG(ndotv, 0.8, rough);
+      const fVal = 0.04 + 0.96 * Math.pow(1.0 - ndotv, 5);
+      document.getElementById('micro-stats-badge').textContent =
+        `D(0)=${ggxD(1, rough).toFixed(2)} | F(${angDeg}°)=${fVal.toFixed(2)} | G=${gVal.toFixed(2)}`;
+    }
+
+    // ==================== TAB 2: REAL-TIME PBR SPHERE ====================
+    let pbrChannel = 'combined';
+    let pbrAlbedo = [1.0, 0.78, 0.34]; // Default 24K Gold
+
+    function setPBRChannel(ch) {
+      pbrChannel = ch;
+      ['combined', 'diffuse', 'specular', 'D', 'F', 'G'].forEach(k => {
+        const btn = document.getElementById('pbr-ch-' + k);
+        btn.className = (k === ch)
+          ? 'px-2.5 py-1 rounded text-[11px] font-bold bg-indigo-600 text-white'
+          : 'px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 text-slate-300';
+      });
+      updatePBRSphere();
+    }
+
+    function applyPBRPreset(preset) {
+      if (preset === 'gold') {
+        pbrAlbedo = [1.0, 0.78, 0.34];
+        document.getElementById('slider-pbr-rough').value = 0.22;
+        document.getElementById('slider-pbr-metal').value = 1.0;
+      } else if (preset === 'copper') {
+        pbrAlbedo = [0.95, 0.64, 0.54];
+        document.getElementById('slider-pbr-rough').value = 0.38;
+        document.getElementById('slider-pbr-metal').value = 1.0;
+      } else if (preset === 'plastic') {
+        pbrAlbedo = [0.88, 0.14, 0.18];
+        document.getElementById('slider-pbr-rough').value = 0.18;
+        document.getElementById('slider-pbr-metal').value = 0.0;
+      } else {
+        pbrAlbedo = [0.16, 0.78, 0.56];
+        document.getElementById('slider-pbr-rough').value = 0.62;
+        document.getElementById('slider-pbr-metal').value = 0.0;
+      }
+      updatePBRSphere();
+    }
+
+    function updatePBRSphere() {
+      const rough = parseFloat(document.getElementById('slider-pbr-rough').value);
+      const metal = parseFloat(document.getElementById('slider-pbr-metal').value);
+      const lightPhi = parseFloat(document.getElementById('slider-pbr-light').value) * (Math.PI / 180);
+
+      document.getElementById('lbl-pbr-rough').textContent = rough.toFixed(2);
+      document.getElementById('lbl-pbr-metal').textContent = metal.toFixed(2);
+      document.getElementById('lbl-pbr-light').textContent = Math.round((lightPhi * 180) / Math.PI) + '°';
+
+      const canvas = document.getElementById('canvas-pbr-sphere');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const cx = W * 0.5, cy = H * 0.5, R = 160;
+      const L = { x: Math.sin(lightPhi) * 0.82, y: -0.42, z: Math.cos(lightPhi) * 0.82 };
+      const lLen = Math.hypot(L.x, L.y, L.z);
+      L.x /= lLen; L.y /= lLen; L.z /= lLen;
+
+      const V = { x: 0, y: 0, z: 1 };
+      const Hvec = { x: L.x + V.x, y: L.y + V.y, z: L.z + V.z };
+      const hLen = Math.hypot(Hvec.x, Hvec.y, Hvec.z);
+      Hvec.x /= hLen; Hvec.y /= hLen; Hvec.z /= hLen;
+
+      const F0 = [
+        0.04 * (1 - metal) + pbrAlbedo[0] * metal,
+        0.04 * (1 - metal) + pbrAlbedo[1] * metal,
+        0.04 * (1 - metal) + pbrAlbedo[2] * metal
+      ];
+
+      const step = 2;
+      for (let py = cy - R; py <= cy + R; py += step) {
+        for (let px = cx - R; px <= cx + R; px += step) {
+          const nx = (px - cx) / R;
+          const ny = (py - cy) / R;
+          const r2 = nx * nx + ny * ny;
+          if (r2 > 1.0) continue;
+          const nz = Math.sqrt(1.0 - r2);
+
+          const ndotl = Math.max(0.001, nx * L.x + ny * L.y + nz * L.z);
+          const ndotv = Math.max(0.001, nz);
+          const ndoth = Math.max(0.0, nx * Hvec.x + ny * Hvec.y + nz * Hvec.z);
+          const vdoth = Math.max(0.0, Hvec.z);
+
+          const D = ggxD(ndoth, rough);
+          const G = smithG(ndotv, ndotl, rough);
+          const fPow = Math.pow(1.0 - ndotv, 5); // Grazing rim + H fresnel
+          const F = [
+            F0[0] + (1.0 - F0[0]) * fPow,
+            F0[1] + (1.0 - F0[1]) * fPow,
+            F0[2] + (1.0 - F0[2]) * fPow
+          ];
+
+          const denom = 4.0 * ndotl * ndotv;
+          const spec = [
+            (D * G * F[0]) / denom,
+            (D * G * F[1]) / denom,
+            (D * G * F[2]) / denom
+          ];
+
+          const kD = [
+            (1.0 - F[0]) * (1.0 - metal),
+            (1.0 - F[1]) * (1.0 - metal),
+            (1.0 - F[2]) * (1.0 - metal)
+          ];
+
+          const diff = [
+            (kD[0] * pbrAlbedo[0]) / Math.PI,
+            (kD[1] * pbrAlbedo[1]) / Math.PI,
+            (kD[2] * pbrAlbedo[2]) / Math.PI
+          ];
+
+          const rad = 3.6;
+          let out = [0, 0, 0];
+          if (pbrChannel === 'combined') {
+            const env = 0.08 * (1 - metal * 0.5);
+            out = [
+              (diff[0] + spec[0]) * rad * ndotl + F[0] * 0.14 + pbrAlbedo[0] * env,
+              (diff[1] + spec[1]) * rad * ndotl + F[1] * 0.14 + pbrAlbedo[1] * env,
+              (diff[2] + spec[2]) * rad * ndotl + F[2] * 0.14 + pbrAlbedo[2] * env
+            ];
+          } else if (pbrChannel === 'diffuse') {
+            out = [diff[0] * rad * ndotl, diff[1] * rad * ndotl, diff[2] * rad * ndotl];
+          } else if (pbrChannel === 'specular') {
+            out = [spec[0] * rad * ndotl, spec[1] * rad * ndotl, spec[2] * rad * ndotl];
+          } else if (pbrChannel === 'D') {
+            const dVis = Math.min(1.0, D * 0.25);
+            out = [dVis, dVis, dVis];
+          } else if (pbrChannel === 'F') {
+            out = F;
+          } else {
+            out = [G, G, G];
+          }
+
+          // Tone map & gamma
+          const tonemap = (v) => Math.min(255, Math.round(Math.pow(v / (1 + v * 0.45), 1 / 2.2) * 255));
+          ctx.fillStyle = `rgb(${tonemap(out[0])}, ${tonemap(out[1])}, ${tonemap(out[2])})`;
+          ctx.fillRect(px, py, step, step);
+        }
+      }
+
+      document.getElementById('pbr-physics-readout').innerHTML = `
+        <div>基础反射率 F₀ = <span class="text-amber-300">(${F0[0].toFixed(2)}, ${F0[1].toFixed(2)}, ${F0[2].toFixed(2)})</span></div>
+        <div>漫反射能量系数 k_D ≈ <span class="text-cyan-300">${((1 - F0[0]) * (1 - metal)).toFixed(2)}</span> (${metal > 0.9 ? '纯金属：自由电子吸收全部折射光，漫反射=0！' : '含次表面漫反射'})</div>
+        <div>GGX 微粗糙参数 α = Roughness² = <span class="text-emerald-400">${(rough * rough).toFixed(4)}</span></div>
+      `;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      updateFreqLab();
+      updateMicrofacetLab();
+      updatePBRSphere();
+
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+    });
+
+    // ==================== TAB 4: MINI-GAME MISSIONS ====================
+    function evalSMission1() {
+      const val = document.getElementById('s-m1-sel').value;
+      const fb = document.getElementById('s-m1-fb');
+      const badge = document.getElementById('s-badge-1');
+      if (val === 'phong') {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = '✓ 通关成功！Phong Shading 将法线插值到每个像素并重新归一化，完美捕捉落在大三角形中心的高光！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 1: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = '未解决！Gouraud 只在三个顶点算高光，依然会漏掉三角形中心的高光尖峰。';
+      }
+    }
+
+    function evalSMission2() {
+      const val = document.getElementById('s-m2-sel').value;
+      const fb = document.getElementById('s-m2-fb');
+      const badge = document.getElementById('s-badge-2');
+      if (val === 'gold') {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = '✓ 通关成功！纯金属导体 k_d = 0（零漫反射），金色完全来自带色彩倾向的菲涅尔基础反射率 F₀！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 2: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = '物理错误！金属没有次表面漫反射（k_d=0），且 F₀ 并非 0.04 灰白而是金属自身的 RGB 反射率。';
+      }
+    }
+
+    function evalSMission3() {
+      const val = document.getElementById('s-m3-sel').value;
+      const fb = document.getElementById('s-m3-fb');
+      const badge = document.getElementById('s-badge-3');
+      if (val === 'G') {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = '✓ 通关成功！Smith 几何遮蔽函数 G(l, v, α) 在掠射角处随 n·v → 0 同步归零，完美抵消分母防止能量爆炸！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 3: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = '不对！D 描述法线朝向，F 在掠射角趋向 1.0，只有几何遮蔽项 G 负责扣除山峰互相遮挡。';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -11,6 +11,23 @@ import { Lesson08Splines } from './lessons/Lesson08Splines';
 import { Lesson09Patches } from './lessons/Lesson09Patches';
 import { Lesson10Subdivision1 } from './lessons/Lesson10Subdivision1';
 import { Lesson11Subdivision2 } from './lessons/Lesson11Subdivision2';
+import { Lesson12RayCasting } from './lessons/Lesson12RayCasting';
+import { Lesson13BarycentricCSG } from './lessons/Lesson13BarycentricCSG';
+import { Lesson14RayTracing } from './lessons/Lesson14RayTracing';
+import { Lesson15Acceleration } from './lessons/Lesson15Acceleration';
+import { Lesson16Antialiasing } from './lessons/Lesson16Antialiasing';
+import { Lesson17GlobalIllumination } from './lessons/Lesson17GlobalIllumination';
+import { Lesson18ProjectionClipping } from './lessons/Lesson18ProjectionClipping';
+import { Lesson19Rasterization } from './lessons/Lesson19Rasterization';
+import { Lesson20VisibilityZBuffer } from './lessons/Lesson20VisibilityZBuffer';
+import { Lesson21ShadingPBR } from './lessons/Lesson21ShadingPBR';
+import { Lesson22TextureMapping } from './lessons/Lesson22TextureMapping';
+import { Lesson23ShadowVolumes } from './lessons/Lesson23ShadowVolumes';
+import { Lesson24ShadowMapping } from './lessons/Lesson24ShadowMapping';
+import { Lesson25CameraMotion } from './lessons/Lesson25CameraMotion';
+import { Lesson26Skinning } from './lessons/Lesson26Skinning';
+import { Lesson27ParticleODEs } from './lessons/Lesson27ParticleODEs';
+import { Lesson28ClothSim } from './lessons/Lesson28ClothSim';
 
 const STORAGE_KEY = 'learning_3d_completed_lessons_v1';
 const LANG_KEY = 'learning_3d_lang_v1';
@@ -237,6 +254,125 @@ export const App: React.FC = () => {
             lang={lang}
             isCompleted={completedIds.includes('L11')}
             onToggleComplete={() => toggleLessonComplete('L11')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L12' ? (
+          <Lesson12RayCasting
+            lang={lang}
+            isCompleted={completedIds.includes('L12')}
+            onToggleComplete={() => toggleLessonComplete('L12')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L13' ? (
+          <Lesson13BarycentricCSG
+            lang={lang}
+            isCompleted={completedIds.includes('L13')}
+            onToggleComplete={() => toggleLessonComplete('L13')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L14' ? (
+          <Lesson14RayTracing
+            lang={lang}
+            isCompleted={completedIds.includes('L14')}
+            onToggleComplete={() => toggleLessonComplete('L14')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L15' ? (
+          <Lesson15Acceleration
+            lang={lang}
+            isCompleted={completedIds.includes('L15')}
+            onToggleComplete={() => toggleLessonComplete('L15')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L16' ? (
+          <Lesson16Antialiasing
+            lang={lang}
+            isCompleted={completedIds.includes('L16')}
+            onToggleComplete={() => toggleLessonComplete('L16')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L17' ? (
+          <Lesson17GlobalIllumination
+            lang={lang}
+            isCompleted={completedIds.includes('L17')}
+            onToggleComplete={() => toggleLessonComplete('L17')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L18' ? (
+          <Lesson18ProjectionClipping
+            lang={lang}
+            isCompleted={completedIds.includes('L18')}
+            onToggleComplete={() => toggleLessonComplete('L18')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L19' ? (
+          <Lesson19Rasterization
+            lang={lang}
+            isCompleted={completedIds.includes('L19')}
+            onToggleComplete={() => toggleLessonComplete('L19')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L20' ? (
+          <Lesson20VisibilityZBuffer
+            lang={lang}
+            isCompleted={completedIds.includes('L20')}
+            onToggleComplete={() => toggleLessonComplete('L20')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L21' ? (
+          <Lesson21ShadingPBR
+            lang={lang}
+            isCompleted={completedIds.includes('L21')}
+            onToggleComplete={() => toggleLessonComplete('L21')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L22' ? (
+          <Lesson22TextureMapping
+            lang={lang}
+            isCompleted={completedIds.includes('L22')}
+            onToggleComplete={() => toggleLessonComplete('L22')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L23' ? (
+          <Lesson23ShadowVolumes
+            lang={lang}
+            isCompleted={completedIds.includes('L23')}
+            onToggleComplete={() => toggleLessonComplete('L23')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L24' ? (
+          <Lesson24ShadowMapping
+            lang={lang}
+            isCompleted={completedIds.includes('L24')}
+            onToggleComplete={() => toggleLessonComplete('L24')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L25' ? (
+          <Lesson25CameraMotion
+            lang={lang}
+            isCompleted={completedIds.includes('L25')}
+            onToggleComplete={() => toggleLessonComplete('L25')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L26' ? (
+          <Lesson26Skinning
+            lang={lang}
+            isCompleted={completedIds.includes('L26')}
+            onToggleComplete={() => toggleLessonComplete('L26')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L27' ? (
+          <Lesson27ParticleODEs
+            lang={lang}
+            isCompleted={completedIds.includes('L27')}
+            onToggleComplete={() => toggleLessonComplete('L27')}
+            onBackToPortal={() => navigateToLesson(null)}
+          />
+        ) : selectedLessonId === 'L28' ? (
+          <Lesson28ClothSim
+            lang={lang}
+            isCompleted={completedIds.includes('L28')}
+            onToggleComplete={() => toggleLessonComplete('L28')}
             onBackToPortal={() => navigateToLesson(null)}
           />
         ) : activeLessonObj ? (
