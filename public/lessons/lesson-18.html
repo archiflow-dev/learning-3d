@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 18: 投影变换与视锥体裁剪 | Perspective Projection, NDC & Clipping</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body { background: #020617; color: #f1f5f9; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    canvas { touch-action: none; }
+    .math-box { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 0.75rem; padding: 1rem; }
+  </style>
+</head>
+<body class="min-h-screen selection:bg-indigo-500 selection:text-white">
+  <!-- Top Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 transition">
+          ← Course Index
+        </a>
+        <div>
+          <div class="flex items-center gap-2 text-xs font-bold text-indigo-400">
+            <span>Stage 4 • Rasterization Pipeline, Projection & Shaders</span>
+            <span>•</span>
+            <span>Lesson 18 / 32</span>
+          </div>
+          <h1 class="text-base sm:text-lg font-extrabold text-white">
+            L18: 投影变换与视锥体裁剪 (Perspective Projection, NDC & Clipping)
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button onclick="toggleLang()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition">
+          <span>🌐</span>
+          <span>EN / 中文</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap gap-2 pb-3">
+      <button onclick="switchTab(1)" id="tab-btn-1" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow">
+        1. 📐 3B1B 透视矩阵推导、1/z 深度与编码裁剪
+      </button>
+      <button onclick="switchTab(2)" id="tab-btn-2" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        2. ✂️ Sutherland–Hodgman 多边形逐边裁剪沙盒
+      </button>
+      <button onclick="switchTab(3)" id="tab-btn-3" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        3. 🎥 UCD L06 / MIT L17 & 4D 齐次裁剪源码
+      </button>
+      <button onclick="switchTab(4)" id="tab-btn-4" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        4. 🎮 3 关投影与裁剪管线架构师挑战
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-8">
+    <!-- ==================== TAB 1: 3B1B INTUITION ==================== -->
+    <section id="tab-1" class="space-y-8">
+      <!-- Intro Card: Object-Order vs Image-Order -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-700/60 text-xs font-bold text-indigo-300">
+          <span>🚀 开启 Stage 4：实时 GPU 光栅化管线 (Object-Order Rendering)</span>
+        </div>
+        <h2 class="text-xl sm:text-2xl font-extrabold text-white" data-zh="为什么线性矩阵能算出非线性的“近大远小”除法 x / (-z)？" data-en="How Can a Linear Matrix Compute Non-Linear Perspective Division x / (-z)?">
+          为什么线性矩阵能算出非线性的“近大远小”除法 $x / (-z)$？
+        </h2>
+        <p class="text-sm text-slate-300 leading-relaxed" data-zh="在 Stage 3（光线追踪）中，我们以像素为外层循环，向场景发射射线（Image-Order）；而在现代 GPU 实时光栅化管线（Stage 4）中，我们把双重循环彻底翻转：以三角形为外层循环，通过一个 4×4 投影矩阵直接把三维顶点拍扁到二维屏幕上（Object-Order）！但这里藏着一个看似不可能的数学悖论：根据小孔成像相似三角形，远近缩放必须除以深度 -z_e（非线性运算），而矩阵乘法永远只能做线性组合 ax + by + cz + d！线性矩阵究竟是怎么变出除法来的？" data-en="In Stage 3 (Ray Tracing), we looped over pixels and shot rays into the scene (Image-Order). In Stage 4 (GPU Rasterization), we invert the loop: we iterate over triangles and project their 3D vertices onto the 2D screen using a 4×4 matrix (Object-Order)! Yet a mathematical paradox looms: perspective foreshortening requires dividing by depth -z_e (a non-linear operation), whereas matrix multiplication is strictly linear! How does a 4×4 matrix pull off division?">
+          在 Stage 3（光线追踪）中，我们以像素为外层循环，向场景发射射线（Image-Order）；而在现代 GPU 实时光栅化管线（Stage 4）中，我们把双重循环彻底翻转：**以三角形为外层循环，通过一个 $4 \times 4$ 投影矩阵直接把三维顶点拍扁到二维屏幕上（Object-Order）**！但这里藏着一个看似不可能的数学悖论：根据小孔成像相似三角形，远近缩放必须**除以深度 $-z_e$**（非线性运算），而矩阵乘法永远只能做线性组合 $ax + by + cz + d$！线性矩阵究竟是怎么变出除法来的？
+        </p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+          <div class="space-y-3 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <h4 class="font-bold text-cyan-300">第一步：相似三角形与 4D 齐次坐标 $w_c = -z_e$ 延迟除法诡计</h4>
+            <p>
+              在观察空间（Eye Space，相机在原点朝 $-Z$ 轴看，近平面为 $z_e = -n$，远平面为 $z_e = -f$，且 $0 < n < f$）中，点 $(x_e, y_e, z_e)$ 投影到近平面 $z = -n$ 上的坐标由相似三角形直接给出：
+            </p>
+            <div class="math-box">
+              $$x_{\text{proj}} = \frac{n \cdot x_e}{-z_e}, \qquad y_{\text{proj}} = \frac{n \cdot y_e}{-z_e}$$
+            </div>
+            <p>
+              既然矩阵乘法自身做不了除法，<strong>4D 齐次坐标（Homogeneous Coordinates）</strong>用了一个绝妙的“分两步走”策略：
+              矩阵只负责把分母 $-z_e$ <strong>原封不动地搬运到第 4 个分量 $w_c$ 上</strong>（只需令矩阵第 4 行为 $[0, 0, -1, 0]$），而把真正的除法留给硬件固定管线最后的 <strong>透视除法 (Perspective Divide: $[x_c/w_c,\; y_c/w_c,\; z_c/w_c]$)</strong>！
+            </p>
+          </div>
+
+          <div class="space-y-3 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <h4 class="font-bold text-emerald-300">第二步：为什么深度 $z_{\text{ndc}}$ 必然是关于 $1/z_e$ 的双曲线？</h4>
+            <p>
+              为了让三维空间中的直线与平面在透视除法后依然保持为直线与平面（从而支持屏幕空间的线性插值），裁剪空间的 $z_c$ 必须是 $z_e$ 和 $1$ 的线性组合 $z_c = A z_e + B$。除以 $w_c = -z_e$ 后，标准设备坐标（NDC）的深度必然具有如下双曲线形式：
+            </p>
+            <div class="math-box">
+              $$z_{\text{ndc}}(z_e) = \frac{z_c}{w_c} = \frac{A z_e + B}{-z_e} = -A - \frac{B}{z_e}$$
+            </div>
+            <p>
+              代入边界条件：近平面 $z_e = -n \mapsto z_{\text{ndc}} = -1$，远平面 $z_e = -f \mapsto z_{\text{ndc}} = +1$，立刻唯一解出透视投影矩阵 $M_{\text{persp}}$：
+            </p>
+            <div class="math-box">
+              $$M_{\text{persp}} = \begin{bmatrix} \frac{2n}{r-l} & 0 & \frac{r+l}{r-l} & 0 \\ 0 & \frac{2n}{t-b} & \frac{t+b}{t-b} & 0 \\ 0 & 0 & -\frac{f+n}{f-n} & -\frac{2fn}{f-n} \\ \mathbf{0} & \mathbf{0} & \mathbf{-1} & \mathbf{0} \end{bmatrix}$$
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive Visualizer 1A: Frustum-to-NDC Deformation & 1/z Z-Fighting Microscope -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3 class="text-lg font-bold text-indigo-300">
+            🔬 交互实验 1A：视锥体 $\to$ NDC 立方体连续挤压变形与 $1/z$ 深度冲突 (Z-Fighting) 显微镜
+          </h3>
+          <span id="zf-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-300 border border-emerald-700">
+            ✓ 深度精度良好 (f/n = 20.0)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 space-y-3">
+            <canvas id="canvas-frustum" width="580" height="330" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+            <p class="text-[11px] text-slate-400 leading-relaxed">
+              💡 <strong>3Blue1Brown 几何挤压直觉</strong>：拖动下方变形滑块 $\alpha$ 从 $0$（观察空间棱台 Frustum）滑向 $1$（NDC 标准立方体 $[-1,1]^3$）——注意原本交汇于相机原点的发散视线如何被强行掰成平行线！近平面被撑大、远平面被剧烈压缩，连带着远处的深度间隔也被挤压得薄如蝉翼！
+            </p>
+          </div>
+
+          <div class="lg:col-span-5 space-y-3.5 text-xs bg-slate-950 p-4 rounded-xl border border-slate-800">
+            <div>
+              <div class="flex justify-between mb-1">
+                <span class="font-bold text-indigo-300">空间连续变形 $\alpha$ (0 = 视锥棱台 $\to$ 1 = NDC 立方体):</span>
+                <span id="lbl-morph" class="font-mono font-bold text-white">0.00</span>
+              </div>
+              <input id="slider-morph" type="range" min="0" max="1" step="0.02" value="0" oninput="updateFrustumLab()" class="w-full accent-indigo-400" />
+            </div>
+
+            <div>
+              <div class="flex justify-between mb-1">
+                <span class="text-slate-300">近裁剪面距离 Near ($n$):</span>
+                <span id="lbl-near" class="font-mono font-bold text-cyan-400">1.00 m</span>
+              </div>
+              <input id="slider-near" type="range" min="0.05" max="2.50" step="0.05" value="1.00" oninput="updateFrustumLab()" class="w-full accent-cyan-400" />
+            </div>
+
+            <div>
+              <div class="flex justify-between mb-1">
+                <span class="text-slate-300">远裁剪面距离 Far ($f$):</span>
+                <span id="lbl-far" class="font-mono font-bold text-amber-400">20.0 m</span>
+              </div>
+              <input id="slider-far" type="range" min="10.0" max="100.0" step="2.0" value="20.0" oninput="updateFrustumLab()" class="w-full accent-amber-400" />
+            </div>
+
+            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1.5">
+              <div class="flex justify-between">
+                <span class="text-slate-400">远近比值 $f / n$ (越大远端精度越差):</span>
+                <span id="lbl-fn-ratio" class="font-mono font-bold text-white">20.0x</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">前 10% 物理距离占用的 Z-Buffer 比例:</span>
+                <span id="lbl-z-waste" class="font-mono font-bold text-rose-400">68.4%</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">远端双墙 ($0.9f$ vs $0.91f$) $\Delta z_{\text{ndc}}$:</span>
+                <span id="lbl-z-gap" class="font-mono font-bold text-emerald-400">0.00124</span>
+              </div>
+            </div>
+
+            <button onclick="setZFightingDemo()" class="w-full py-2 rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-700 text-rose-200 font-bold transition">
+              ⚠️ 一键模拟极端 Z-Fighting (n=0.05, f=100 → 98% 精度浪费！)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive Visualizer 1B: Cohen-Sutherland 4-Bit Outcode Line Clipping -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <h3 class="text-lg font-bold text-emerald-300">
+          2. 为什么必须在透视除法前裁剪？——Cohen–Sutherland 四位区域编码快速线段裁剪
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-5 space-y-3 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p>
+              <strong>为什么硬件必须在 4D 齐次空间 ($-w_c \le x_c, y_c, z_c \le +w_c$) 裁剪，而不能先除以 $w_c$？</strong>
+              因为当一条边跨越相机背后的平面 $z_e = 0$（即 $w_c = 0$）时，相机背后的顶点满足 $w_c < 0$！如果冒然先除以负数 $w_c$，正负号会瞬间翻转，导致相机背后的几何体“里外翻转”横穿整个屏幕！
+            </p>
+            <p>
+              对于线段裁剪，<strong>Cohen–Sutherland 算法 (1967)</strong> 用极度优雅的 <strong>4 位二进制区域码 (Outcode $C = \text{Top}\mid\text{Bottom}\mid\text{Right}\mid\text{Left}$)</strong> 实现了零浮点运算的快速筛选：
+            </p>
+            <ul class="list-disc pl-5 space-y-1.5 text-xs">
+              <li>
+                <strong class="text-emerald-300">平凡接受 (Trivial Accept)</strong>：若两端点编码按位或 $(C_0 \mid C_1) == 0000_2$，说明两点全在视口内，直接通过！
+              </li>
+              <li>
+                <strong class="text-rose-300">平凡拒绝 (Trivial Reject)</strong>：若两端点编码按位与 $(C_0 \ \& \ C_1) \neq 0000_2$，说明两点处于同一条边界外侧半平面（例如都在右侧或都在上方），连求交都不用算，直接整条丢弃！
+              </li>
+              <li>
+                <strong class="text-amber-300">跨界求交裁剪</strong>：仅当既不平凡接受也不平凡拒绝时，才挑出界外端点，按位检测越界边并求交截断。
+              </li>
+            </ul>
+
+            <div id="cs-status-box" class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs space-y-1">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <div class="lg:col-span-7 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-cyan-300">🖱️ 交互实验 1B：直接拖动线段端点 $P_0, P_1$ 跨九宫格测试二进制位运算</span>
+              <div class="flex gap-1.5">
+                <button onclick="setCSPreset('accept')" class="px-2 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 text-[11px] font-bold">平凡接受</button>
+                <button onclick="setCSPreset('reject')" class="px-2 py-1 rounded bg-rose-950 text-rose-300 border border-rose-700 text-[11px] font-bold">平凡拒绝</button>
+                <button onclick="setCSPreset('clip')" class="px-2 py-1 rounded bg-amber-950 text-amber-300 border border-amber-700 text-[11px] font-bold">跨界求交</button>
+              </div>
+            </div>
+            <canvas id="canvas-cohen" width="540" height="300" class="w-full rounded-lg bg-slate-900 border border-slate-800 cursor-pointer"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: SUTHERLAND-HODGMAN POLYGON CLIPPING SANDBOX ==================== -->
+    <section id="tab-2" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-extrabold text-white">
+              ✂️ Sutherland–Hodgman 多边形逐边分治裁剪沙盒 (Step-by-Step Pipeline)
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">
+              直接用鼠标拖动多边形的蓝色控制顶点，点击下方四条裁剪边界阶段按钮（Left $\to$ Right $\to$ Bottom $\to$ Top），实时观察 **In$\to$In / In$\to$Out / Out$\to$Out / Out$\to$In** 四态状态机如何吞吐顶点序列！
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setSHStage(0)" id="sh-btn-0" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">0. 原始多边形</button>
+            <button onclick="setSHStage(1)" id="sh-btn-1" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">1. 裁剪左边界 (Left)</button>
+            <button onclick="setSHStage(2)" id="sh-btn-2" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">2. 裁剪右边界 (Right)</button>
+            <button onclick="setSHStage(3)" id="sh-btn-3" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">3. 裁剪下边界 (Bottom)</button>
+            <button onclick="setSHStage(4)" id="sh-btn-4" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow">4. 裁剪上边界 (全部完成)</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-slate-200">🖼️ 视锥裁剪窗口与多边形顶点交互画布 (拖拽蓝点移动顶点)</span>
+              <div class="flex gap-2">
+                <button onclick="resetSHPoly('star')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold">五边形跨界预设</button>
+                <button onclick="resetSHPoly('tri')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold">大三角形预设</button>
+              </div>
+            </div>
+            <canvas id="canvas-sh" width="540" height="400" class="w-full rounded-lg bg-slate-900 border border-slate-800 cursor-grab"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4 text-xs">
+            <div class="font-bold text-indigo-300">📋 Sutherland–Hodgman 四态状态机规则与实时顶点流日志</div>
+            <div class="grid grid-cols-2 gap-2 text-[11px]">
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="font-bold text-emerald-400">Case 1: In → In</div>
+                <div class="text-slate-400">起点终点都在内 $\implies$ 输出终点 <code>[E]</code></div>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="font-bold text-amber-400">Case 2: In → Out</div>
+                <div class="text-slate-400">从内穿出边界 $\implies$ 输出交点 <code>[I]</code></div>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="font-bold text-rose-400">Case 3: Out → Out</div>
+                <div class="text-slate-400">完全在界外 $\implies$ 输出空 <code>[]</code></div>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="font-bold text-cyan-400">Case 4: Out → In</div>
+                <div class="text-slate-400">从外穿入界内 $\implies$ 输出两顶点 <code>[I, E]</code></div>
+              </div>
+            </div>
+
+            <div id="sh-log-box" class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5 font-mono max-h-64 overflow-y-auto">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: UCD L06 & MIT L17 ==================== -->
+    <section id="tab-3" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <div class="text-xs font-bold text-amber-400">🎥 配套名校公开课精要 • UC Davis ECS 175 L06 & MIT 6.837 L17</div>
+            <h2 class="text-xl font-extrabold text-white mt-1">
+              Projection Matrices, Homogeneous Clipping & Reverse-Z Depth Buffers
+            </h2>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+6" target="_blank" rel="noreferrer" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-500/20 border border-indigo-500/50 text-indigo-300">
+              ▶ UC Davis Lecture 06 (Clipping) ↗
+            </a>
+            <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500/20 border border-amber-500/50 text-amber-300">
+              ▶ MIT 6.837 Lecture 17 (Rasterization I) ↗
+            </a>
+          </div>
+        </div>
+
+        <div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+          <div class="text-xs font-bold text-indigo-300">💻 4D 齐次空间 Sutherland–Hodgman 裁剪核心实现 (Clipping Against w_c + x_c >= 0)</div>
+          <pre class="text-xs font-mono text-slate-200 overflow-x-auto leading-relaxed"><code>// 对 4D 齐次裁剪平面 f(v) = v.w + sign * v[axis] >= 0 执行单边 Sutherland-Hodgman 裁剪
+std::vector<Vec4> clipPolygonAgainstPlane(const std::vector<Vec4>& poly, int axis, float sign) {
+  std::vector<Vec4> out;
+  int n = poly.size();
+  for (int i = 0; i < n; ++i) {
+    const Vec4& S = poly[i];
+    const Vec4& E = poly[(i + 1) % n];
+    float dS = S.w + sign * S[axis]; // >= 0 表示在视锥半平面内 (Inside)
+    float dE = E.w + sign * E[axis];
+    bool inS = (dS >= 0.0f), inE = (dE >= 0.0f);
+
+    if (inS && inE) {
+      out.push_back(E); // Case 1: In -> In
+    } else if (inS && !inE) {
+      float t = dS / (dS - dE); // 线性插值求 4D 超平面交点 I
+      out.push_back(lerp(S, E, t)); // Case 2: In -> Out
+    } else if (!inS && inE) {
+      float t = dS / (dS - dE);
+      out.push_back(lerp(S, E, t)); // Case 4: Out -> In (先压入交点 I，再压入终点 E)
+      out.push_back(E);
+    }
+  }
+  return out;
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-4" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="text-xs font-bold text-emerald-400">🎮 交互式通关挑战 • Projection & Clipping Pipeline Architect</div>
+            <h2 class="text-xl font-extrabold text-white mt-0.5">
+              3 关投影与裁剪管线架构师挑战赛
+            </h2>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-bold">
+            <span id="p-badge-1" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 1: 待通关</span>
+            <span id="p-badge-2" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 2: 待通关</span>
+            <span id="p-badge-3" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 3: 待通关</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <!-- Mission 1 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-cyan-400">关卡 1：Z-Fighting 深度冲突终结者</div>
+            <p class="text-slate-300 leading-relaxed">
+              飞行模拟器远平面固定为 $f = 150\text{ m}$，原本近平面设为 $n = 0.05\text{ m}$ ($f/n = 3000$)，导致远处跑道贴花剧烈闪烁！请将近平面 $n$ 外推，使<strong>远近比 $f/n \le 100$</strong>，同时不能裁掉位于 $z_e = -1.9\text{ m}$ 的机舱仪表盘 ($1.50 \le n \le 1.85\text{ m}$)：
+            </p>
+            <div class="space-y-1">
+              <div class="flex justify-between">
+                <span>近裁剪面 $n$: <strong id="m1-n-lbl" class="text-cyan-400">0.05 m</strong></span>
+                <span>远近比 $f/n$: <strong id="m1-ratio-lbl" class="text-rose-400">3000x</strong></span>
+              </div>
+              <input id="m1-n-slider" type="range" min="0.05" max="2.50" step="0.05" value="0.05" oninput="evalPMission1()" class="w-full accent-cyan-400" />
+            </div>
+            <div id="m1-fb" class="text-[11px] text-rose-400">
+              当前状态：f/n = 3000x 过大，远处跑道发生严重 Z-Fighting！
+            </div>
+          </div>
+
+          <!-- Mission 2 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-indigo-400">关卡 2：Cohen–Sutherland 编码判官</div>
+            <p class="text-slate-300 leading-relaxed">
+              已知线段两个端点的 4 位区域编码分别为 $C_0 = 1001_2$（左上角）和 $C_1 = 1010_2$（右上角）。请判断 GPU 裁剪器对这条线段会采取什么动作：
+            </p>
+            <select id="m2-cs-sel" onchange="evalPMission2()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              <option value="none">请选择判定结果...</option>
+              <option value="accept">平凡接受：(C0 | C1) == 0000</option>
+              <option value="reject">平凡拒绝：(C0 & C1) == 1000 ≠ 0000 (同在上方界外，直接丢弃！)</option>
+              <option value="clip">需要求交裁剪：(C0 & C1) == 0000</option>
+            </select>
+            <div id="m2-fb" class="text-[11px] text-amber-300">
+              提示：计算按位与 1001 & 1010 的最高位（Top 位）！
+            </div>
+          </div>
+
+          <!-- Mission 3 -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="font-bold text-emerald-400">关卡 3：Sutherland–Hodgman 顶点精算师</div>
+            <p class="text-slate-300 leading-relaxed">
+              一个三角形有 <strong>2 个顶点在视口内部 (In)，1 个顶点越过了右边界跑到视口外部 (Out)</strong>。当 Sutherland–Hodgman 算法对右边界执行完一次裁剪后，输出的图形有几个顶点？
+            </p>
+            <select id="m3-sh-sel" onchange="evalPMission3()" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+              <option value="2">2 个顶点 (退化为线段)</option>
+              <option value="3">3 个顶点 (保持三角形)</option>
+              <option value="4">4 个顶点 (削掉一个角变成凸四边形，随后由 GPU 拆分为 2 个三角形！)</option>
+            </select>
+            <div id="m3-fb" class="text-[11px] text-slate-400">
+              提示：In→Out 输出 [I]，Out→In 输出 [I, E]，In→In 输出 [E]！
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== LANGUAGE & TABS ====================
+    let currentLang = 'zh';
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.querySelectorAll('[data-zh]').forEach(el => {
+        el.textContent = currentLang === 'zh' ? el.getAttribute('data-zh') : el.getAttribute('data-en');
+      });
+      updateFrustumLab();
+      updateCohenLab();
+      updateSHLab();
+    }
+
+    function switchTab(idx) {
+      for (let i = 1; i <= 4; i++) {
+        const sec = document.getElementById('tab-' + i);
+        const btn = document.getElementById('tab-btn-' + i);
+        if (i === idx) {
+          sec.classList.remove('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800';
+        }
+      }
+      if (idx === 1) { updateFrustumLab(); updateCohenLab(); }
+      if (idx === 2) { updateSHLab(); }
+    }
+
+    // ==================== TAB 1A: FRUSTUM TO NDC & 1/Z DEPTH ====================
+    function setZFightingDemo() {
+      document.getElementById('slider-near').value = 0.05;
+      document.getElementById('slider-far').value = 100.0;
+      document.getElementById('slider-morph').value = 1.0;
+      updateFrustumLab();
+    }
+
+    function evalZndc(ze, n, f) {
+      // ze is negative in [-f, -n]
+      return (f + n) / (f - n) + (2 * f * n) / ((f - n) * ze);
+    }
+
+    function updateFrustumLab() {
+      const alpha = parseFloat(document.getElementById('slider-morph').value);
+      const n = parseFloat(document.getElementById('slider-near').value);
+      const f = parseFloat(document.getElementById('slider-far').value);
+      const ratio = f / n;
+
+      document.getElementById('lbl-morph').textContent = alpha.toFixed(2);
+      document.getElementById('lbl-near').textContent = n.toFixed(2) + ' m';
+      document.getElementById('lbl-far').textContent = f.toFixed(1) + ' m';
+      document.getElementById('lbl-fn-ratio').textContent = ratio.toFixed(1) + 'x';
+
+      // Fraction of [-1, 1] NDC range consumed by first 10% of physical depth
+      const z10 = -(n + 0.1 * (f - n));
+      const ndc10 = evalZndc(z10, n, f);
+      const wastePct = ((ndc10 - (-1.0)) / 2.0) * 100;
+      document.getElementById('lbl-z-waste').textContent = wastePct.toFixed(1) + '%';
+
+      const zA = -0.9 * f, zB = -0.91 * f;
+      const gap = Math.abs(evalZndc(zB, n, f) - evalZndc(zA, n, f));
+      document.getElementById('lbl-z-gap').textContent = gap.toFixed(5);
+
+      const badge = document.getElementById('zf-badge');
+      if (ratio > 250) {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-rose-950 text-rose-300 border border-rose-700';
+        badge.textContent = `⚠️ 严重 Z-Fighting 风险！(f/n = ${ratio.toFixed(0)}x，前 10% 距离吞掉 ${wastePct.toFixed(1)}% 深度缓冲)`;
+      } else {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-300 border border-emerald-700';
+        badge.textContent = `✓ 深度精度健康 (f/n = ${ratio.toFixed(1)}x)`;
+      }
+
+      const canvas = document.getElementById('canvas-frustum');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // Left Half: Top-Down Frustum -> NDC Cube Morph
+      const leftW = 285;
+      const camX = 34, midY = H * 0.5;
+      const nearX_eye = camX + 45;
+      const farX_eye = camX + 225;
+      const nearHalfH_eye = 32;
+      const farHalfH_eye = 115;
+
+      // In NDC, both near and far have half-height = 85, x spans [75, 235]
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const xNear = lerp(nearX_eye, 75, alpha);
+      const xFar = lerp(farX_eye, 235, alpha);
+      const hNear = lerp(nearHalfH_eye, 85, alpha);
+      const hFar = lerp(farHalfH_eye, 85, alpha);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('俯视图：视锥体 (Frustum) → NDC 立方体变形', 18, 20);
+
+      // Frustum / Cube fill
+      ctx.fillStyle = 'rgba(99, 102, 241, 0.14)';
+      ctx.strokeStyle = '#818cf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(xNear, midY - hNear);
+      ctx.lineTo(xFar, midY - hFar);
+      ctx.lineTo(xFar, midY + hFar);
+      ctx.lineTo(xNear, midY + hNear);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Depth slice lines inside frustum (uniformly spaced in Eye Space z_e)
+      const numSlices = 10;
+      for (let i = 1; i < numSlices; i++) {
+        const uLinear = i / numSlices;
+        const ze = -(n + uLinear * (f - n));
+        const uNdc = (evalZndc(ze, n, f) + 1.0) * 0.5;
+        const uCurr = lerp(uLinear, uNdc, alpha);
+        const sx = lerp(xNear, xFar, uCurr);
+        const sh = lerp(hNear, hFar, uCurr);
+
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(sx, midY - sh);
+        ctx.lineTo(sx, midY + sh);
+        ctx.stroke();
+      }
+
+      // Camera icon
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(camX, midY, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillText('Eye', camX - 10, midY + 18);
+
+      // Right Half: Hyperbolic Curve z_ndc vs -z_e
+      const rx0 = 315, rw = W - rx0 - 22, ry0 = 38, rh = H - 68;
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('非线性深度映射曲线 z_ndc(-z_e) = A + B/z_e', rx0, 20);
+
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(rx0, ry0, rw, rh);
+
+      // Diagonal linear reference
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(rx0, ry0 + rh);
+      ctx.lineTo(rx0 + rw, ry0);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Hyperbolic curve
+      ctx.strokeStyle = ratio > 250 ? '#f43f5e' : '#34d399';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i <= 160; i++) {
+        const u = i / 160;
+        const ze = -(n + u * (f - n));
+        const zndc = evalZndc(ze, n, f); // [-1, 1]
+        const v = (zndc + 1.0) * 0.5;
+        const px = rx0 + u * rw;
+        const py = ry0 + rh - v * rh;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px monospace';
+      ctx.fillText('z_e = -n (-1)', rx0, ry0 + rh + 14);
+      ctx.fillText('z_e = -f (+1)', rx0 + rw - 72, ry0 + rh + 14);
+    }
+
+    // ==================== TAB 1B: COHEN-SUTHERLAND 4-BIT OUTCODE LAB ====================
+    let csP0 = { x: 110, y: 70 };
+    let csP1 = { x: 430, y: 225 };
+    let draggingCS = null;
+    const csBox = { xmin: 160, xmax: 380, ymin: 75, ymax: 225 };
+
+    function setCSPreset(mode) {
+      if (mode === 'accept') {
+        csP0 = { x: 195, y: 115 };
+        csP1 = { x: 340, y: 195 };
+      } else if (mode === 'reject') {
+        csP0 = { x: 95, y: 42 };
+        csP1 = { x: 445, y: 52 };
+      } else {
+        csP0 = { x: 90, y: 190 };
+        csP1 = { x: 435, y: 95 };
+      }
+      updateCohenLab();
+    }
+
+    function computeOutcode(p) {
+      let code = 0;
+      if (p.x < csBox.xmin) code |= 1; // Left
+      if (p.x > csBox.xmax) code |= 2; // Right
+      if (p.y > csBox.ymax) code |= 4; // Bottom (canvas Y down)
+      if (p.y < csBox.ymin) code |= 8; // Top
+      return code;
+    }
+
+    function fmtBits(c) {
+      return ((c >> 3) & 1) + '' + ((c >> 2) & 1) + '' + ((c >> 1) & 1) + '' + (c & 1);
+    }
+
+    function clipLineCS(p0, p1) {
+      let x0 = p0.x, y0 = p0.y, x1 = p1.x, y1 = p1.y;
+      let c0 = computeOutcode({ x: x0, y: y0 });
+      let c1 = computeOutcode({ x: x1, y: y1 });
+      for (let iter = 0; iter < 10; iter++) {
+        if ((c0 | c1) === 0) return { accepted: true, x0, y0, x1, y1 };
+        if ((c0 & c1) !== 0) return { accepted: false };
+        const cOut = c0 ? c0 : c1;
+        let x, y;
+        if (cOut & 8) { // Top
+          x = x0 + (x1 - x0) * (csBox.ymin - y0) / (y1 - y0);
+          y = csBox.ymin;
+        } else if (cOut & 4) { // Bottom
+          x = x0 + (x1 - x0) * (csBox.ymax - y0) / (y1 - y0);
+          y = csBox.ymax;
+        } else if (cOut & 2) { // Right
+          y = y0 + (y1 - y0) * (csBox.xmax - x0) / (x1 - x0);
+          x = csBox.xmax;
+        } else { // Left
+          y = y0 + (y1 - y0) * (csBox.xmin - x0) / (x1 - x0);
+          x = csBox.xmin;
+        }
+        if (cOut === c0) {
+          x0 = x; y0 = y; c0 = computeOutcode({ x: x0, y: y0 });
+        } else {
+          x1 = x; y1 = y; c1 = computeOutcode({ x: x1, y: y1 });
+        }
+      }
+      return { accepted: false };
+    }
+
+    function updateCohenLab() {
+      const canvas = document.getElementById('canvas-cohen');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // Draw 9 regions grid lines
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([5, 5]);
+      [csBox.xmin, csBox.xmax].forEach(x => {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      });
+      [csBox.ymin, csBox.ymax].forEach(y => {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      });
+      ctx.setLineDash([]);
+
+      // Highlight central viewport
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2;
+      ctx.fillRect(csBox.xmin, csBox.ymin, csBox.xmax - csBox.xmin, csBox.ymax - csBox.ymin);
+      ctx.strokeRect(csBox.xmin, csBox.ymin, csBox.xmax - csBox.xmin, csBox.ymax - csBox.ymin);
+
+      // Outcode region labels
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 11px monospace';
+      const regions = [
+        { x: 60, y: 42, c: '1001 (TL)' }, { x: 245, y: 42, c: '1000 (T)' }, { x: 430, y: 42, c: '1010 (TR)' },
+        { x: 60, y: 155, c: '0001 (L)' }, { x: 235, y: 155, c: '0000 (IN)' }, { x: 430, y: 155, c: '0010 (R)' },
+        { x: 60, y: 268, c: '0101 (BL)' }, { x: 245, y: 268, c: '0100 (B)' }, { x: 430, y: 268, c: '0110 (BR)' }
+      ];
+      regions.forEach(r => ctx.fillText(r.c, r.x, r.y));
+
+      const c0 = computeOutcode(csP0);
+      const c1 = computeOutcode(csP1);
+      const res = clipLineCS(csP0, csP1);
+
+      // Draw original line
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.55)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(csP0.x, csP0.y);
+      ctx.lineTo(csP1.x, csP1.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw clipped inside segment if accepted
+      if (res.accepted) {
+        ctx.strokeStyle = '#34d399';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(res.x0, res.y0);
+        ctx.lineTo(res.x1, res.y1);
+        ctx.stroke();
+      }
+
+      // Draw endpoints P0, P1
+      [{ p: csP0, lbl: 'P0 (' + fmtBits(c0) + ')' }, { p: csP1, lbl: 'P1 (' + fmtBits(c1) + ')' }].forEach(item => {
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(item.p.x, item.p.y, 6.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText(item.lbl, item.p.x - 28, item.p.y - 10);
+      });
+
+      const statusBox = document.getElementById('cs-status-box');
+      const orVal = c0 | c1;
+      const andVal = c0 & c1;
+      let verdict = '';
+      if (orVal === 0) {
+        verdict = '<span class="text-emerald-400 font-bold">✓ 平凡接受 (Trivial Accept: C0 | C1 == 0000)</span>';
+      } else if (andVal !== 0) {
+        verdict = '<span class="text-rose-400 font-bold">✗ 平凡拒绝 (Trivial Reject: C0 & C1 != 0000，无需任何求交直接丢弃！)</span>';
+      } else {
+        verdict = '<span class="text-amber-300 font-bold">✂️ 跨界求交裁剪 (Clipped Segment Valid: ' + (res.accepted ? '保留绿段' : '空集') + ')</span>';
+      }
+      statusBox.innerHTML = `
+        <div>Outcode(P0) = <span class="text-cyan-300">${fmtBits(c0)}</span>, Outcode(P1) = <span class="text-cyan-300">${fmtBits(c1)}</span></div>
+        <div>按位或 (C0 | C1) = <span class="text-amber-300">${fmtBits(orVal)}</span> | 按位与 (C0 & C1) = <span class="text-indigo-300">${fmtBits(andVal)}</span></div>
+        <div class="pt-1">${verdict}</div>
+      `;
+    }
+
+    // ==================== TAB 2: SUTHERLAND-HODGMAN SANDBOX ====================
+    let shStage = 4;
+    let shPoly = [
+      { x: 110, y: 180 },
+      { x: 265, y: 40 },
+      { x: 455, y: 155 },
+      { x: 390, y: 355 },
+      { x: 165, y: 340 }
+    ];
+    let draggingSHIdx = -1;
+    const shBox = { xmin: 145, xmax: 395, ymin: 80, ymax: 320 };
+
+    function setSHStage(st) {
+      shStage = st;
+      for (let i = 0; i <= 4; i++) {
+        const btn = document.getElementById('sh-btn-' + i);
+        btn.className = (i === st)
+          ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow'
+          : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      }
+      updateSHLab();
+    }
+
+    function resetSHPoly(type) {
+      if (type === 'star') {
+        shPoly = [
+          { x: 110, y: 180 },
+          { x: 265, y: 40 },
+          { x: 455, y: 155 },
+          { x: 390, y: 355 },
+          { x: 165, y: 340 }
+        ];
+      } else {
+        shPoly = [
+          { x: 95, y: 310 },
+          { x: 280, y: 35 },
+          { x: 465, y: 285 }
+        ];
+      }
+      updateSHLab();
+    }
+
+    function clipSHSingleEdge(poly, side, logs) {
+      if (poly.length === 0) return [];
+      const out = [];
+      const inside = (p) => {
+        if (side === 'left') return p.x >= shBox.xmin;
+        if (side === 'right') return p.x <= shBox.xmax;
+        if (side === 'bottom') return p.y <= shBox.ymax;
+        return p.y >= shBox.ymin; // top
+      };
+      const intersect = (a, b) => {
+        if (side === 'left' || side === 'right') {
+          const x = side === 'left' ? shBox.xmin : shBox.xmax;
+          const t = (x - a.x) / (b.x - a.x);
+          return { x, y: a.y + t * (b.y - a.y) };
+        } else {
+          const y = side === 'bottom' ? shBox.ymax : shBox.ymin;
+          const t = (y - a.y) / (b.y - a.y);
+          return { x: a.x + t * (b.x - a.x), y };
+        }
+      };
+
+      for (let i = 0; i < poly.length; i++) {
+        const S = poly[i];
+        const E = poly[(i + 1) % poly.length];
+        const inS = inside(S), inE = inside(E);
+        if (inS && inE) {
+          out.push(E);
+          if (logs) logs.push(`[${side.toUpperCase()}] Edge ${i}: In → In  ⇒ emit [E]`);
+        } else if (inS && !inE) {
+          const I = intersect(S, E);
+          out.push(I);
+          if (logs) logs.push(`[${side.toUpperCase()}] Edge ${i}: In → Out ⇒ emit [I]`);
+        } else if (!inS && !inE) {
+          if (logs) logs.push(`[${side.toUpperCase()}] Edge ${i}: Out → Out ⇒ emit []`);
+        } else {
+          const I = intersect(S, E);
+          out.push(I);
+          out.push(E);
+          if (logs) logs.push(`[${side.toUpperCase()}] Edge ${i}: Out → In ⇒ emit [I, E]`);
+        }
+      }
+      return out;
+    }
+
+    function updateSHLab() {
+      const canvas = document.getElementById('canvas-sh');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // Draw extended clip lines
+      const sides = ['left', 'right', 'bottom', 'top'];
+      ctx.strokeStyle = '#334155';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(shBox.xmin, 0); ctx.lineTo(shBox.xmin, H);
+      ctx.moveTo(shBox.xmax, 0); ctx.lineTo(shBox.xmax, H);
+      ctx.moveTo(0, shBox.ymin); ctx.lineTo(W, shBox.ymin);
+      ctx.moveTo(0, shBox.ymax); ctx.lineTo(W, shBox.ymax);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw viewport box
+      ctx.strokeStyle = '#6366f1';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(shBox.xmin, shBox.ymin, shBox.xmax - shBox.xmin, shBox.ymax - shBox.ymin);
+
+      // Original polygon dashed outline
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      shPoly.forEach((p, idx) => {
+        if (idx === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      });
+      ctx.closePath();
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Execute up to shStage clipping passes
+      let curr = shPoly.slice();
+      const logs = [];
+      for (let s = 0; s < shStage; s++) {
+        curr = clipSHSingleEdge(curr, sides[s], s === shStage - 1 ? logs : null);
+      }
+
+      // Draw clipped polygon
+      if (curr.length > 0) {
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        curr.forEach((p, idx) => {
+          if (idx === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+        });
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Draw output vertices
+        curr.forEach((p) => {
+          ctx.fillStyle = '#fbbf24';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      // Draw draggable original vertices
+      shPoly.forEach((p, idx) => {
+        ctx.fillStyle = '#38bdf8';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 6.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText('V' + idx, p.x + 8, p.y - 6);
+      });
+
+      const logBox = document.getElementById('sh-log-box');
+      let html = `<div class="text-emerald-300 font-bold">当前阶段 ${shStage}/4：输出顶点数 = ${curr.length}</div>`;
+      if (shStage === 0) {
+        html += `<div class="text-slate-400">尚未执行裁剪，显示原始 ${shPoly.length} 边形。</div>`;
+      } else {
+        logs.forEach(l => {
+          html += `<div class="text-[11px] text-slate-300">${l}</div>`;
+        });
+      }
+      logBox.innerHTML = html;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Cohen-Sutherland drag
+      const csCanvas = document.getElementById('canvas-cohen');
+      csCanvas.addEventListener('pointerdown', (e) => {
+        const rect = csCanvas.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * csCanvas.width;
+        const y = ((e.clientY - rect.top) / rect.height) * csCanvas.height;
+        if (Math.hypot(x - csP0.x, y - csP0.y) < 22) draggingCS = 'p0';
+        else if (Math.hypot(x - csP1.x, y - csP1.y) < 22) draggingCS = 'p1';
+      });
+      window.addEventListener('pointermove', (e) => {
+        if (draggingCS) {
+          const rect = csCanvas.getBoundingClientRect();
+          const x = Math.max(15, Math.min(csCanvas.width - 15, ((e.clientX - rect.left) / rect.width) * csCanvas.width));
+          const y = Math.max(15, Math.min(csCanvas.height - 15, ((e.clientY - rect.top) / rect.height) * csCanvas.height));
+          if (draggingCS === 'p0') csP0 = { x, y }; else csP1 = { x, y };
+          updateCohenLab();
+        }
+        if (draggingSHIdx >= 0) {
+          const shCanvas = document.getElementById('canvas-sh');
+          const rect = shCanvas.getBoundingClientRect();
+          const x = Math.max(15, Math.min(shCanvas.width - 15, ((e.clientX - rect.left) / rect.width) * shCanvas.width));
+          const y = Math.max(15, Math.min(shCanvas.height - 15, ((e.clientY - rect.top) / rect.height) * shCanvas.height));
+          shPoly[draggingSHIdx] = { x, y };
+          updateSHLab();
+        }
+      });
+      window.addEventListener('pointerup', () => {
+        draggingCS = null;
+        draggingSHIdx = -1;
+      });
+
+      const shCanvas = document.getElementById('canvas-sh');
+      shCanvas.addEventListener('pointerdown', (e) => {
+        const rect = shCanvas.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * shCanvas.width;
+        const y = ((e.clientY - rect.top) / rect.height) * shCanvas.height;
+        shPoly.forEach((p, idx) => {
+          if (Math.hypot(x - p.x, y - p.y) < 20) draggingSHIdx = idx;
+        });
+      });
+
+      updateFrustumLab();
+      updateCohenLab();
+      updateSHLab();
+
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+    });
+
+    // ==================== TAB 4: MINI-GAME MISSIONS ====================
+    function evalPMission1() {
+      const n = parseFloat(document.getElementById('m1-n-slider').value);
+      const f = 150.0;
+      const ratio = f / n;
+      document.getElementById('m1-n-lbl').textContent = n.toFixed(2) + ' m';
+      document.getElementById('m1-ratio-lbl').textContent = Math.round(ratio) + 'x';
+      const fb = document.getElementById('m1-fb');
+      const badge = document.getElementById('p-badge-1');
+      if (n >= 1.50 && n <= 1.85) {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = `✓ 通关成功！n=${n.toFixed(2)}m 将远近比压低至 ${ratio.toFixed(1)}x ≤ 100，既消除了远端 Z-Fighting，又保留了 1.9m 处的仪表盘！`;
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 1: ✓ 已通关';
+      } else if (n < 1.50) {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = `当前远近比 f/n = ${ratio.toFixed(1)}x > 100，远端深度精度依然不足！`;
+      } else {
+        fb.className = 'text-[11px] text-amber-300';
+        fb.textContent = `n=${n.toFixed(2)}m > 1.85m，把位于 1.9m 处的机舱仪表盘裁掉了！`;
+      }
+    }
+
+    function evalPMission2() {
+      const val = document.getElementById('m2-cs-sel').value;
+      const fb = document.getElementById('m2-fb');
+      const badge = document.getElementById('p-badge-2');
+      if (val === 'reject') {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = '✓ 通关成功！1001 & 1010 = 1000 ≠ 0000，说明两端点都在 Top 上边界外侧，零浮点运算直接拒绝！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 2: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = '判定错误！请检查 1001 与 1010 的最高位（第 3 位 Top 位）是否同时为 1。';
+      }
+    }
+
+    function evalPMission3() {
+      const val = document.getElementById('m3-sh-sel').value;
+      const fb = document.getElementById('m3-fb');
+      const badge = document.getElementById('p-badge-3');
+      if (val === '4') {
+        fb.className = 'text-[11px] text-emerald-400 font-bold';
+        fb.textContent = '✓ 通关成功！1 个界外顶点被切掉后会产生 2 个边界交点，加上原本保留的 2 个界内顶点，共输出 4 个顶点（凸四边形）！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 3: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400';
+        fb.textContent = '顶点数不对！把三角形的一个角用直线切掉一刀，剩下的图形有几条边、几个顶点？';
+      }
+    }
+  </script>
+</body>
+</html>

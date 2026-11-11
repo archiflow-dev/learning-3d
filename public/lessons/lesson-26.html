@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 26: 角色动画与骨骼蒙皮 (Skeletal Animation, LBS &amp; DQS) | Learning 3D</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
+  <style>
+    body { background: #020617; color: #f8fafc; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .glass { background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.7); }
+    .tab-active { background: linear-gradient(135deg, #4f46e5, #0891b2); color: white; box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35); }
+    input[type="range"] { accent-color: #6366f1; }
+    .katex { font-size: 1.04em; }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+  <!-- Sticky Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center font-black text-white shadow hover:scale-105 transition" title="Back to Portal">3D</a>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Stage 5 • Lesson 26</span>
+            <span class="text-xs text-slate-400">MIT 6.837 L06 • UC Davis ECS 175 Hierarchical Rigging</span>
+          </div>
+          <h1 class="font-bold text-base sm:text-lg text-white tracking-tight">
+            <span class="lang-zh">角色动画与骨骼蒙皮：Bind Pose 逆矩阵、线性混合蒙皮 (LBS) 与双四元数蒙皮 (DQS)</span>
+            <span class="lang-en hidden">Skeletal Animation &amp; Skinning: Inverse Bind Pose, Linear Blend Skinning (LBS) &amp; Dual Quaternions (DQS)</span>
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button id="langToggleBtn" onclick="toggleLang()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition shadow-sm">
+          <span>🌐</span>
+          <span id="langBtnText">EN / 中文</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-3 flex flex-wrap gap-2">
+      <button onclick="switchTab('math')" id="tab-btn-math" class="tab-btn tab-active px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2">
+        <span>📐</span>
+        <span class="lang-zh">1. 核心数学与 3Blue1Brown 直觉</span>
+        <span class="lang-en hidden">1. Core Math &amp; 3B1B Intuition</span>
+      </button>
+      <button onclick="switchTab('lab')" id="tab-btn-lab" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🔬</span>
+        <span class="lang-zh">2. 权重热力图与糖果纸扭转实验室</span>
+        <span class="lang-en hidden">2. Weight Heatmap &amp; Candy-Wrapper Labs</span>
+      </button>
+      <button onclick="switchTab('videos')" id="tab-btn-videos" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🎬</span>
+        <span class="lang-zh">3. 名校课程视频与笔记</span>
+        <span class="lang-en hidden">3. Course Videos &amp; Notes</span>
+      </button>
+      <button onclick="switchTab('game')" id="tab-btn-game" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🎮</span>
+        <span class="lang-zh">4. 闯关游戏：首席角色蒙皮技术总监</span>
+        <span class="lang-en hidden">4. Game: Chief Character Rigging Director</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-8">
+    <!-- ==================== TAB 1: MATH & 3B1B INTUITION ==================== -->
+    <section id="tab-math" class="tab-panel space-y-8">
+      <!-- Hero Banner -->
+      <div class="glass rounded-2xl p-6 sm:p-8 border-l-4 border-l-indigo-500">
+        <div class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">
+          <span class="lang-zh">3Blue1Brown 坐标系切换与矩阵流形直觉 • 为什么两个旋转矩阵求平均会变成奇异降维矩阵？</span>
+          <span class="lang-en hidden">3Blue1Brown Change-of-Basis &amp; Manifold Intuition • Why Averaging Two Rotations Collapses Volume</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4">
+          <span class="lang-zh">从绑定姿态逆矩阵 $M_i = T_i B_i^{-1}$ 到糖果纸坍缩 ($\det=0$) 与双四元数蒙皮 (DQS)</span>
+          <span class="lang-en hidden">From Inverse Bind Matrices $M_i = T_i B_i^{-1}$ to Candy-Wrapper Collapse ($\det=0$) &amp; Dual Quaternions</span>
+        </h2>
+        <p class="text-slate-300 leading-relaxed text-sm sm:text-base">
+          <span class="lang-zh">
+            在现代 3D 游戏与电影工业中，角色网格有数万个顶点，但美术师只需要摆动几十根虚拟骨头（Skeleton Rig），皮肤就会自然地跟随关节弯曲。这背后的核心公式是<strong>线性混合蒙皮 (Linear Blend Skinning, LBS)</strong>：$\mathbf{v}' = \sum_{i} w_i T_i B_i^{-1} \mathbf{v}_{\text{bind}}$。
+            要真正吃透骨骼动画，必须想通两个深刻的几何问题：
+            <strong>第一</strong>，为什么每根骨头的当前矩阵 $T_i$ 右边必须先乘一个<strong>绑定姿态逆矩阵 $B_i^{-1}$</strong>？如果漏掉它会发生什么？
+            <strong>第二</strong>，为什么当角色前臂扭转 $180^\circ$ 时，LBS 会把整条手臂在中间拧成一个半径为 $0$ 的死结（<strong>Candy-Wrapper 糖果纸坍缩伪影</strong>），而<strong>双四元数蒙皮 (Dual Quaternion Skinning, DQS)</strong> 又是如何沿着刚体运动流形 $\text{SE}(3)$ 的测地弧完美保住体积的？
+          </span>
+          <span class="lang-en hidden">
+            In modern 3D games and films, artists animate tens of thousands of skin vertices by moving a few dozen bones via <strong>Linear Blend Skinning (LBS)</strong>: $\mathbf{v}' = \sum_i w_i T_i B_i^{-1} \mathbf{v}_{\text{bind}}$.
+            Two geometric questions lie at the heart of character skinning:
+            <strong>First</strong>, why must every bone's animated matrix $T_i$ be right-multiplied by its <strong>Inverse Bind Pose Matrix $B_i^{-1}$</strong>?
+            <strong>Second</strong>, why does twisting a forearm by $180^\circ$ under LBS pinch the wrist cross-section to a zero-radius point (the notorious <strong>Candy-Wrapper Collapse</strong>), and how does <strong>Dual Quaternion Skinning (DQS)</strong> preserve $100\%$ volume along the $\text{SE}(3)$ manifold?
+          </span>
+        </p>
+      </div>
+
+      <!-- Part 1: Inverse Bind Pose & Linear Blend Skinning Equation -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <span class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-black flex items-center justify-center">1</span>
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              <span class="lang-zh">为什么必须先乘 $B_i^{-1}$？—— 绑定姿态逆矩阵与 LBS 蒙皮方程推导</span>
+              <span class="lang-en hidden">Why Multiply by $B_i^{-1}$ First? — Inverse Bind Pose &amp; LBS Derivation</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">MIT 6.837 L06：从世界空间退回骨骼局部空间 ($B_i^{-1}$)，再随骨骼前往新世界姿态 ($T_i$)</span>
+              <span class="lang-en hidden">MIT 6.837 L06: Un-transforming from Model Space to Bone-Local Space ($B_i^{-1}$), then posing into World Space ($T_i$)</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold uppercase text-indigo-400">
+              <span class="lang-zh">步骤 A：单根骨头的“先退回局部、再推向新世界”两步曲</span>
+              <span class="lang-en hidden">Step A: Two-Step Basis Change for a Single Bone</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <span class="lang-zh">
+                建模师导出的初始角色网格处于 <strong>T-Pose（绑定姿态 Bind Pose）</strong>，顶点 $\mathbf{v}_{\text{bind}}$ 存储在<strong>模型全局坐标系</strong>中。
+                设第 $i$ 根骨头在绑定姿态下的局部到全局变换矩阵为 $B_i = B_{\text{parent}} L_{i,\text{bind}}$。
+                要想知道顶点 $\mathbf{v}_{\text{bind}}$ 绑在第 $i$ 根骨头上时的<strong>局部坐标 $\mathbf{v}_{\text{local}, i}$</strong>，我们必须先用逆矩阵 $B_i^{-1}$ 把它从全局空间拉回第 $i$ 根骨头的局部原点：
+              </span>
+              <span class="lang-en hidden">
+                The mesh is authored in a rest <strong>Bind Pose (T-Pose)</strong> with vertices $\mathbf{v}_{\text{bind}}$ in <strong>Model Space</strong>. Let bone $i$'s local-to-model matrix in the bind pose be $B_i = B_{\text{parent}} L_{i,\text{bind}}$. To find the vertex's constant coordinates $\mathbf{v}_{\text{local},i}$ in bone $i$'s local frame, we first apply $B_i^{-1}$:
+              </span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto border border-slate-800">
+              $$\mathbf{v}_{\text{local}, i} = B_i^{-1} \mathbf{v}_{\text{bind}} \quad \xrightarrow{\text{播放到当前动画帧 } T_i(t)} \quad \mathbf{v}_i'(t) = \underbrace{T_i(t)\, B_i^{-1}}_{M_i(t)} \mathbf{v}_{\text{bind}}$$
+            </div>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">验证特例：当角色还停留在初始 T-Pose 时，$T_i(0) = B_i$，此时 $M_i(0) = B_i B_i^{-1} = I$（单位矩阵），所有顶点纹丝不动！</span>
+              <span class="lang-en hidden">Sanity check: In the rest pose, $T_i(0) = B_i$, so $M_i(0) = B_i B_i^{-1} = I$ (identity) and the mesh stays untouched!</span>
+            </p>
+          </div>
+
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold uppercase text-emerald-400">
+              <span class="lang-zh">步骤 B：多骨骼权重分区统一 (Partition of Unity) 与线性混合</span>
+              <span class="lang-en hidden">Step B: Partition of Unity &amp; Linear Blend Skinning (LBS)</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <span class="lang-zh">
+                对于位于关节折痕处的顶点，我们为其分配一组非负权重 $\{w_i\}$，满足<strong>单位分解条件 (Partition of Unity)</strong> $\sum_{i=1}^k w_i = 1$（保证整体刚体平移时的仿射不变性）。利用矩阵乘法分配律，可将顶点位置加权平均化简为先混合矩阵 $M_i$：
+              </span>
+              <span class="lang-en hidden">
+                For vertices near a joint crease, we assign non-negative weights $\{w_i\}$ satisfying <strong>Partition of Unity</strong> $\sum_{i=1}^k w_i = 1$ (preserving affine invariance under rigid translations):
+              </span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto border border-emerald-500/30">
+              $$\mathbf{v}'(t) = \sum_{i=1}^k w_i \Big(T_i(t)\, B_i^{-1}\, \mathbf{v}_{\text{bind}}\Big) = \left(\sum_{i=1}^k w_i M_i(t)\right) \mathbf{v}_{\text{bind}}$$
+            </div>
+            <p class="text-xs text-emerald-300">
+              <span class="lang-zh">💡 在现代顶点着色器 (Vertex Shader) 中，CPU 只需每帧上传骨骼矩阵数组 $M_i = T_i B_i^{-1}$，每个顶点读取 `uvec4 boneIds` 与 `vec4 weights` 执行 4 次矩阵乘加即可！</span>
+              <span class="lang-en hidden">💡 In a GPU Vertex Shader, the CPU uploads the bone palette $M_i = T_i B_i^{-1}$ once per frame, and each vertex blends 4 matrices via `uvec4 boneIds` and `vec4 weights`!</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Candy-Wrapper Collapse Proof & Dual Quaternion Skinning -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <span class="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-black flex items-center justify-center">2</span>
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              <span class="lang-zh">为什么 $0.5 R_1 + 0.5 R_2$ 会酿成“糖果纸坍缩”？—— 矩阵弦长缩水 $\cos(\theta/2)$ 与双四元数 DQS</span>
+              <span class="lang-en hidden">Why $0.5 R_1 + 0.5 R_2$ Causes Candy-Wrapper Collapse — Chord Shrinkage $\cos(\theta/2)$ &amp; DQS</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">3Blue1Brown 几何证明：旋转群 $\text{SO}(3)$ 是弯曲流形，走弦心直线必然丧失半径！</span>
+              <span class="lang-en hidden">3Blue1Brown Proof: $\text{SO}(3)$ is a curved manifold—cutting across the chord loses radius!</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-rose-500/30 space-y-3">
+            <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">LBS Matrix Defect • Candy-Wrapper Collapse</span>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">当骨头扭转 $180^\circ$ 时，中点混合矩阵行列式直接归零 ($\det = 0$)！</span>
+              <span class="lang-en hidden">At $180^\circ$ Twist, the Midpoint Matrix Has $\det = 0$!</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">设上臂保持单位矩阵 $R_1 = I$，前臂绕长轴 $x$ 扭转角 $\theta$。在手腕中点（权重 $w_1 = w_2 = 0.5$）处，LBS 对两个旋转矩阵求算术平均：</span>
+              <span class="lang-en hidden">Let the upper arm be $R_1 = I$ and the forearm twist around the $x$-axis by angle $\theta$. At the midpoint ($w_1=w_2=0.5$), LBS averages the two matrices:</span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto">
+              $$M_{0.5}(\theta) = \frac{1}{2}\begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{bmatrix} + \frac{1}{2}\begin{bmatrix} 1 & 0 & 0 \\ 0 & \cos\theta & -\sin\theta \\ 0 & \sin\theta & \cos\theta \end{bmatrix} \xrightarrow{\theta = 180^\circ} \begin{bmatrix} 1 & 0 & 0 \\ 0 & \mathbf{0} & \mathbf{0} \\ 0 & \mathbf{0} & \mathbf{0} \end{bmatrix}$$
+            </div>
+            <p class="text-xs text-rose-300">
+              <span class="lang-zh">任意角度 $\theta$ 下，$M_{0.5}(\theta)$ 对圆柱横截面半径的缩放因子为 $\sqrt{\left(\frac{1+\cos\theta}{2}\right)^2 + \left(\frac{\sin\theta}{2}\right)^2} = \cos\!\left(\frac{\theta}{2}\right)$。当 $\theta=180^\circ$ 时，$\cos(90^\circ)=0$，整圈手腕完全坍缩成一个点！</span>
+              <span class="lang-en hidden">For any angle $\theta$, the cross-section radius scales by $\sqrt{\left(\frac{1+\cos\theta}{2}\right)^2 + \left(\frac{\sin\theta}{2}\right)^2} = \cos(\theta/2)$, collapsing to $0$ at $\theta=180^\circ$!</span>
+            </p>
+          </div>
+
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-cyan-500/30 space-y-3">
+            <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Kavan et al. 2007 • Dual Quaternion Skinning (DQS)</span>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">单位双四元数 $\hat{q} = q_r + \epsilon q_d$ 流形投影：半径恒为 $100\%$</span>
+              <span class="lang-en hidden">Unit Dual Quaternion $\hat{q} = q_r + \epsilon q_d$: $100\%$ Volume Retention</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">引入幂零对偶单位 $\epsilon$（满足 $\epsilon^2 = 0$），将每根骨头的旋转四元数 $q_r$ 与平移向量 $\mathbf{t} = (t_x, t_y, t_z)$ 打包为单位双四元数 $\hat{q} = q_r + \epsilon\frac{1}{2}(0, \mathbf{t})q_r$。混合时先统一四元数符号（$\text{dot}(q_{r,0}, q_{r,i}) \ge 0$），再加权求和并除以实部模长归一化：</span>
+              <span class="lang-en hidden">Using the dual unit $\epsilon$ ($\epsilon^2 = 0$), encode rotation $q_r$ and translation $\mathbf{t}$ as $\hat{q} = q_r + \epsilon\frac{1}{2}(0,\mathbf{t})q_r$. Align hemisphere signs ($\text{dot}(q_{r,0}, q_{r,i}) \ge 0$), blend linearly, and normalize:</span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto">
+              $$\hat{q}_{\text{blend}} = \frac{\sum_{i=1}^k w_i \hat{q}_i}{\left\|\sum_{i=1}^k w_i q_{r,i}\right\|} \implies r_{\text{DQS}}(\theta) \equiv 1 \quad (\forall \theta \in [0^\circ, 180^\circ))$$
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer in Tab 1: Chord Shrinkage cos(theta/2) vs Geodesic Arc Cross-Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3 text-xs">
+              <span class="font-bold text-indigo-300">
+                <span class="lang-zh">交互式流形弦长坍缩 $\cos(\theta/2)$ vs. 双四元数测地弧横截面对比仪</span>
+                <span class="lang-en hidden">Interactive Manifold Chord Shrinkage $\cos(\theta/2)$ vs. Dual-Quaternion Cross-Section</span>
+              </span>
+              <span id="mathTwistBadge" class="font-mono px-2.5 py-1 rounded bg-slate-900 text-rose-300 border border-slate-800">LBS Radius: 50.0% | DQS: 100%</span>
+            </div>
+            <canvas id="mathSkinCanvas" width="680" height="340" class="w-full rounded-xl bg-slate-950 border border-slate-800/80"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🎛️ 调节关节扭转角 $\theta$ 与顶点混合权重 $w$</span>
+              <span class="lang-en hidden">🎛️ Adjust Joint Twist $\theta$ &amp; Vertex Blend Weight $w$</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">前臂轴向扭转角 $\theta$ (180° 触发完全坍缩!)</span><span class="lang-en hidden">Forearm Twist Angle $\theta$ (180° = Zero Radius!)</span></span>
+                <span id="valMathTheta" class="font-mono text-indigo-400 font-bold">120°</span>
+              </div>
+              <input id="sliderMathTheta" type="range" min="0" max="180" step="2" value="120" oninput="drawMathSkin()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">前臂骨骼权重 $w_2 \in [0, 1]$ ($w_1 = 1 - w_2$)</span><span class="lang-en hidden">Forearm Bone Weight $w_2 \in [0, 1]$</span></span>
+                <span id="valMathWeight" class="font-mono text-cyan-400 font-bold">0.50</span>
+              </div>
+              <input id="sliderMathWeight" type="range" min="0.00" max="1.00" step="0.02" value="0.50" oninput="drawMathSkin()" class="w-full" />
+            </div>
+
+            <div class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 space-y-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400"><span class="lang-zh">LBS 混合矩阵有效半径比 $r_{\text{LBS}}$:</span><span class="lang-en hidden">LBS Effective Radius $r_{\text{LBS}}$:</span></span>
+                <span id="statLbsRadius" class="font-mono font-bold text-rose-400">50.0%</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400"><span class="lang-zh">LBS 横截面积保留率 $r_{\text{LBS}}^2$:</span><span class="lang-en hidden">LBS Cross-Section Area $r_{\text{LBS}}^2$:</span></span>
+                <span id="statLbsArea" class="font-mono font-bold text-amber-400">25.0%</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400"><span class="lang-zh">DQS 归一化双四元数半径 $r_{\text{DQS}}$:</span><span class="lang-en hidden">DQS Normalized Radius $r_{\text{DQS}}$:</span></span>
+                <span class="font-mono font-bold text-emerald-400">100.0% (Exact SO(3))</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: DUAL INTERACTIVE LABS ==================== -->
+    <section id="tab-lab" class="tab-panel hidden space-y-8">
+      <!-- Lab 1: Elbow Rigging, Inverse Bind Pose & Weight Heatmap -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Laboratory 01 • Bone Hierarchy, Inverse Bind Pose $B_i^{-1}$ &amp; Vertex Weight Heatmap</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">实验台 1：双骨手肘弯曲、顶点权重热力图与 $B_i^{-1}$ 绑定逆矩阵检验台</span>
+              <span class="lang-en hidden">Lab 1: Two-Bone Elbow Bend, Vertex Weight Heatmap &amp; $B_i^{-1}$ Inverse Bind Inspector</span>
+            </h3>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <canvas id="lab1Canvas" width="720" height="400" class="w-full rounded-xl bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🦴 调节手肘弯曲角、权重过渡宽度与 $B_i^{-1}$ 开关</span>
+              <span class="lang-en hidden">🦴 Elbow Angle, Weight Falloff &amp; $B_i^{-1}$ Toggle</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">前臂屈肘角 $\theta_{\text{elbow}}$</span><span class="lang-en hidden">Elbow Bend Angle $\theta_{\text{elbow}}$</span></span>
+                <span id="lab1ValAngle" class="font-mono text-indigo-400 font-bold">85°</span>
+              </div>
+              <input id="lab1SliderAngle" type="range" min="-125" max="125" step="1" value="85" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">关节权重平滑半径 $\sigma$ (0 = 刚性撕裂)</span><span class="lang-en hidden">Weight Smooth Falloff $\sigma$ (0 = Rigid)</span></span>
+                <span id="lab1ValSigma" class="font-mono text-cyan-400 font-bold">0.38</span>
+              </div>
+              <input id="lab1SliderSigma" type="range" min="0.01" max="0.75" step="0.02" value="0.38" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer pt-1">
+              <input id="lab1UseInvBind" type="checkbox" checked onchange="renderLab1()" class="rounded border-slate-700" />
+              <span><span class="lang-zh">乘以绑定姿态逆矩阵 $B_i^{-1}$（取消勾选观察双重位移错位 Bug！）</span><span class="lang-en hidden">Multiply by Inverse Bind Matrix $B_i^{-1}$ (Uncheck to see double-offset bug!)</span></span>
+            </label>
+
+            <div id="lab1StatusBox" class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 text-xs text-slate-300 leading-relaxed"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lab 2: LBS Candy-Wrapper Collapse vs DQS Volume-Preserving Twist Arena -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Laboratory 02 • LBS Candy-Wrapper Collapse vs. Dual Quaternion Skinning (DQS) Twist Arena</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">实验台 2：前臂大角度旋转扭曲 —— LBS 糖果纸坍缩 vs. DQS 双四元数同屏对比</span>
+              <span class="lang-en hidden">Lab 2: Forearm Twist — LBS Candy-Wrapper Collapse vs. DQS Side-by-Side Arena</span>
+            </h3>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <canvas id="lab2Canvas" width="720" height="410" class="w-full rounded-xl bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🎛️ 调节前臂轴向扭转角 $\phi_{\text{twist}}$</span>
+              <span class="lang-en hidden">🎛️ Adjust Forearm Axial Twist $\phi_{\text{twist}}$</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">轴向扭转角 $\phi_{\text{twist}} \in [0^\circ, 180^\circ]$</span><span class="lang-en hidden">Axial Twist Angle $\phi_{\text{twist}} \in [0^\circ, 180^\circ]$</span></span>
+                <span id="lab2ValTwist" class="font-mono text-rose-400 font-bold">156°</span>
+              </div>
+              <input id="lab2SliderTwist" type="range" min="0" max="180" step="2" value="156" oninput="renderLab2()" class="w-full" />
+            </div>
+
+            <div class="flex gap-2">
+              <button onclick="setTwistPreset(90)" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">90° Twist</button>
+              <button onclick="setTwistPreset(156)" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">156° Twist</button>
+              <button onclick="setTwistPreset(180)" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-500/40">180° Collapse!</button>
+            </div>
+
+            <div class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 space-y-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-rose-400 font-bold"><span class="lang-zh">上方 LBS 中心截面直径保持率:</span><span class="lang-en hidden">Top LBS Mid-Radius Retention:</span></span>
+                <span id="lab2StatLbs" class="font-mono font-bold text-rose-300">20.8%</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-emerald-400 font-bold"><span class="lang-zh">下方 DQS 中心截面直径保持率:</span><span class="lang-en hidden">Bottom DQS Mid-Radius Retention:</span></span>
+                <span class="font-mono font-bold text-emerald-300">100.0%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: COURSE VIDEOS & NOTES ==================== -->
+    <section id="tab-videos" class="tab-panel hidden space-y-8">
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Course References • MIT 6.837 &amp; UC Davis ECS 175</span>
+          <h3 class="text-2xl font-extrabold text-white mt-1">
+            <span class="lang-zh">名校公开课视频索引与同步精读笔记</span>
+            <span class="lang-en hidden">University Lecture Video Index &amp; Study Guide</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">MIT 6.837 • Lecture 06</span>
+              <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">MIT Playlist ↗</a>
+            </div>
+            <h4 class="text-lg font-bold text-white">Computer Animation &amp; Skinning (Prof. Justin Solomon)</h4>
+            <ul class="text-xs sm:text-sm text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+              <li>
+                <span class="lang-zh"><strong>关节树递归求值</strong>：从根骨骼 (Root Pelvis) 向下递归累乘局部变换 $T_i = T_{\text{parent}} L_i$。</span>
+                <span class="lang-en hidden"><strong>Recursive Skeleton Evaluation</strong>: Multiplying local joint transforms down the kinematic tree $T_i = T_{\text{parent}} L_i$.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>SSD / LBS 线性混合蒙皮</strong>：$\mathbf{v}' = \sum w_i T_i B_i^{-1} \mathbf{v}$ 的矩阵调色板硬件实现与法线蒙皮。</span>
+                <span class="lang-en hidden"><strong>SSD / LBS Skinning</strong>: Hardware matrix palette skinning $\mathbf{v}' = \sum w_i T_i B_i^{-1} \mathbf{v}$ and normal skinning.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>LBS 的体积塌陷与糖果纸扭曲</strong>：为什么旋转矩阵的算术平均不再属于正交群 $\text{SO}(3)$，以及双四元数 DQS 的修复原理。</span>
+                <span class="lang-en hidden"><strong>LBS Volume Loss &amp; Candy-Wrapper</strong>: Why arithmetic averages of rotation matrices leave $\text{SO}(3)$ and how Dual Quaternions fix it.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">UC Davis ECS 175 • Articulated Figures</span>
+              <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">YouTube ↗</a>
+            </div>
+            <h4 class="text-lg font-bold text-white">Hierarchical Kinematics &amp; Pose Blending (Prof. Kenneth Joy)</h4>
+            <ul class="text-xs sm:text-sm text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+              <li>
+                <span class="lang-zh"><strong>局部关节自由度 (DOF)</strong>：铰链关节（1 DOF，如手肘/膝盖）与球窝关节（3 DOF，如肩部/髋部）。</span>
+                <span class="lang-en hidden"><strong>Joint Degrees of Freedom (DOF)</strong>: Hinge joints (1 DOF, elbow/knee) vs. ball-and-socket joints (3 DOF, shoulder/hip).</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>绑定空间与局部空间对齐</strong>：理解逆矩阵 $B_i^{-1}$ 在连接静态建模网格与动态骨骼层级中的桥梁作用。</span>
+                <span class="lang-en hidden"><strong>Bind-Space Alignment</strong>: How $B_i^{-1}$ bridges static modeling coordinates and animated bone hierarchies.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION PLAYABLE GAME ==================== -->
+    <section id="tab-game" class="tab-panel hidden space-y-8">
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Interactive 3-Mission Challenge • Chief Character Rigging Director</span>
+            <h3 class="text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">🎮 闯关游戏：3A 游戏首席角色绑定与蒙皮技术总监 (3 大实战任务)</span>
+              <span class="lang-en hidden">🎮 Playable Game: AAA Chief Character Rigging &amp; Skinning Director (3 Missions)</span>
+            </h3>
+          </div>
+          <span id="gameScoreBadge" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            Completed: 0 / 3
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <button onclick="selectMission(1)" id="missionTab1" class="p-4 rounded-xl text-left border transition bg-indigo-600/20 border-indigo-500 text-white">
+            <div class="flex items-center justify-between text-xs font-bold text-indigo-300 mb-1">
+              <span>MISSION 01</span>
+              <span id="missionStatus1">⏳ In Progress</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">修复缺失 $B_i^{-1}$ 导致的骨骼双重偏移</span>
+              <span class="lang-en hidden">Fix Missing $B_i^{-1}$ Double-Offset Explosion</span>
+            </div>
+          </button>
+
+          <button onclick="selectMission(2)" id="missionTab2" class="p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70">
+            <div class="flex items-center justify-between text-xs font-bold text-cyan-300 mb-1">
+              <span>MISSION 02</span>
+              <span id="missionStatus2">🔒 Pending</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">绘制平滑权重消除手肘刚性撕裂</span>
+              <span class="lang-en hidden">Paint Smooth Weights to Fix Elbow Tear</span>
+            </div>
+          </button>
+
+          <button onclick="selectMission(3)" id="missionTab3" class="p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70">
+            <div class="flex items-center justify-between text-xs font-bold text-purple-300 mb-1">
+              <span>MISSION 03</span>
+              <span id="missionStatus3">🔒 Pending</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">启用双四元数 DQS 根治 $165^\circ$ 糖果纸坍缩</span>
+              <span class="lang-en hidden">Enable DQS to Cure $165^\circ$ Candy-Wrapper</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span id="gameMissionTitle" class="font-bold text-indigo-300">Mission 1</span>
+              <span id="gameLiveMetric" class="font-mono text-emerald-300">Metrics</span>
+            </div>
+            <canvas id="gameCanvas" width="660" height="340" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <div id="gameBriefBox" class="bg-slate-950/90 rounded-xl p-4 border border-indigo-500/30 text-xs text-slate-300 leading-relaxed"></div>
+
+            <div class="space-y-3 text-xs">
+              <div>
+                <label class="block font-bold text-slate-300 mb-1">
+                  <span class="lang-zh">1. 骨骼矩阵公式 (Palette Matrix Formula)</span>
+                  <span class="lang-en hidden">1. Bone Palette Matrix Formula</span>
+                </label>
+                <select id="gameSelectBind" onchange="updateGame()" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white">
+                  <option value="wrong">Wrong: M_i = T_i (Missing Inverse Bind Pose B_i⁻¹)</option>
+                  <option value="correct">Correct: M_i = T_i * B_i⁻¹ (Un-transforms bind pose first)</option>
+                </select>
+              </div>
+
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-slate-300"><span class="lang-zh">2. 关节权重过渡柔化半径 $\sigma$</span><span class="lang-en hidden">2. Joint Weight Smooth Falloff $\sigma$</span></span>
+                  <span id="gameValSigma" class="font-mono text-cyan-400 font-bold">0.02</span>
+                </div>
+                <input id="gameSliderSigma" type="range" min="0.02" max="0.60" step="0.02" value="0.02" oninput="updateGame()" class="w-full" />
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-300 mb-1">
+                  <span class="lang-zh">3. 蒙皮混合算子 (Skinning Blending Operator)</span>
+                  <span class="lang-en hidden">3. Skinning Blending Operator</span>
+                </label>
+                <select id="gameSelectMethod" onchange="updateGame()" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white">
+                  <option value="lbs">Linear Blend Skinning (LBS: ∑ w_i M_i — Collapses on twist)</option>
+                  <option value="dqs">Dual Quaternion Skinning (DQS: Normalized ∑ w_i q̂_i — 100% Volume)</option>
+                </select>
+              </div>
+            </div>
+
+            <button onclick="verifyMission()" class="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg transition">
+              🚀 <span class="lang-zh">验证角色蒙皮管线 (Verify Skinning Pipeline)</span><span class="lang-en hidden">Verify Skinning Pipeline</span>
+            </button>
+
+            <div id="gameFeedbackBox" class="hidden rounded-xl p-3.5 text-xs font-semibold"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentLang = 'zh';
+    let currentMission = 1;
+    const completedMissions = { 1: false, 2: false, 3: false };
+
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.querySelectorAll('.lang-zh').forEach(el => el.classList.toggle('hidden', currentLang !== 'zh'));
+      document.querySelectorAll('.lang-en').forEach(el => el.classList.toggle('hidden', currentLang !== 'en'));
+      drawMathSkin();
+      renderLab1();
+      renderLab2();
+      updateGameBrief();
+      updateGame();
+    }
+
+    function switchTab(tabId) {
+      ['math', 'lab', 'videos', 'game'].forEach(id => {
+        document.getElementById('tab-' + id).classList.toggle('hidden', id !== tabId);
+        const btn = document.getElementById('tab-btn-' + id);
+        if (id === tabId) {
+          btn.classList.add('tab-active');
+          btn.classList.remove('bg-slate-900', 'text-slate-300');
+        } else {
+          btn.classList.remove('tab-active');
+          btn.classList.add('bg-slate-900', 'text-slate-300');
+        }
+      });
+      if (tabId === 'math') drawMathSkin();
+      if (tabId === 'lab') { renderLab1(); renderLab2(); }
+      if (tabId === 'game') { updateGameBrief(); updateGame(); }
+    }
+
+    // ==================== TAB 1 VISUALIZER ====================
+    function drawMathSkin() {
+      const canvas = document.getElementById('mathSkinCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const thetaDeg = parseFloat(document.getElementById('sliderMathTheta').value);
+      const w2 = parseFloat(document.getElementById('sliderMathWeight').value);
+      const w1 = 1 - w2;
+
+      document.getElementById('valMathTheta').textContent = thetaDeg + '°';
+      document.getElementById('valMathWeight').textContent = w2.toFixed(2);
+
+      const theta = (thetaDeg * Math.PI) / 180;
+      const bx = w1 + w2 * Math.cos(theta);
+      const by = w2 * Math.sin(theta);
+      const rLbs = Math.hypot(bx, by);
+      const areaLbs = rLbs * rLbs;
+
+      document.getElementById('statLbsRadius').textContent = (rLbs * 100).toFixed(1) + '%';
+      document.getElementById('statLbsArea').textContent = (areaLbs * 100).toFixed(1) + '%';
+      document.getElementById('mathTwistBadge').textContent = `LBS Radius: ${(rLbs * 100).toFixed(1)}% | DQS: 100.0%`;
+
+      // Left Panel: Unit Circle Manifold S^1 / SO(2) showing Chord vs Geodesic Arc
+      const cx1 = 175, cy1 = 175, R = 115;
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx1, cy1, R, 0, Math.PI * 2); ctx.stroke();
+
+      // Geodesic arc from 0 to -theta (emerald)
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(cx1, cy1, R, -theta, 0);
+      ctx.stroke();
+
+      // Linear chord between (1,0) and (cos theta, -sin theta) (rose dashed)
+      const p0x = cx1 + R, p0y = cy1;
+      const p1x = cx1 + R * Math.cos(theta), p1y = cy1 - R * Math.sin(theta);
+      ctx.save();
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(p0x, p0y); ctx.lineTo(p1x, p1y); ctx.stroke();
+      ctx.restore();
+
+      // Blended LBS point on chord vs DQS point on arc
+      const lbsPx = cx1 + R * bx, lbsPy = cy1 - R * by;
+      const dqsAngle = w2 * theta;
+      const dqsPx = cx1 + R * Math.cos(dqsAngle), dqsPy = cy1 - R * Math.sin(dqsAngle);
+
+      ctx.fillStyle = '#f43f5e';
+      ctx.beginPath(); ctx.arc(lbsPx, lbsPy, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath(); ctx.arc(dqsPx, dqsPy, 7, 0, Math.PI * 2); ctx.fill();
+
+      // Right Panel: Wrist Cross-Section Circle (DQS Emerald outer ring vs LBS Rose shrunken ring)
+      const cx2 = 505, cy2 = 175;
+      ctx.strokeStyle = '#10b981';
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.12)';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(cx2, cy2, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      ctx.strokeStyle = '#f43f5e';
+      ctx.fillStyle = 'rgba(244, 63, 94, 0.28)';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(cx2, cy2, Math.max(2, R * rLbs), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '左: 旋转流形圆弧 (绿 DQS) vs 线性弦 (红 LBS)' : 'Left: Rotation Manifold Arc (DQS) vs Linear Chord (LBS)', 24, 28);
+      ctx.fillText(currentLang === 'zh' ? '右: 手腕横截面对比 (红圈 LBS 坍缩 vs 绿圈 DQS 保体积)' : 'Right: Wrist Cross-Section (Red LBS Collapse vs Green DQS)', 360, 28);
+    }
+
+    // ==================== TAB 2 LAB 1: ELBOW RIG & INVERSE BIND POSE ====================
+    function renderLab1() {
+      const canvas = document.getElementById('lab1Canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const angleDeg = parseFloat(document.getElementById('lab1SliderAngle').value);
+      const sigma = parseFloat(document.getElementById('lab1SliderSigma').value);
+      const useInvBind = document.getElementById('lab1UseInvBind').checked;
+
+      document.getElementById('lab1ValAngle').textContent = angleDeg + '°';
+      document.getElementById('lab1ValSigma').textContent = sigma.toFixed(2);
+
+      const shoulder = { x: 150, y: 230 };
+      const elbowBind = { x: 350, y: 230 };
+      const rad = (-angleDeg * Math.PI) / 180;
+      const cosA = Math.cos(rad), sinA = Math.sin(rad);
+
+      // Transform a bind-pose vertex (vx, vy) by Bone 0 (identity at shoulder) and Bone 1 (at elbow)
+      const skinVertex = (vx, vy) => {
+        // Normalize axial coordinate s along arm in [-1, +1] centered at elbow x=350
+        const s = (vx - elbowBind.x) / 180;
+        // Smoothstep weight w1 for forearm bone
+        const t = Math.max(0, Math.min(1, (s + sigma) / (2 * Math.max(0.01, sigma))));
+        const w1 = t * t * (3 - 2 * t);
+        const w0 = 1 - w1;
+
+        // Bone 0 animated position (upper arm stays fixed)
+        const p0x = vx, p0y = vy;
+
+        // Bone 1 animated position:
+        // Correct: first subtract elbowBind (B_1^-1), rotate by rad, then add elbowBind (T_1)
+        // Wrong (missing B_1^-1): rotate raw world vertex (vx, vy) around origin and add elbowBind!
+        let p1x, p1y;
+        if (useInvBind) {
+          const lx = vx - elbowBind.x;
+          const ly = vy - elbowBind.y;
+          p1x = elbowBind.x + lx * cosA - ly * sinA;
+          p1y = elbowBind.y + lx * sinA + ly * cosA;
+        } else {
+          p1x = elbowBind.x + vx * cosA - vy * sinA;
+          p1y = elbowBind.y + vx * sinA + vy * cosA;
+        }
+
+        return {
+          x: w0 * p0x + w1 * p1x,
+          y: w0 * p0y + w1 * p1y,
+          w1
+        };
+      };
+
+      // Build upper & lower skin ribbons
+      const cols = 48;
+      const topPts = [], botPts = [];
+      for (let i = 0; i <= cols; i++) {
+        const vx = 150 + (i / cols) * 380;
+        topPts.push(skinVertex(vx, 230 - 38));
+        botPts.push(skinVertex(vx, 230 + 38));
+      }
+
+      // Draw colored quads with weight heatmap (Blue w1=0 -> Green w1=0.5 -> Red w1=1)
+      for (let i = 0; i < cols; i++) {
+        const w = topPts[i].w1;
+        const r = Math.floor(255 * Math.min(1, w * 1.8));
+        const g = Math.floor(220 * (1 - Math.abs(w - 0.5) * 1.7));
+        const b = Math.floor(255 * Math.min(1, (1 - w) * 1.8));
+
+        ctx.fillStyle = `rgba(${r},${g},${b},0.38)`;
+        ctx.strokeStyle = `rgb(${r},${g},${b})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(topPts[i].x, topPts[i].y);
+        ctx.lineTo(topPts[i + 1].x, topPts[i + 1].y);
+        ctx.lineTo(botPts[i + 1].x, botPts[i + 1].y);
+        ctx.lineTo(botPts[i].x, botPts[i].y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // Draw Skeleton Bones (Shoulder -> Elbow -> Wrist)
+      const wrist = {
+        x: elbowBind.x + 180 * cosA,
+        y: elbowBind.y + 180 * sinA
+      };
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(shoulder.x, shoulder.y);
+      ctx.lineTo(elbowBind.x, elbowBind.y);
+      ctx.lineTo(wrist.x, wrist.y);
+      ctx.stroke();
+
+      [shoulder, elbowBind, wrist].forEach(j => {
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath(); ctx.arc(j.x, j.y, 7, 0, Math.PI * 2); ctx.fill();
+      });
+
+      const statusBox = document.getElementById('lab1StatusBox');
+      if (!useInvBind) {
+        statusBox.innerHTML = currentLang === 'zh'
+          ? '<span class="text-rose-400 font-bold">❌ 严重错误：缺失绑定逆矩阵 $B_1^{-1}$！</span> 前臂顶点没有先减去手肘关节原点 $(350, 230)$ 就直接乘了 $T_1$，导致发生了双重位移，整个前臂皮肤直接撕裂飞出了骨骼！'
+          : '<span class="text-rose-400 font-bold">❌ Bug: Missing Inverse Bind Matrix $B_1^{-1}$!</span> Vertices were not un-transformed to the elbow joint origin before applying $T_1$, causing a double-offset explosion!';
+      } else {
+        statusBox.innerHTML = currentLang === 'zh'
+          ? '<span class="text-emerald-400 font-bold">✅ $M_i = T_i B_i^{-1}$ 正常工作：</span> 蓝-绿-红颜色代表前臂骨骼权重 $w_1 \\in [0, 1]$ 热力图。'
+          : '<span class="text-emerald-400 font-bold">✅ $M_i = T_i B_i^{-1}$ Active:</span> Blue-Green-Red heatmap shows forearm bone weight $w_1 \\in [0, 1]$.';
+      }
+    }
+
+    // ==================== TAB 2 LAB 2: LBS VS DQS TWIST ARENA ====================
+    function setTwistPreset(deg) {
+      document.getElementById('lab2SliderTwist').value = String(deg);
+      renderLab2();
+    }
+
+    function renderLab2() {
+      const canvas = document.getElementById('lab2Canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const twistDeg = parseFloat(document.getElementById('lab2SliderTwist').value);
+      document.getElementById('lab2ValTwist').textContent = twistDeg + '°';
+
+      const phi = (twistDeg * Math.PI) / 180;
+      const midRetention = Math.cos(phi * 0.5) * 100;
+      document.getElementById('lab2StatLbs').textContent = midRetention.toFixed(1) + '%';
+
+      const drawCylinder = (centerY, isDQS, label, color) => {
+        const startX = 95, len = 530, baseR = 56;
+        const slices = 44, rings = 8;
+
+        for (let i = 0; i <= slices; i++) {
+          const w = i / slices;
+          const x = startX + w * len;
+
+          // Effective radius: LBS shrinks by |(1-w) + w*e^(i*phi)|; DQS stays 1.0!
+          const bx = (1 - w) + w * Math.cos(phi);
+          const by = w * Math.sin(phi);
+          const rScale = isDQS ? 1.0 : Math.hypot(bx, by);
+          const curR = baseR * rScale;
+
+          // Draw cross-section ellipse every 4 slices
+          if (i % 4 === 0) {
+            ctx.strokeStyle = i === slices / 2 ? '#fde047' : color;
+            ctx.lineWidth = i === slices / 2 ? 2.5 : 1.2;
+            ctx.beginPath();
+            ctx.ellipse(x, centerY, 10, Math.max(1.5, curR), 0, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+
+        // Draw twisted longitudinal fibers
+        for (let r = 0; r < rings; r++) {
+          const baseAngle = (r / rings) * Math.PI * 2;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          for (let i = 0; i <= slices; i++) {
+            const w = i / slices;
+            const x = startX + w * len;
+            const bx = (1 - w) + w * Math.cos(phi);
+            const by = w * Math.sin(phi);
+            const rScale = isDQS ? 1.0 : Math.hypot(bx, by);
+            const curAngle = baseAngle + w * phi;
+            const y = centerY + Math.sin(curAngle) * baseR * rScale;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = 'bold 13px Inter, sans-serif';
+        ctx.fillText(label, 95, centerY - baseR - 18);
+      };
+
+      drawCylinder(
+        115,
+        false,
+        currentLang === 'zh'
+          ? `上方：线性混合蒙皮 (LBS) — 中间截面 (黄圈) 缩水至 ${midRetention.toFixed(1)}% (糖果纸坍缩!)`
+          : `Top: Linear Blend Skinning (LBS) — Midpoint (Yellow) shrinks to ${midRetention.toFixed(1)}% (Candy-Wrapper!)`,
+        '#f43f5e'
+      );
+
+      drawCylinder(
+        305,
+        true,
+        currentLang === 'zh'
+          ? '下方：双四元数蒙皮 (DQS) — 归一化单位双四元数保持 100.0% 饱满体积！'
+          : 'Bottom: Dual Quaternion Skinning (DQS) — Preserves 100.0% Cross-Section Volume!',
+        '#10b981'
+      );
+    }
+
+    // ==================== TAB 4: 3-MISSION GAME ====================
+    function selectMission(m) {
+      currentMission = m;
+      [1, 2, 3].forEach(id => {
+        const btn = document.getElementById('missionTab' + id);
+        btn.className = id === m
+          ? 'p-4 rounded-xl text-left border transition bg-indigo-600/20 border-indigo-500 text-white'
+          : 'p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70';
+      });
+
+      if (m === 1) {
+        document.getElementById('gameSelectBind').value = 'wrong';
+        document.getElementById('gameSliderSigma').value = '0.36';
+        document.getElementById('gameSelectMethod').value = 'lbs';
+      } else if (m === 2) {
+        document.getElementById('gameSelectBind').value = 'correct';
+        document.getElementById('gameSliderSigma').value = '0.02';
+        document.getElementById('gameSelectMethod').value = 'lbs';
+      } else {
+        document.getElementById('gameSelectBind').value = 'correct';
+        document.getElementById('gameSliderSigma').value = '0.38';
+        document.getElementById('gameSelectMethod').value = 'lbs';
+      }
+
+      document.getElementById('gameFeedbackBox').classList.add('hidden');
+      updateGameBrief();
+      updateGame();
+    }
+
+    function updateGameBrief() {
+      const box = document.getElementById('gameBriefBox');
+      const title = document.getElementById('gameMissionTitle');
+      if (currentMission === 1) {
+        title.textContent = currentLang === 'zh' ? '关卡 1：修复缺失绑定姿态逆矩阵 B_i⁻¹ 导致的网格飞散' : 'Mission 1: Fix Missing Inverse Bind Pose B_i⁻¹';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务简报：</strong>角色前臂网格因为直接乘了 $T_i$ 而没有先左乘绑定逆矩阵 $B_i^{-1}$，发生了严重的双重偏移爆炸。请将矩阵公式切换为 <strong>Correct: $M_i = T_i B_i^{-1}$</strong>！'
+          : '<strong>Brief:</strong> The forearm mesh exploded due to a missing inverse bind matrix! Switch the formula to <strong>Correct: $M_i = T_i B_i^{-1}$</strong>!';
+      } else if (currentMission === 2) {
+        title.textContent = currentLang === 'zh' ? '关卡 2：绘制平滑关节权重消除刚性折痕撕裂' : 'Mission 2: Smooth Joint Weights to Cure Rigid Crease';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务简报：</strong>当前手肘过渡柔化半径 $\\sigma = 0.02$ 过于生硬（接近刚性蒙皮），屈肘时发生尖锐折叠。请保持 $M_i = T_i B_i^{-1}$ 并将 <strong>$\\sigma$ 调至 $[0.28, 0.55]$</strong>！'
+          : '<strong>Brief:</strong> Rigid weights ($\\sigma = 0.02$) cause sharp elbow creasing! Keep $M_i = T_i B_i^{-1}$ and raise <strong>$\\sigma \\in [0.28, 0.55]$</strong>!';
+      } else {
+        title.textContent = currentLang === 'zh' ? '关卡 3：启用双四元数蒙皮 DQS 根治 165° 糖果纸坍缩' : 'Mission 3: Enable DQS to Cure 165° Candy-Wrapper Collapse';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务简报：</strong>角色在做 $165^\\circ$ 拔剑转腕动作时，LBS 线性矩阵混合把整个手腕拧成了糖果纸死结！请将混合算子升级为 <strong>Dual Quaternion Skinning (DQS)</strong>！'
+          : '<strong>Brief:</strong> A $165^\\circ$ wrist twist pinches LBS into a candy-wrapper! Upgrade the blending operator to <strong>Dual Quaternion Skinning (DQS)</strong>!';
+      }
+    }
+
+    function updateGame() {
+      const bindMode = document.getElementById('gameSelectBind').value;
+      const sigma = parseFloat(document.getElementById('gameSliderSigma').value);
+      const method = document.getElementById('gameSelectMethod').value;
+
+      document.getElementById('gameValSigma').textContent = sigma.toFixed(2);
+      document.getElementById('gameLiveMetric').textContent =
+        `Bind: ${bindMode.toUpperCase()} | Sigma: ${sigma.toFixed(2)} | Op: ${method.toUpperCase()}`;
+
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.fillStyle = '#090d1f';
+      ctx.fillRect(0, 0, W, H);
+
+      const startX = 95, len = 460, cy = 175, baseR = 52;
+      const phi = (165 * Math.PI) / 180;
+      const offsetBug = bindMode === 'wrong' ? -75 : 0;
+
+      for (let i = 0; i <= 40; i++) {
+        const w = i / 40;
+        const x = startX + w * len;
+        const bx = (1 - w) + w * Math.cos(phi);
+        const by = w * Math.sin(phi);
+        const rScale = method === 'dqs' ? 1.0 : Math.hypot(bx, by);
+        const yOff = i > 20 ? offsetBug : 0;
+
+        ctx.strokeStyle = method === 'dqs' && bindMode === 'correct' ? '#10b981' : '#f43f5e';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(x, cy + yOff, 9, Math.max(2, baseR * rScale), 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    function verifyMission() {
+      const bindMode = document.getElementById('gameSelectBind').value;
+      const sigma = parseFloat(document.getElementById('gameSliderSigma').value);
+      const method = document.getElementById('gameSelectMethod').value;
+      const fb = document.getElementById('gameFeedbackBox');
+      fb.classList.remove('hidden');
+
+      let ok = false;
+      if (currentMission === 1) ok = bindMode === 'correct';
+      else if (currentMission === 2) ok = bindMode === 'correct' && sigma >= 0.28 && sigma <= 0.55;
+      else ok = bindMode === 'correct' && sigma >= 0.28 && method === 'dqs';
+
+      if (ok) {
+        completedMissions[currentMission] = true;
+        document.getElementById('missionStatus' + currentMission).textContent = '✅ Passed';
+        fb.className = 'rounded-xl p-3.5 text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+        fb.textContent = currentLang === 'zh'
+          ? `🎉 恭喜通过关卡 ${currentMission}！你的角色骨骼蒙皮与双四元数管线完全达标！`
+          : `🎉 Mission ${currentMission} Complete! Your skeletal skinning and DQS pipeline is verified!`;
+      } else {
+        fb.className = 'rounded-xl p-3.5 text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40';
+        fb.textContent = currentLang === 'zh'
+          ? '⚠️ 参数未达标：请检查 M_i = T_i B_i⁻¹、权重柔化半径 σ ∈ [0.28, 0.55] 或双四元数 DQS 选项！'
+          : '⚠️ Check M_i = T_i B_i⁻¹, Weight Falloff σ ∈ [0.28, 0.55], or Dual Quaternion Skinning (DQS)!';
+      }
+
+      const doneCount = Object.values(completedMissions).filter(Boolean).length;
+      document.getElementById('gameScoreBadge').textContent = `Completed: ${doneCount} / 3`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      drawMathSkin();
+      renderLab1();
+      renderLab2();
+      updateGameBrief();
+      updateGame();
+    });
+  </script>
+</body>
+</html>

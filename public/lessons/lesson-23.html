@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 23: 阴影算法 (Part 1)：平面投影阴影与阴影体 (Shadow Volumes) | Learning 3D</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
+  <style>
+    body { background: #020617; color: #f8fafc; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .glass { background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.7); }
+    .tab-active { background: linear-gradient(135deg, #4f46e5, #0891b2); color: white; box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35); }
+    input[type="range"] { accent-color: #6366f1; }
+    .katex { font-size: 1.04em; }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+  <!-- Sticky Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center font-black text-white shadow hover:scale-105 transition" title="Back to Portal">3D</a>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Stage 4 • Lesson 23</span>
+            <span class="text-xs text-slate-400">UC Davis ECS 175 L18 • MIT 6.837 L15</span>
+          </div>
+          <h1 class="font-bold text-base sm:text-lg text-white tracking-tight">
+            <span class="lang-zh">阴影算法 (Part 1)：平面投影阴影矩阵、轮廓边与模板阴影体 (Stencil Shadow Volumes)</span>
+            <span class="lang-en hidden">Shadows (Part 1): Planar Projection Matrix, Silhouette Edges &amp; Stencil Shadow Volumes</span>
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button id="langToggleBtn" onclick="toggleLang()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition shadow-sm">
+          <span>🌐</span>
+          <span id="langBtnText">EN / 中文</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-3 flex flex-wrap gap-2">
+      <button onclick="switchTab('math')" id="tab-btn-math" class="tab-btn tab-active px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2">
+        <span>📐</span>
+        <span class="lang-zh">1. 核心数学与 3Blue1Brown 直觉</span>
+        <span class="lang-en hidden">1. Core Math &amp; 3B1B Intuition</span>
+      </button>
+      <button onclick="switchTab('lab')" id="tab-btn-lab" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🔬</span>
+        <span class="lang-zh">2. 平面阴影与 Stencil 阴影体实验室</span>
+        <span class="lang-en hidden">2. Planar &amp; Stencil Shadow Volume Labs</span>
+      </button>
+      <button onclick="switchTab('videos')" id="tab-btn-videos" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🎬</span>
+        <span class="lang-zh">3. 名校课程视频与笔记</span>
+        <span class="lang-en hidden">3. Course Videos &amp; Notes</span>
+      </button>
+      <button onclick="switchTab('game')" id="tab-btn-game" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🎮</span>
+        <span class="lang-zh">4. 闯关游戏：Doom 3 阴影引擎架构师</span>
+        <span class="lang-en hidden">4. Game: Doom 3 Shadow Engine Architect</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-8">
+    <!-- ==================== TAB 1: MATH & 3B1B INTUITION ==================== -->
+    <section id="tab-math" class="tab-panel space-y-8">
+      <!-- Hero Banner -->
+      <div class="glass rounded-2xl p-6 sm:p-8 border-l-4 border-l-indigo-500">
+        <div class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">
+          <span class="lang-zh">3Blue1Brown 几何与拓扑直觉 • 为什么外积矩阵能拍扁三维物体，而环绕数计数能判定任意三维阴影？</span>
+          <span class="lang-en hidden">3Blue1Brown Geometric &amp; Topological Intuition • Outer-Product Projection &amp; Winding-Number Shadow Volumes</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4">
+          <span class="lang-zh">从齐次外积投影矩阵 $M = (\mathbf{\Pi}^T\mathbf{L})I - \mathbf{L}\mathbf{\Pi}^T$ 到卡马克反转 (Carmack's Reverse)</span>
+          <span class="lang-en hidden">From Homogeneous Outer-Product Projection $M = (\mathbf{\Pi}^T\mathbf{L})I - \mathbf{L}\mathbf{\Pi}^T$ to Carmack's Reverse</span>
+        </h2>
+        <p class="text-slate-300 leading-relaxed text-sm sm:text-base">
+          <span class="lang-zh">
+            在实时光栅化管线中，每个三角形都是独立送入 GPU 的——<strong>一个像素在着色时根本不知道场景里还有哪些其他三角形挡在了它和光源之间</strong>！为了在光栅化中生成精确的几何硬阴影，图形学先驱们发明了两套极具数学美感的几何武器：
+            <strong>第一</strong>，Jim Blinn (1988) 发现将三维顶点沿点光源射线投射到任意平面 $\mathbf{\Pi}$ 上，竟然等价于乘以一个由<strong>内积减外积</strong>构成的 $4\times 4$ 齐次矩阵 $M_{\text{shadow}} = (\mathbf{\Pi}^T\mathbf{L})I - \mathbf{L}\mathbf{\Pi}^T$；
+            <strong>第二</strong>，Frank Crow (1977) 与 John Carmack (2000, <em>Doom 3</em>) 利用拓扑学中的<strong>约旦曲线环绕数定理 (Winding Number Theorem)</strong>，将遮挡物的轮廓边挤出为半无穷阴影体积锥，仅凭硬件模板缓冲 (Stencil Buffer) 的 `+1 / -1` 整数加减法，就实现了像素级绝对锋利的全场景自阴影！
+          </span>
+          <span class="lang-en hidden">
+            In rasterization, each triangle is processed in isolation—<strong>a pixel shader has no idea which other triangles block its line of sight to the light</strong>! Pioneers invented two mathematically elegant geometric solutions:
+            <strong>First</strong>, Jim Blinn (1988) showed that projecting 3D vertices from a light $\mathbf{L}$ onto a plane $\mathbf{\Pi}$ is a single $4\times 4$ matrix built from an <strong>inner product minus an outer product</strong>: $M_{\text{shadow}} = (\mathbf{\Pi}^T\mathbf{L})I - \mathbf{L}\mathbf{\Pi}^T$.
+            <strong>Second</strong>, Frank Crow (1977) and John Carmack (2000, <em>Doom 3</em>) applied the topological <strong>Winding Number Theorem</strong> by extruding silhouette edges into semi-infinite shadow cones and counting `+1 / -1` wall crossings in the Stencil Buffer!
+          </span>
+        </p>
+      </div>
+
+      <!-- Part 1: Planar Projection Shadow Matrix Derivation -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <span class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-black flex items-center justify-center">1</span>
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              <span class="lang-zh">Blinn 平面投影阴影矩阵 $M_{\text{shadow}} = (\mathbf{\Pi}^T\mathbf{L})I - \mathbf{L}\mathbf{\Pi}^T$ 的一步步推导</span>
+              <span class="lang-en hidden">Step-by-Step Derivation of Blinn's Planar Shadow Matrix $M_{\text{shadow}} = (\mathbf{\Pi}^T\mathbf{L})I - \mathbf{L}\mathbf{\Pi}^T$</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">UC Davis ECS 175 L18：为什么射线-平面求交的分母可以被齐次坐标的 $w$ 分量完美吸收？</span>
+              <span class="lang-en hidden">UC Davis ECS 175 L18: How homogeneous division by $w$ absorbs the nonlinear ray-plane denominator</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold uppercase text-indigo-400">
+              <span class="lang-zh">步骤 A：光源射线 $\mathbf{L} \to \mathbf{V}$ 与平面 $\mathbf{\Pi}$ 求交</span>
+              <span class="lang-en hidden">Step A: Ray $\mathbf{L} \to \mathbf{V}$ Intersecting Plane $\mathbf{\Pi}$</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <span class="lang-zh">
+                设地面平面方程为 $n_x x + n_y y + n_z z + d = 0$，写成四维对偶行向量 $\mathbf{\Pi}^T = [n_x, n_y, n_z, d]$。设光源齐次坐标为 $\mathbf{L} = [L_x, L_y, L_z, L_w]^T$（点光源 $L_w=1$，平行光 $L_w=0$），遮挡物顶点为 $\mathbf{V} = [V_x, V_y, V_z, 1]^T$。
+                连接 $\mathbf{L}$ 与 $\mathbf{V}$ 的直线上任意点为 $\mathbf{P}(t) = \mathbf{L} + t(\mathbf{V} - \mathbf{L})$，代入平面方程 $\mathbf{\Pi}^T \mathbf{P}(t) = 0$：
+              </span>
+              <span class="lang-en hidden">
+                Let the receiver plane be $\mathbf{\Pi}^T = [n_x, n_y, n_z, d]$, light be $\mathbf{L} = [L_x, L_y, L_z, L_w]^T$ ($L_w=1$ for point light, $0$ for directional), and vertex be $\mathbf{V} = [V_x, V_y, V_z, 1]^T$. Substituting $\mathbf{P}(t) = \mathbf{L} + t(\mathbf{V}-\mathbf{L})$ into $\mathbf{\Pi}^T\mathbf{P}(t)=0$ gives:
+              </span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto border border-slate-800">
+              $$t = \frac{\mathbf{\Pi}^T \mathbf{L}}{\mathbf{\Pi}^T(\mathbf{L} - \mathbf{V})} \implies \mathbf{P}_s = \frac{(\mathbf{\Pi}^T \mathbf{L})\mathbf{V} - (\mathbf{\Pi}^T \mathbf{V})\mathbf{L}}{\mathbf{\Pi}^T \mathbf{L} - \mathbf{\Pi}^T \mathbf{V}}$$
+            </div>
+          </div>
+
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold uppercase text-emerald-400">
+              <span class="lang-zh">步骤 B：齐次外积提取 —— 分子直接化成矩阵乘向量！</span>
+              <span class="lang-en hidden">Step B: Homogeneous Outer-Product Trick</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <span class="lang-zh">
+                注意上式的分母 $\mathbf{\Pi}^T\mathbf{L} - \mathbf{\Pi}^T\mathbf{V}$ 正好是分子第 4 分量的值！在齐次坐标中，将整个向量乘以非零标量分母不改变三维位置（透视除法除以 $w$ 会自动还原它）。又因为标量乘向量满足 $(\mathbf{\Pi}^T\mathbf{V})\mathbf{L} = \mathbf{L}(\mathbf{\Pi}^T\mathbf{V}) = (\mathbf{L}\mathbf{\Pi}^T)\mathbf{V}$，我们直接把 $\mathbf{V}$ 提出来：
+              </span>
+              <span class="lang-en hidden">
+                Since homogeneous coordinates are scale-invariant (division by $w$ restores the denominator automatically), and $(\mathbf{\Pi}^T\mathbf{V})\mathbf{L} = (\mathbf{L}\mathbf{\Pi}^T)\mathbf{V}$ by associativity of outer products, we factor $\mathbf{V}$ out to the right:
+              </span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto border border-emerald-500/30">
+              $$\tilde{\mathbf{P}}_s = \Big(\underbrace{(\mathbf{\Pi}^T \mathbf{L}) I_{4\times 4} - \mathbf{L}\mathbf{\Pi}^T}_{M_{\text{shadow}}}\Big)\mathbf{V}$$
+            </div>
+            <p class="text-xs text-amber-300">
+              <span class="lang-zh">⚠️ <strong>反阴影陷阱 (Anti-Shadow)</strong>：若顶点 $\mathbf{V}$ 位于点光源 $\mathbf{L}$ 背离地面的一侧（即 $t &lt; 0$，齐次坐标 $w_s &lt; 0$），直线反向延长也会刺穿地面产生荒谬的“头顶反阴影”，必须在裁剪空间剔除 $w_s \le 0$ 的投影顶点！</span>
+              <span class="lang-en hidden">⚠️ <strong>Anti-Shadow Trap</strong>: If $\mathbf{V}$ lies behind the point light ($t &lt; 0 \iff w_s &lt; 0$), the backward ray still hits the floor! Always clip vertices with $w_s \le 0$.</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Silhouette Edges, Shadow Volumes & Z-Pass vs Z-Fail -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <span class="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-black flex items-center justify-center">2</span>
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              <span class="lang-zh">轮廓边提取、阴影体挤出与 Stencil Buffer 深度计数 (`Z-Pass` vs. `Carmack's Reverse Z-Fail`)</span>
+              <span class="lang-en hidden">Silhouette Extraction, Shadow Volume Extrusion &amp; Stencil Counting (`Z-Pass` vs. `Carmack's Z-Fail`)</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">为什么相机走进阴影锥内部会导致 Z-Pass 瞬间崩溃？卡马克是如何用“从表面往无穷远倒着数”解决这个世纪难题的？</span>
+              <span class="lang-en hidden">Why Z-Pass breaks when the camera enters a shadow cone, and how John Carmack solved it by counting behind the surface</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <!-- Card 1: Silhouette Edge -->
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-slate-800 space-y-3">
+            <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Step 1 • Silhouette Edges</span>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">轮廓边符号相反判据</span>
+              <span class="lang-en hidden">Opposite-Sign Dot Product Test</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">阴影锥的侧壁只需要从遮挡物的<strong>轮廓边 (Silhouette Edges)</strong> 挤出。一条内部共享边 $e=(\mathbf{v}_a,\mathbf{v}_b)$ 是轮廓边，当且仅当它两侧的相邻三角形 $f_1, f_2$ 一个朝向光源、一个背向光源：</span>
+              <span class="lang-en hidden">Shadow volume side quads only need to be extruded from <strong>silhouette edges</strong>—shared edges where one adjacent triangle faces the light and the other faces away:</span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-2.5 text-xs overflow-x-auto">
+              $$\big(\mathbf{n}_1 \cdot (\mathbf{L}-\mathbf{c}_1)\big)\cdot\big(\mathbf{n}_2 \cdot (\mathbf{L}-\mathbf{c}_2)\big) &lt; 0$$
+            </div>
+          </div>
+
+          <!-- Card 2: Z-Pass -->
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-emerald-500/40 space-y-3">
+            <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Step 2 • Classic Z-Pass</span>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">Z-Pass 正向计数 (`+1` 进 / `-1` 出)</span>
+              <span class="lang-en hidden">Z-Pass Counting (`+1` Front / `-1` Back)</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">先渲染场景写好 Z-Buffer。再关闭颜色和深度写入，渲染阴影体积侧壁：凡是通过深度测试（`Z-Pass`，位于相机与表面点 $\mathbf{P}$ 之间）的<strong>前向壁</strong>令 `stencil++` ($+1$)，<strong>背向壁</strong>令 `stencil--` ($-1$)。最终 `stencil &gt; 0` 的像素就在阴影内！</span>
+              <span class="lang-en hidden">Render scene depths first. Then render shadow volume walls with depth-write off: on <strong>Z-Pass</strong> (between eye and surface $\mathbf{P}$), front faces increment `stencil++` ($+1$) and back faces decrement `stencil--` ($-1$). Pixels with `stencil &gt; 0` are in shadow!</span>
+            </p>
+          </div>
+
+          <!-- Card 3: Carmack's Reverse Z-Fail -->
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-amber-500/40 space-y-3">
+            <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Step 3 • Carmack's Reverse</span>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">Z-Fail 卡马克反转 (防相机穿入崩溃)</span>
+              <span class="lang-en hidden">Carmack's Reverse (`Z-Fail` + Caps)</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">当相机走进阴影锥内部（或近裁剪面切破前壁）时，`Z-Pass` 漏掉了入口的 `+1`，全场明暗颠倒！<strong>卡马克反转 (`Z-Fail`)</strong> 改在<strong>深度测试失败（位于表面点 $\mathbf{P}$ 后方直到无穷远）</strong>时计数：<strong>背向壁 `+1`，前向壁 `-1`</strong>，并封死朝光顶盖 (Light Cap) 与无穷远底盖 ($w=0$ Dark Cap)，彻底免疫近裁剪面切割！</span>
+              <span class="lang-en hidden">When the eye is inside a shadow cone, `Z-Pass` misses the entry front wall! <strong>Carmack's Reverse (`Z-Fail`)</strong> counts walls <strong>behind the surface</strong> (`Z-Fail`): <strong>back faces `+1`, front faces `-1`</strong>, with closed Light Cap and $w=0$ Dark Cap!</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer in Tab 1: Umbra/Penumbra & Live 4x4 Planar Matrix -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <div class="flex items-center justify-between mb-3 text-xs">
+              <span class="font-bold text-indigo-300">
+                <span class="lang-zh">交互式本影 (Umbra) / 半影 (Penumbra) 光学锥与平面投影几何</span>
+                <span class="lang-en hidden">Interactive Umbra / Penumbra Optical Cones &amp; Planar Projection</span>
+              </span>
+              <span id="mathPenumbraBadge" class="font-mono px-2.5 py-1 rounded bg-slate-900 text-amber-300 border border-slate-800">Penumbra Width: 42 px</span>
+            </div>
+            <canvas id="mathShadowCanvas" width="680" height="340" class="w-full rounded-xl bg-slate-950 border border-slate-800/80"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🎛️ 光源尺寸、位置与 $4\times 4$ 矩阵 $M_{\text{shadow}}$ 实时检视</span>
+              <span class="lang-en hidden">🎛️ Light Radius, Position &amp; Live $4\times 4$ Matrix $M_{\text{shadow}}$</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">面光源半径 $R_{\text{light}}$ (0 = 点光源硬阴影)</span><span class="lang-en hidden">Area Light Radius $R_{\text{light}}$ (0 = Point)</span></span>
+                <span id="valLightRadius" class="font-mono text-amber-400 font-bold">24</span>
+              </div>
+              <input id="sliderLightRadius" type="range" min="0" max="55" step="1" value="24" oninput="drawMathShadow()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">光源水平位置 $L_x$</span><span class="lang-en hidden">Light X Position $L_x$</span></span>
+                <span id="valLightX" class="font-mono text-indigo-400 font-bold">-1.2</span>
+              </div>
+              <input id="sliderLightX" type="range" min="-3.0" max="3.0" step="0.1" value="-1.2" oninput="drawMathShadow()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">光源高度 $L_y$ (地面为 $y=0$)</span><span class="lang-en hidden">Light Height $L_y$ (Floor $y=0$)</span></span>
+                <span id="valLightY" class="font-mono text-cyan-400 font-bold">4.5</span>
+              </div>
+              <input id="sliderLightY" type="range" min="1.8" max="8.0" step="0.1" value="4.5" oninput="drawMathShadow()" class="w-full" />
+            </div>
+
+            <div class="bg-slate-950 rounded-xl p-3 border border-slate-800 space-y-1.5">
+              <div class="text-[11px] font-bold text-slate-400">
+                <span class="lang-zh">平面 $\mathbf{\Pi} = [0, 1, 0, 0]$ 上的实时 $M_{\text{shadow}} = (\mathbf{\Pi}^T\mathbf{L})I - \mathbf{L}\mathbf{\Pi}^T$：</span>
+                <span class="lang-en hidden">Live $M_{\text{shadow}} = (\mathbf{\Pi}^T\mathbf{L})I - \mathbf{L}\mathbf{\Pi}^T$ for Floor $\mathbf{\Pi}=[0,1,0,0]$:</span>
+              </div>
+              <pre id="liveMatrixPre" class="text-[11px] font-mono text-emerald-300 leading-snug overflow-x-auto"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: DUAL INTERACTIVE LABS ==================== -->
+    <section id="tab-lab" class="tab-panel hidden space-y-8">
+      <!-- Lab 1: Planar Projection Shadow Matrix & Anti-Shadow Lab -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Laboratory 01 • Blinn's Planar Projection Shadow Matrix &amp; Anti-Shadow Clipping</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">实验台 1：平面投影阴影矩阵 $M_{\text{shadow}}$ 与 $w_s &lt; 0$ 反阴影裁剪沙盒</span>
+              <span class="lang-en hidden">Lab 1: Planar Projection Shadow Matrix $M_{\text{shadow}}$ &amp; $w_s &lt; 0$ Anti-Shadow Clipping</span>
+            </h3>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <canvas id="lab1Canvas" width="720" height="400" class="w-full rounded-xl bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🎛️ 调节光源高度与反阴影保护开关</span>
+              <span class="lang-en hidden">🎛️ Adjust Light Height &amp; Anti-Shadow Guard</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">点光源高度 $L_y$ (拖到物体下方触发反阴影!)</span><span class="lang-en hidden">Point Light Height $L_y$ (Drag below object!)</span></span>
+                <span id="lab1ValLy" class="font-mono text-amber-400 font-bold">4.2</span>
+              </div>
+              <input id="lab1SliderLy" type="range" min="0.8" max="6.0" step="0.1" value="4.2" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">点光源横向位置 $L_x$</span><span class="lang-en hidden">Point Light X $L_x$</span></span>
+                <span id="lab1ValLx" class="font-mono text-indigo-400 font-bold">-1.5</span>
+              </div>
+              <input id="lab1SliderLx" type="range" min="-4.0" max="4.0" step="0.1" value="-1.5" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">地面接收平面倾角 $\theta_{\text{plane}}$</span><span class="lang-en hidden">Floor Plane Tilt $\theta_{\text{plane}}$</span></span>
+                <span id="lab1ValTilt" class="font-mono text-cyan-400 font-bold">0°</span>
+              </div>
+              <input id="lab1SliderTilt" type="range" min="-20" max="20" step="1" value="0" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer pt-1">
+              <input id="lab1ClipAnti" type="checkbox" checked onchange="renderLab1()" class="rounded border-slate-700" />
+              <span><span class="lang-zh">启用 $w_s &gt; 0$ 裁剪（阻止光源背后的反阴影 Anti-Shadow）</span><span class="lang-en hidden">Clip $w_s \le 0$ (Prevent False Anti-Shadows)</span></span>
+            </label>
+
+            <div id="lab1StatusBox" class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 text-xs text-slate-300 leading-relaxed"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lab 2: Stencil Shadow Volume Ray Counter (Z-Pass vs Carmack's Reverse Z-Fail) -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Laboratory 02 • Stencil Shadow Volume Ray Counter (Z-Pass vs. Carmack's Reverse Z-Fail)</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">实验台 2：阴影体积锥 (Shadow Volume) 与模板缓冲 `+1/-1` 射线通行计数沙盒</span>
+              <span class="lang-en hidden">Lab 2: Shadow Volume Extrusion &amp; Stencil Buffer `+1/-1` Ray-Crossing Sandbox</span>
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setLab2Method('zpass')" id="btnMethodZPass" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow transition">
+              ⚡ <span class="lang-zh">经典 Z-Pass (+1 前壁 / -1 后壁)</span><span class="lang-en hidden">Classic Z-Pass (+1 Front / -1 Back)</span>
+            </button>
+            <button onclick="setLab2Method('zfail')" id="btnMethodZFail" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              🛡️ <span class="lang-zh">卡马克反转 Z-Fail (+1 后壁 / -1 前壁 + 封盖)</span><span class="lang-en hidden">Carmack's Reverse Z-Fail (+1 Back / -1 Front + Caps)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <canvas id="lab2Canvas" width="720" height="430" class="w-full rounded-xl bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🔭 视线探测角与相机位置控制</span>
+              <span class="lang-en hidden">🔭 Probe Ray Angle &amp; Camera Position</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">探测视线扫描角 $\alpha_{\text{ray}}$</span><span class="lang-en hidden">Probe Ray Angle $\alpha_{\text{ray}}$</span></span>
+                <span id="lab2ValRay" class="font-mono text-cyan-400 font-bold">8°</span>
+              </div>
+              <input id="lab2SliderRay" type="range" min="-36" max="38" step="1" value="8" oninput="renderLab2()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">相机横向位置 (拖进阴影锥内部试试!)</span><span class="lang-en hidden">Camera X (Drag inside shadow cone!)</span></span>
+                <span id="lab2ValCam" class="font-mono text-amber-400 font-bold">Outside (-220)</span>
+              </div>
+              <input id="lab2SliderCam" type="range" min="-240" max="40" step="5" value="-220" oninput="renderLab2()" class="w-full" />
+            </div>
+
+            <div class="flex gap-2">
+              <button onclick="moveCamPreset('outside')" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
+                <span class="lang-zh">📍 相机在阴影外</span><span class="lang-en hidden">📍 Eye Outside</span>
+              </button>
+              <button onclick="moveCamPreset('inside')" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-rose-950/70 hover:bg-rose-900/80 text-rose-200 border border-rose-500/40">
+                <span class="lang-zh">⚠️ 把相机移入阴影内</span><span class="lang-en hidden">⚠️ Put Eye Inside Cone</span>
+              </button>
+            </div>
+
+            <div id="lab2ReadoutBox" class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 space-y-2 text-xs">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: COURSE VIDEOS & NOTES ==================== -->
+    <section id="tab-videos" class="tab-panel hidden space-y-8">
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Course References • UC Davis ECS 175 &amp; MIT 6.837</span>
+          <h3 class="text-2xl font-extrabold text-white mt-1">
+            <span class="lang-zh">名校公开课视频索引与同步精读笔记</span>
+            <span class="lang-en hidden">University Lecture Video Index &amp; Study Guide</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">UC Davis ECS 175 • Lecture 18</span>
+              <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+18" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">YouTube ↗</a>
+            </div>
+            <h4 class="text-lg font-bold text-white">Shadows, Part 1 (Prof. Kenneth Joy)</h4>
+            <ul class="text-xs sm:text-sm text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+              <li>
+                <span class="lang-zh"><strong>本影与半影 (Umbra &amp; Penumbra)</strong>：点光源硬阴影与扩展面光源软阴影的几何光线包络结构。</span>
+                <span class="lang-en hidden"><strong>Umbra &amp; Penumbra</strong>: Geometric ray envelopes of point-light hard shadows vs. area-light soft shadows.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>平面投影阴影矩阵 (Planar Projection Shadows)</strong>：推导 $M = (\mathbf{\Pi}\cdot\mathbf{L})I - \mathbf{L}\mathbf{\Pi}^T$ 以及共面 Z-Fighting 与模板裁剪。</span>
+                <span class="lang-en hidden"><strong>Planar Projection Shadows</strong>: Deriving $M = (\mathbf{\Pi}\cdot\mathbf{L})I - \mathbf{L}\mathbf{\Pi}^T$ and solving coplanar Z-fighting with stencil masking.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>Crow 阴影体积锥 (Shadow Volumes)</strong>：从轮廓边挤出半无穷多面体并用绕数判定像素阴影。</span>
+                <span class="lang-en hidden"><strong>Crow's Shadow Volumes</strong>: Extruding silhouette edges to infinity and testing point-in-volume via winding numbers.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">MIT 6.837 • Lecture 15</span>
+              <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">MIT Playlist ↗</a>
+            </div>
+            <h4 class="text-lg font-bold text-white">Shadows in Rasterization (Prof. Justin Solomon)</h4>
+            <ul class="text-xs sm:text-sm text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+              <li>
+                <span class="lang-zh"><strong>为什么光栅化做阴影难？</strong> 光栅化是局部操作（Triangle-by-Triangle），缺乏全局视线遮挡查询能力。</span>
+                <span class="lang-en hidden"><strong>Why Shadows Are Hard in Rasterization</strong>: Rasterization is local (triangle-by-triangle) without global ray visibility queries.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>硬件 Stencil Buffer 双面模板操作</strong>：现代 GPU 的 `glStencilOpSeparate` 单遍完成正面 `+1` 与背面 `-1`。</span>
+                <span class="lang-en hidden"><strong>Two-Sided Stencil Hardware</strong>: Using `glStencilOpSeparate` to increment front faces and decrement back faces in a single pass.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>Z-Pass vs. Z-Fail (Carmack's Reverse)</strong>：闭合流形顶盖与无穷远投影矩阵 $P_\infty$ 的配合。</span>
+                <span class="lang-en hidden"><strong>Z-Pass vs. Z-Fail</strong>: Combining watertight light/dark caps with an infinite far-plane projection matrix $P_\infty$.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION PLAYABLE GAME ==================== -->
+    <section id="tab-game" class="tab-panel hidden space-y-8">
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Interactive 3-Mission Challenge • Doom 3 Shadow Engine Architect</span>
+            <h3 class="text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">🎮 闯关游戏：Doom 3 首席阴影引擎架构师 (3 大实战任务)</span>
+              <span class="lang-en hidden">🎮 Playable Game: Doom 3 Chief Shadow Engine Architect (3 Missions)</span>
+            </h3>
+          </div>
+          <span id="gameScoreBadge" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            Completed: 0 / 3
+          </span>
+        </div>
+
+        <!-- Mission Selector -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <button onclick="selectMission(1)" id="missionTab1" class="p-4 rounded-xl text-left border transition bg-indigo-600/20 border-indigo-500 text-white">
+            <div class="flex items-center justify-between text-xs font-bold text-indigo-300 mb-1">
+              <span>MISSION 01</span>
+              <span id="missionStatus1">⏳ In Progress</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">消灭低空光源的幽灵反阴影</span>
+              <span class="lang-en hidden">Eliminate Low-Light False Anti-Shadows</span>
+            </div>
+          </button>
+
+          <button onclick="selectMission(2)" id="missionTab2" class="p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70">
+            <div class="flex items-center justify-between text-xs font-bold text-cyan-300 mb-1">
+              <span>MISSION 02</span>
+              <span id="missionStatus2">🔒 Pending</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">轮廓边挤出与双遮挡物 Z-Pass 计数</span>
+              <span class="lang-en hidden">Silhouette Extrusion &amp; Dual-Occluder Z-Pass</span>
+            </div>
+          </button>
+
+          <button onclick="selectMission(3)" id="missionTab3" class="p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70">
+            <div class="flex items-center justify-between text-xs font-bold text-amber-300 mb-1">
+              <span>MISSION 03</span>
+              <span id="missionStatus3">🔒 Pending</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">卡马克反转拯救相机穿入阴影崩溃</span>
+              <span class="lang-en hidden">Carmack's Reverse: Rescue Eye-in-Shadow Bug</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span id="gameMissionTitle" class="font-bold text-indigo-300">Mission 1</span>
+              <span id="gameLiveMetric" class="font-mono text-emerald-300">Status</span>
+            </div>
+            <canvas id="gameCanvas" width="660" height="360" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <div id="gameBriefBox" class="bg-slate-950/90 rounded-xl p-4 border border-indigo-500/30 text-xs text-slate-300 leading-relaxed"></div>
+
+            <div class="space-y-3 text-xs">
+              <div>
+                <label class="block font-bold text-slate-300 mb-1">
+                  <span class="lang-zh">1. 平面反阴影裁剪 ($w_s &gt; 0$ Guard)</span>
+                  <span class="lang-en hidden">1. Planar Anti-Shadow Clipping ($w_s &gt; 0$)</span>
+                </label>
+                <select id="gameSelectClip" onchange="updateGame()" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white">
+                  <option value="off">Disabled (Allow w_s &lt; 0 False Anti-Shadows)</option>
+                  <option value="on">Enabled (Clip w_s &lt;= 0 Behind Light)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-300 mb-1">
+                  <span class="lang-zh">2. 阴影体轮廓边提取 (Silhouette Detection)</span>
+                  <span class="lang-en hidden">2. Silhouette Edge Extraction</span>
+                </label>
+                <select id="gameSelectSil" onchange="updateGame()" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white">
+                  <option value="off">Disabled (No Shadow Volume Extrusion)</option>
+                  <option value="on">Enabled ((n1·L)*(n2·L) &lt; 0 Silhouette Extrusion)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-300 mb-1">
+                  <span class="lang-zh">3. 模板缓冲深度通行规则 (Stencil Algorithm)</span>
+                  <span class="lang-en hidden">3. Stencil Depth Counting Rule</span>
+                </label>
+                <select id="gameSelectAlgo" onchange="updateGame()" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white">
+                  <option value="zpass">Classic Z-Pass (+1 Front / -1 Back before surface)</option>
+                  <option value="zfail_uncapped">Z-Fail without Caps (Leaks through open ends)</option>
+                  <option value="zfail_capped">Carmack's Reverse: Z-Fail (+1 Back / -1 Front) + Light/Dark Caps</option>
+                </select>
+              </div>
+            </div>
+
+            <button onclick="verifyMission()" class="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg transition">
+              🚀 <span class="lang-zh">验证阴影引擎管线 (Verify Shadow Engine)</span><span class="lang-en hidden">Verify Shadow Engine Pipeline</span>
+            </button>
+
+            <div id="gameFeedbackBox" class="hidden rounded-xl p-3.5 text-xs font-semibold"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentLang = 'zh';
+    let lab2Method = 'zpass';
+    let currentMission = 1;
+    const completedMissions = { 1: false, 2: false, 3: false };
+
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.querySelectorAll('.lang-zh').forEach(el => el.classList.toggle('hidden', currentLang !== 'zh'));
+      document.querySelectorAll('.lang-en').forEach(el => el.classList.toggle('hidden', currentLang !== 'en'));
+      drawMathShadow();
+      renderLab1();
+      renderLab2();
+      updateGameBrief();
+      updateGame();
+    }
+
+    function switchTab(tabId) {
+      ['math', 'lab', 'videos', 'game'].forEach(id => {
+        document.getElementById('tab-' + id).classList.toggle('hidden', id !== tabId);
+        const btn = document.getElementById('tab-btn-' + id);
+        if (id === tabId) {
+          btn.classList.add('tab-active');
+          btn.classList.remove('bg-slate-900', 'text-slate-300');
+        } else {
+          btn.classList.remove('tab-active');
+          btn.classList.add('bg-slate-900', 'text-slate-300');
+        }
+      });
+      if (tabId === 'math') drawMathShadow();
+      if (tabId === 'lab') { renderLab1(); renderLab2(); }
+      if (tabId === 'game') { updateGameBrief(); updateGame(); }
+    }
+
+    // ==================== TAB 1 VISUALIZER ====================
+    function drawMathShadow() {
+      const canvas = document.getElementById('mathShadowCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const rLight = parseFloat(document.getElementById('sliderLightRadius').value);
+      const lxWorld = parseFloat(document.getElementById('sliderLightX').value);
+      const lyWorld = parseFloat(document.getElementById('sliderLightY').value);
+
+      document.getElementById('valLightRadius').textContent = rLight.toFixed(0);
+      document.getElementById('valLightX').textContent = lxWorld.toFixed(1);
+      document.getElementById('valLightY').textContent = lyWorld.toFixed(1);
+
+      // Update 4x4 matrix M_shadow for floor plane Pi = [0, 1, 0, 0]
+      // dot = Ly; M = [[Ly, -Lx, 0, 0], [0, 0, 0, 0], [0, -Lz, Ly, 0], [0, -1, 0, Ly]]
+      const lzWorld = 0.0;
+      const matStr =
+`[ ${lyWorld.toFixed(1).padStart(5)}  ${(-lxWorld).toFixed(1).padStart(5)}    0.0    0.0 ]
+[   0.0    0.0    0.0    0.0 ]
+[   0.0  ${(-lzWorld).toFixed(1).padStart(5)}  ${lyWorld.toFixed(1).padStart(5)}    0.0 ]
+[   0.0   -1.0    0.0  ${lyWorld.toFixed(1).padStart(5)} ]`;
+      document.getElementById('liveMatrixPre').textContent = matStr;
+
+      const floorY = H - 46;
+      const lx = W * 0.5 + lxWorld * 72;
+      const ly = floorY - lyWorld * 52;
+
+      // Occluder bar
+      const occY = floorY - 115;
+      const occX1 = W * 0.5 - 55;
+      const occX2 = W * 0.5 + 55;
+
+      // Project extremes from light disc [lx - rLight, lx + rLight] through [occX1, occX2]
+      const projectX = (srcX, targetX) => {
+        const dyL = floorY - ly;
+        const dyO = occY - ly;
+        return srcX + ((targetX - srcX) * dyL) / Math.max(10, dyO);
+      };
+
+      const umbraL = projectX(lx - rLight, occX1);
+      const umbraR = projectX(lx + rLight, occX2);
+      const penL = projectX(lx + rLight, occX1);
+      const penR = projectX(lx - rLight, occX2);
+
+      const penWidth = Math.round(Math.abs(umbraL - penL));
+      document.getElementById('mathPenumbraBadge').textContent =
+        rLight === 0 ? 'Hard Shadow (Penumbra = 0 px)' : `Penumbra Width: ${penWidth} px`;
+
+      // Draw Penumbra cone (amber translucent)
+      if (rLight > 0) {
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.16)';
+        ctx.beginPath();
+        ctx.moveTo(occX1, occY);
+        ctx.lineTo(occX2, occY);
+        ctx.lineTo(penR, floorY);
+        ctx.lineTo(penL, floorY);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Draw Umbra cone (indigo/slate dark)
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.strokeStyle = '#6366f1';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(occX1, occY);
+      ctx.lineTo(occX2, occY);
+      ctx.lineTo(Math.max(umbraL, umbraR), floorY);
+      ctx.lineTo(Math.min(umbraL, umbraR), floorY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Floor line
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(24, floorY);
+      ctx.lineTo(W - 24, floorY);
+      ctx.stroke();
+
+      // Highlight Umbra & Penumbra strips on floor
+      if (rLight > 0) {
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(penL, floorY);
+        ctx.lineTo(penR, floorY);
+        ctx.stroke();
+      }
+      if (umbraR > umbraL) {
+        ctx.strokeStyle = '#ec4899';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(umbraL, floorY);
+        ctx.lineTo(umbraR, floorY);
+        ctx.stroke();
+      }
+
+      // Draw occluder blocker
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(occX1, occY - 8, occX2 - occX1, 12);
+
+      // Draw light source
+      ctx.fillStyle = '#fde047';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(lx - rLight, ly);
+      ctx.lineTo(lx + rLight, ly);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(lx, ly, 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '粉色线段: 本影 (Umbra) | 橙色线段: 半影 (Penumbra)' : 'Pink Strip: Umbra | Amber Strip: Penumbra', 28, 28);
+    }
+
+    // ==================== TAB 2 LAB 1: PLANAR SHADOW & ANTI-SHADOW ====================
+    function renderLab1() {
+      const canvas = document.getElementById('lab1Canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const ly = parseFloat(document.getElementById('lab1SliderLy').value);
+      const lx = parseFloat(document.getElementById('lab1SliderLx').value);
+      const tiltDeg = parseFloat(document.getElementById('lab1SliderTilt').value);
+      const clipAnti = document.getElementById('lab1ClipAnti').checked;
+
+      document.getElementById('lab1ValLy').textContent = ly.toFixed(1);
+      document.getElementById('lab1ValLx').textContent = lx.toFixed(1);
+      document.getElementById('lab1ValTilt').textContent = tiltDeg + '°';
+
+      const tiltRad = (tiltDeg * Math.PI) / 180;
+      const nx = -Math.sin(tiltRad), ny = Math.cos(tiltRad);
+      const originX = W * 0.5, originY = H * 0.76;
+      const scale = 58;
+
+      const toScreen = (x, y) => [originX + x * scale, originY - y * scale];
+
+      // Draw tilted receiver plane
+      const [p1x, p1y] = toScreen(-5.2, -(-5.2 * nx) / ny);
+      const [p2x, p2y] = toScreen(5.2, -(5.2 * nx) / ny);
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(p1x, p1y);
+      ctx.lineTo(p2x, p2y);
+      ctx.stroke();
+
+      // Occluder polygon vertices in 2D world (x, y) around y = 2.4..3.2
+      const poly = [
+        [-0.9, 2.2],
+        [ 0.9, 2.2],
+        [ 0.6, 3.1],
+        [-0.6, 3.1]
+      ];
+
+      // Apply 2D slice of Blinn planar matrix M = (Pi^T L)I - L Pi^T
+      const dotL = nx * lx + ny * ly;
+      const projPts = [];
+      let hasAntiShadow = false;
+
+      for (const [vx, vy] of poly) {
+        const dotV = nx * vx + ny * vy;
+        const ws = dotL - dotV;
+        const px = (dotL * vx - lx * dotV) / (Math.abs(ws) < 1e-4 ? 1e-4 : ws);
+        const py = (dotL * vy - ly * dotV) / (Math.abs(ws) < 1e-4 ? 1e-4 : ws);
+        if (ws <= 0) hasAntiShadow = true;
+        projPts.push({ px, py, ws, vx, vy });
+      }
+
+      // Draw projection rays and planar shadow
+      for (const pt of projPts) {
+        if (pt.ws <= 0 && clipAnti) continue;
+        const [sxL, syL] = toScreen(lx, ly);
+        const [sxP, syP] = toScreen(pt.px, pt.py);
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = pt.ws > 0 ? 'rgba(148, 163, 184, 0.45)' : 'rgba(244, 63, 94, 0.75)';
+        ctx.beginPath();
+        ctx.moveTo(sxL, syL);
+        ctx.lineTo(sxP, syP);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      const validShadow = projPts.filter(p => p.ws > 0 || !clipAnti);
+      if (validShadow.length >= 2) {
+        const xs = validShadow.map(p => p.px);
+        const minX = Math.max(-5.0, Math.min(...xs));
+        const maxX = Math.min(5.0, Math.max(...xs));
+        const [s1x, s1y] = toScreen(minX, -(minX * nx) / ny);
+        const [s2x, s2y] = toScreen(maxX, -(maxX * nx) / ny);
+        ctx.strokeStyle = hasAntiShadow && !clipAnti ? '#f43f5e' : '#22d3ee';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(s1x, s1y);
+        ctx.lineTo(s2x, s2y);
+        ctx.stroke();
+      }
+
+      // Draw occluder polygon
+      ctx.fillStyle = 'rgba(99, 102, 241, 0.35)';
+      ctx.strokeStyle = '#818cf8';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      poly.forEach(([vx, vy], idx) => {
+        const [sx, sy] = toScreen(vx, vy);
+        if (idx === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      });
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw point light
+      const [lxS, lyS] = toScreen(lx, ly);
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.arc(lxS, lyS, 9, 0, Math.PI * 2);
+      ctx.fill();
+
+      const statusBox = document.getElementById('lab1StatusBox');
+      if (hasAntiShadow && !clipAnti) {
+        statusBox.innerHTML = currentLang === 'zh'
+          ? '<span class="text-rose-400 font-bold">⚠️ 检测到反阴影 (Anti-Shadow, $w_s &lt; 0$)！</span> 光源位于遮挡物下方，直线反向延长刺穿了地面，产生错误的红色幽灵阴影！请勾选上方 $w_s &gt; 0$ 裁剪。'
+          : '<span class="text-rose-400 font-bold">⚠️ False Anti-Shadow ($w_s &lt; 0$) Detected!</span> The light is below the occluder, so backward rays hit the floor. Enable $w_s &gt; 0$ clipping above!';
+      } else if (hasAntiShadow && clipAnti) {
+        statusBox.innerHTML = currentLang === 'zh'
+          ? '<span class="text-emerald-400 font-bold">✅ 反阴影已被 $w_s &gt; 0$ 裁剪成功拦截！</span>'
+          : '<span class="text-emerald-400 font-bold">✅ False Anti-Shadow cleanly clipped by $w_s &gt; 0$ guard!</span>';
+      } else {
+        statusBox.innerHTML = currentLang === 'zh'
+          ? '<span class="text-cyan-300 font-bold">✨ 正常正投影 ($w_s &gt; 0$)：</span> 青色宽线段即为 $M_{\\text{shadow}}$ 拍扁在地面上的精确硬阴影。'
+          : '<span class="text-cyan-300 font-bold">✨ Valid Projection ($w_s &gt; 0$):</span> Cyan strip shows the exact planar shadow cast by $M_{\\text{shadow}}$.';
+      }
+    }
+
+    // ==================== TAB 2 LAB 2: STENCIL SHADOW VOLUME SANDBOX ====================
+    function setLab2Method(m) {
+      lab2Method = m;
+      document.getElementById('btnMethodZPass').className =
+        m === 'zpass'
+          ? 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow transition'
+          : 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition';
+      document.getElementById('btnMethodZFail').className =
+        m === 'zfail'
+          ? 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 text-white shadow transition'
+          : 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition';
+      renderLab2();
+    }
+
+    function moveCamPreset(where) {
+      document.getElementById('lab2SliderCam').value = where === 'inside' ? '-15' : '-220';
+      renderLab2();
+    }
+
+    function segIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
+      const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+      if (Math.abs(denom) < 1e-6) return null;
+      const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+      const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+      if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+        return { t, u, x: x1 + t * (x2 - x1), y: y1 + t * (y2 - y1) };
+      }
+      return null;
+    }
+
+    function renderLab2() {
+      const canvas = document.getElementById('lab2Canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const rayDeg = parseFloat(document.getElementById('lab2SliderRay').value);
+      const camOffset = parseFloat(document.getElementById('lab2SliderCam').value);
+      document.getElementById('lab2ValRay').textContent = rayDeg + '°';
+
+      const lx = 390, ly = 48;
+      const occluder = { x1: 315, y1: 155, x2: 445, y2: 155 };
+      const receiverWallX = 635;
+
+      // Extrude silhouette rays from (lx,ly) through occluder endpoints to dark cap far below
+      const extScale = 2.9;
+      const leftFarX = lx + (occluder.x1 - lx) * extScale;
+      const leftFarY = ly + (occluder.y1 - ly) * extScale;
+      const rightFarX = lx + (occluder.x2 - lx) * extScale;
+      const rightFarY = ly + (occluder.y2 - ly) * extScale;
+
+      const camX = 360 + camOffset;
+      const camY = 250;
+
+      // Check if camera is inside shadow volume polygon [occluder.x1, occluder.x2, rightFarX, leftFarX]
+      const tCamY = (camY - occluder.y1) / (leftFarY - occluder.y1);
+      const coneLeftAtCam = occluder.x1 + tCamY * (leftFarX - occluder.x1);
+      const coneRightAtCam = occluder.x2 + tCamY * (rightFarX - occluder.x2);
+      const camInsideCone = camX > coneLeftAtCam && camX < coneRightAtCam && camY > occluder.y1;
+
+      document.getElementById('lab2ValCam').textContent = camInsideCone
+        ? (currentLang === 'zh' ? `⚠️ 阴影锥内部 (${camOffset})` : `⚠️ Inside Cone (${camOffset})`)
+        : (currentLang === 'zh' ? `阴影锥外部 (${camOffset})` : `Outside Cone (${camOffset})`);
+
+      // Fill Shadow Volume Cone
+      ctx.fillStyle = 'rgba(30, 41, 59, 0.65)';
+      ctx.beginPath();
+      ctx.moveTo(occluder.x1, occluder.y1);
+      ctx.lineTo(occluder.x2, occluder.y2);
+      ctx.lineTo(rightFarX, rightFarY);
+      ctx.lineTo(leftFarX, leftFarY);
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw Shadow Volume boundary walls with outward normals
+      // Left wall (Front-facing to left camera) -> green
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(occluder.x1, occluder.y1);
+      ctx.lineTo(leftFarX, leftFarY);
+      ctx.stroke();
+
+      // Right wall (Back-facing to left camera) -> rose
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(occluder.x2, occluder.y2);
+      ctx.lineTo(rightFarX, rightFarY);
+      ctx.stroke();
+
+      // Light Cap (occluder) & Infinity Dark Cap
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(occluder.x1, occluder.y1);
+      ctx.lineTo(occluder.x2, occluder.y2);
+      ctx.stroke();
+
+      ctx.save();
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(leftFarX, leftFarY);
+      ctx.lineTo(rightFarX, rightFarY);
+      ctx.stroke();
+      ctx.restore();
+
+      // Receiver background wall on the right
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(receiverWallX, 50);
+      ctx.lineTo(receiverWallX, H - 40);
+      ctx.stroke();
+
+      // Probe ray from Camera to Receiver Wall and beyond to Infinity
+      const rad = (rayDeg * Math.PI) / 180;
+      const dirX = Math.cos(rad), dirY = Math.sin(rad);
+      const hitWallT = (receiverWallX - camX) / dirX;
+      const surfX = receiverWallX;
+      const surfY = camY + hitWallT * dirY;
+      const infX = camX + dirX * 950;
+      const infY = camY + dirY * 950;
+
+      // Collect intersections of full ray [cam -> inf] with the 4 closed shadow volume walls
+      const walls = [
+        { x1: occluder.x1, y1: occluder.y1, x2: leftFarX, y2: leftFarY, name: 'Left Wall' },
+        { x1: rightFarX, y1: rightFarY, x2: occluder.x2, y2: occluder.y2, name: 'Right Wall' },
+        { x1: occluder.x2, y1: occluder.y2, x2: occluder.x1, y2: occluder.y1, name: 'Light Cap' },
+        { x1: leftFarX, y1: leftFarY, x2: rightFarX, y2: rightFarY, name: 'Dark Cap (w=0)' }
+      ];
+
+      let stencil = 0;
+      const crossings = [];
+
+      walls.forEach(w => {
+        const hit = segIntersect(camX, camY, infX, infY, w.x1, w.y1, w.x2, w.y2);
+        if (hit) {
+          // Outward normal of directed edge (x1,y1)->(x2,y2) around interior
+          const ex = w.x2 - w.x1, ey = w.y2 - w.y1;
+          // Interior of polygon is clockwise/counterclockwise; let's test against polygon center
+          const cx = (occluder.x1 + occluder.x2 + leftFarX + rightFarX) * 0.25;
+          const cy = (occluder.y1 + occluder.y2 + leftFarY + rightFarY) * 0.25;
+          let nx = -ey, ny = ex;
+          if (nx * (cx - w.x1) + ny * (cy - w.y1) > 0) {
+            nx = -nx; ny = -ny;
+          }
+          const isFrontFace = (dirX * nx + dirY * ny) < 0;
+          const dist = Math.hypot(hit.x - camX, hit.y - camY);
+          const isBeforeSurface = dist < hitWallT;
+
+          let delta = 0;
+          if (lab2Method === 'zpass' && isBeforeSurface && w.name !== 'Dark Cap (w=0)') {
+            delta = isFrontFace ? +1 : -1;
+          } else if (lab2Method === 'zfail' && !isBeforeSurface) {
+            delta = isFrontFace ? -1 : +1;
+          }
+
+          if (delta !== 0) {
+            stencil += delta;
+            crossings.push({ x: hit.x, y: hit.y, delta, name: w.name });
+          }
+        }
+      });
+
+      // Draw ray before surface (solid cyan) and behind surface (dashed amber for Z-Fail)
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(camX, camY);
+      ctx.lineTo(surfX, surfY);
+      ctx.stroke();
+
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(surfX, surfY);
+      ctx.lineTo(infX, infY);
+      ctx.stroke();
+      ctx.restore();
+
+      // Surface hit point
+      const trulyInShadow = surfY > occluder.y1 + ((surfX - lx) * (occluder.y1 - ly)) / (occluder.x1 - lx) &&
+                            surfY < occluder.y2 + ((surfX - lx) * (occluder.y2 - ly)) / (occluder.x2 - lx);
+      const stencilSaysShadow = stencil !== 0;
+
+      ctx.fillStyle = stencilSaysShadow ? '#a855f7' : '#fde047';
+      ctx.beginPath();
+      ctx.arc(surfX, surfY, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw +1 / -1 crossing badges
+      crossings.forEach(c => {
+        ctx.fillStyle = c.delta > 0 ? '#10b981' : '#f43f5e';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText(c.delta > 0 ? '+1' : '-1', c.x - 7, c.y + 4);
+      });
+
+      // Draw Light & Camera icons
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath(); ctx.arc(lx, ly, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#e2e8f0';
+      ctx.beginPath(); ctx.arc(camX, camY, 8, 0, Math.PI * 2); ctx.fill();
+
+      const readout = document.getElementById('lab2ReadoutBox');
+      const isBuggy = stencilSaysShadow !== trulyInShadow;
+      readout.innerHTML = `
+        <div class="flex justify-between">
+          <span class="text-slate-400">${currentLang === 'zh' ? 'Stencil 最终计数:' : 'Final Stencil Count:'}</span>
+          <span class="font-mono font-bold ${stencil !== 0 ? 'text-purple-400' : 'text-emerald-400'}">${stencil} (${stencil !== 0 ? 'IN SHADOW' : 'LIT'})</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">${currentLang === 'zh' ? '真实物理状态:' : 'True Physical State:'}</span>
+          <span class="font-mono font-bold text-slate-200">${trulyInShadow ? 'IN SHADOW' : 'LIT'}</span>
+        </div>
+        <div class="pt-1 font-semibold ${isBuggy ? 'text-rose-400' : 'text-emerald-400'}">
+          ${isBuggy
+            ? (currentLang === 'zh'
+                ? '❌ Z-Pass 计数反转 Bug！相机位于阴影锥内，漏掉了入口前壁 (+1)。请立即切换到「卡马克反转 Z-Fail」！'
+                : '❌ Z-Pass Inversion Bug! Eye is inside the shadow cone and missed the entry +1 wall. Switch to Carmack\'s Reverse Z-Fail!')
+            : (currentLang === 'zh'
+                ? '✅ 模板缓冲计数与真实物理遮挡 100% 吻合！'
+                : '✅ Stencil count matches physical occlusion 100%!')}
+        </div>
+      `;
+    }
+
+    // ==================== TAB 4: 3-MISSION GAME ====================
+    function selectMission(m) {
+      currentMission = m;
+      [1, 2, 3].forEach(id => {
+        const btn = document.getElementById('missionTab' + id);
+        btn.className = id === m
+          ? 'p-4 rounded-xl text-left border transition bg-indigo-600/20 border-indigo-500 text-white'
+          : 'p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70';
+      });
+
+      if (m === 1) {
+        document.getElementById('gameSelectClip').value = 'off';
+        document.getElementById('gameSelectSil').value = 'off';
+        document.getElementById('gameSelectAlgo').value = 'zpass';
+      } else if (m === 2) {
+        document.getElementById('gameSelectClip').value = 'on';
+        document.getElementById('gameSelectSil').value = 'off';
+        document.getElementById('gameSelectAlgo').value = 'zpass';
+      } else {
+        document.getElementById('gameSelectClip').value = 'on';
+        document.getElementById('gameSelectSil').value = 'on';
+        document.getElementById('gameSelectAlgo').value = 'zpass';
+      }
+
+      document.getElementById('gameFeedbackBox').classList.add('hidden');
+      updateGameBrief();
+      updateGame();
+    }
+
+    function updateGameBrief() {
+      const box = document.getElementById('gameBriefBox');
+      const title = document.getElementById('gameMissionTitle');
+      if (currentMission === 1) {
+        title.textContent = currentLang === 'zh' ? '关卡 1：消灭低空光源的幽灵反阴影 (w_s > 0)' : 'Mission 1: Eliminate False Anti-Shadows (w_s > 0)';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务简报：</strong>场景中的点光源低于悬浮石块，平面投影矩阵 $M_{\\text{shadow}}$ 在 $w_s &lt; 0$ 处投出了荒谬的反向阴影。请启用 <strong>Planar Anti-Shadow Clipping ($w_s &gt; 0$)</strong>！'
+          : '<strong>Brief:</strong> A low point light projects a false anti-shadow ($w_s &lt; 0$) backward onto the floor. Enable <strong>Planar Anti-Shadow Clipping ($w_s &gt; 0$)</strong>!';
+      } else if (currentMission === 2) {
+        title.textContent = currentLang === 'zh' ? '关卡 2：激活轮廓边挤出与双遮挡物阴影体' : 'Mission 2: Activate Silhouette Extrusion & Stencil Volumes';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务简报：</strong>现在需要让阴影投射到凹凸不平的台阶与角色自身上。请开启 <strong>Silhouette Edge Extraction</strong> 并配置 <strong>Z-Pass</strong> 或 <strong>Carmack\'s Reverse</strong>！'
+          : '<strong>Brief:</strong> Cast self-shadows onto curved stairs! Enable <strong>Silhouette Edge Extraction</strong> with a valid Stencil Volume pass!';
+      } else {
+        title.textContent = currentLang === 'zh' ? '关卡 3：卡马克反转 (Carmack\'s Reverse Z-Fail) 终极救援' : 'Mission 3: Carmack\'s Reverse (Z-Fail + Caps) Rescue';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务简报：</strong>玩家相机已进入恶魔雕像的阴影体积锥内部，经典 `Z-Pass` 发生全场黑白反转 Bug！请启用轮廓边提取，并将算法切换为 <strong>Carmack\'s Reverse: Z-Fail (+1 Back / -1 Front) + Light/Dark Caps</strong>！'
+          : '<strong>Brief:</strong> The player camera stepped inside a shadow volume, inverting `Z-Pass`! Switch to <strong>Carmack\'s Reverse: Z-Fail (+1 Back / -1 Front) + Light/Dark Caps</strong>!';
+      }
+    }
+
+    function updateGame() {
+      const clip = document.getElementById('gameSelectClip').value;
+      const sil = document.getElementById('gameSelectSil').value;
+      const algo = document.getElementById('gameSelectAlgo').value;
+
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      ctx.fillStyle = '#090d1f';
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw light source
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath(); ctx.arc(160, 70, 10, 0, Math.PI * 2); ctx.fill();
+
+      // Draw occluder & shadow volume visualization
+      if (sil === 'on') {
+        ctx.fillStyle = algo === 'zfail_capped' ? 'rgba(6, 182, 212, 0.22)' : 'rgba(244, 63, 94, 0.22)';
+        ctx.beginPath();
+        ctx.moveTo(270, 140);
+        ctx.lineTo(380, 120);
+        ctx.lineTo(620, 290);
+        ctx.lineTo(430, 330);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // False anti-shadow indicator when clip === 'off'
+      if (clip === 'off') {
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.45)';
+        ctx.fillRect(30, 260, 120, 14);
+        ctx.fillStyle = '#fda4af';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText('FALSE ANTI-SHADOW (w_s < 0)', 25, 252);
+      }
+
+      // Occluder block
+      ctx.fillStyle = '#6366f1';
+      ctx.fillRect(270, 120, 110, 24);
+
+      // Status text
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '12px monospace';
+      ctx.fillText(`Clip w>0: [${clip.toUpperCase()}] | Silhouette: [${sil.toUpperCase()}] | Stencil: [${algo.toUpperCase()}]`, 20, 32);
+    }
+
+    function verifyMission() {
+      const clip = document.getElementById('gameSelectClip').value;
+      const sil = document.getElementById('gameSelectSil').value;
+      const algo = document.getElementById('gameSelectAlgo').value;
+      const fb = document.getElementById('gameFeedbackBox');
+      fb.classList.remove('hidden');
+
+      let ok = false;
+      if (currentMission === 1) ok = clip === 'on';
+      else if (currentMission === 2) ok = clip === 'on' && sil === 'on';
+      else ok = clip === 'on' && sil === 'on' && algo === 'zfail_capped';
+
+      if (ok) {
+        completedMissions[currentMission] = true;
+        document.getElementById('missionStatus' + currentMission).textContent = '✅ Passed';
+        fb.className = 'rounded-xl p-3.5 text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+        fb.textContent = currentLang === 'zh'
+          ? `🎉 恭喜通过关卡 ${currentMission}！阴影管线验证无误！`
+          : `🎉 Mission ${currentMission} Complete! Shadow pipeline verified!`;
+      } else {
+        fb.className = 'rounded-xl p-3.5 text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40';
+        fb.textContent = currentLang === 'zh'
+          ? '⚠️ 配置尚未满足当前关卡要求，请检查 w_s > 0 裁剪、轮廓边提取或 Carmack\'s Reverse (Z-Fail + Caps)！'
+          : '⚠️ Configuration incomplete. Check w_s > 0 clipping, Silhouette Extraction, or Carmack\'s Reverse (Z-Fail + Caps)!';
+      }
+
+      const doneCount = Object.values(completedMissions).filter(Boolean).length;
+      document.getElementById('gameScoreBadge').textContent = `Completed: ${doneCount} / 3`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      drawMathShadow();
+      renderLab1();
+      renderLab2();
+      updateGameBrief();
+      updateGame();
+    });
+  </script>
+</body>
+</html>
