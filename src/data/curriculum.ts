@@ -655,7 +655,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Rigging, Bind Pose Matrices & Linear Blend Skinning (LBS / SSD)',
     concepts: ['骨骼层级与 Bind Pose 逆矩阵', '线性混合蒙皮公式 ∑ w_i T_i B_i⁻¹ v', '顶点权重热力图', 'Candy-Wrapper 体积坍缩缺陷与双四元数蒙皮'],
     playgroundTitle: '骨骼蒙皮权重绘制与关节扭转实验室',
-    playgroundDescription: '旋转双骨关节并调节顶点混合权重，观察平滑蒙皮过渡以及大角度扭转时的糖果纸坍缩现象。',
+    playgroundDescription: '用 3Blue1Brown 坐标系切换与旋转流形弦长坍缩 cos(θ/2) 直觉推导绑定逆矩阵 M_i=T_i B_i⁻¹、线性混合蒙皮 (LBS) 糖果纸坍缩 (180° 扭转时 det=0) 与双四元数蒙皮 (DQS)，在双实验台体验权重热力图与 LBS/DQS 同屏扭转竞技场，畅玩 3 关首席角色蒙皮技术总监游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
