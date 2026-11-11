@@ -674,7 +674,8 @@ export const LESSONS: LessonItem[] = [
     subtitle: 'Phase Space, Explicit/Implicit Euler, Midpoint & RK4 Stability',
     concepts: ['一阶与二阶常微分方程状态向量', '相空间向量场', '显式欧拉为何能量无界爆炸', '隐式欧拉、半隐式欧拉与 RK4 精度对比'],
     playgroundTitle: 'ODE 数值积分器稳定性竞技场',
-    playgroundDescription: '在弹簧谐振子相空间中同时运行 Explicit Euler、Symplectic Euler、Midpoint 与 RK4，调大 Δt 观察发散与收敛。',
+    playgroundDescription: '用 3Blue1Brown 相空间正交切线与勾股定理斜边直觉推导显式欧拉能量爆炸 (1+h²)、隐式欧拉无条件稳定衰减 1/(1+h²) 与半隐式（辛）欧拉保面积定理 det(A)=1，在五大积分器相空间竞技场与粒子涡旋力场沙盒实时对比 Explicit/Implicit/Symplectic/Midpoint/RK4，畅玩 3 关首席物理引擎架构师游戏。',
+    isImplemented: true,
     videos: [
       {
         course: 'MIT',
