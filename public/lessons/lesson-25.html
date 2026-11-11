@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 25: 相机运动 (Camera Motion)、关键帧缓动与弧长参数化 | Learning 3D</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
+  <style>
+    body { background: #020617; color: #f8fafc; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .glass { background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.7); }
+    .tab-active { background: linear-gradient(135deg, #4f46e5, #0891b2); color: white; box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35); }
+    input[type="range"] { accent-color: #6366f1; }
+    .katex { font-size: 1.04em; }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+  <!-- Sticky Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center font-black text-white shadow hover:scale-105 transition" title="Back to Portal">3D</a>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Stage 5 • Lesson 25</span>
+            <span class="text-xs text-slate-400">UC Davis ECS 175 L20 • MIT 6.837 L06</span>
+          </div>
+          <h1 class="font-bold text-base sm:text-lg text-white tracking-tight">
+            <span class="lang-zh">相机运动 (Camera Motion)、关键帧缓动、弧长参数化与 Frenet 标架稳定</span>
+            <span class="lang-en hidden">Camera Motion, Keyframe Easing, Arc-Length Parameterization &amp; Orientation Frames</span>
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button id="langToggleBtn" onclick="toggleLang()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition shadow-sm">
+          <span>🌐</span>
+          <span id="langBtnText">EN / 中文</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-3 flex flex-wrap gap-2">
+      <button onclick="switchTab('math')" id="tab-btn-math" class="tab-btn tab-active px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2">
+        <span>📐</span>
+        <span class="lang-zh">1. 核心数学与 3Blue1Brown 直觉</span>
+        <span class="lang-en hidden">1. Core Math &amp; 3B1B Intuition</span>
+      </button>
+      <button onclick="switchTab('lab')" id="tab-btn-lab" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🔬</span>
+        <span class="lang-zh">2. 弧长匀速竞速与 Frenet 防翻转实验室</span>
+        <span class="lang-en hidden">2. Arc-Length Race &amp; Frenet Stabilizer Labs</span>
+      </button>
+      <button onclick="switchTab('videos')" id="tab-btn-videos" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🎬</span>
+        <span class="lang-zh">3. 名校课程视频与笔记</span>
+        <span class="lang-en hidden">3. Course Videos &amp; Notes</span>
+      </button>
+      <button onclick="switchTab('game')" id="tab-btn-game" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-2">
+        <span>🎮</span>
+        <span class="lang-zh">4. 闯关游戏：好莱坞首席虚拟运镜总监</span>
+        <span class="lang-en hidden">4. Game: Hollywood Virtual Cinematographer</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-8">
+    <!-- ==================== TAB 1: MATH & 3B1B INTUITION ==================== -->
+    <section id="tab-math" class="tab-panel space-y-8">
+      <!-- Hero Banner -->
+      <div class="glass rounded-2xl p-6 sm:p-8 border-l-4 border-l-indigo-500">
+        <div class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">
+          <span class="lang-zh">3Blue1Brown 微积分与微分几何直觉 • 为什么参数 $u$ 匀速走，相机却在轨上忽快忽慢？</span>
+          <span class="lang-en hidden">3Blue1Brown Calculus &amp; Differential Geometry Intuition • Why Uniform Parameter $u$ Causes Jerky Speed</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-4">
+          <span class="lang-zh">从复合函数链式法则到弧长反函数重参数化 $u = s^{-1}(s)$ 与 Frenet 标架拐点危机</span>
+          <span class="lang-en hidden">From the Chain Rule to Arc-Length Inversion $u = s^{-1}(s)$ &amp; the Frenet Inflection Crisis</span>
+        </h2>
+        <p class="text-slate-300 leading-relaxed text-sm sm:text-base">
+          <span class="lang-zh">
+            欢迎进入 <strong>Stage 5：计算机动画与物理仿真</strong>！在电影运镜与游戏过场动画中，我们通常用贝塞尔曲线或样条曲线 $\mathbf{P}(u)$ 作为摄像机导轨。但几乎所有初学者都会踩中两个经典的几何陷阱：
+            <strong>第一</strong>，明明在代码里让曲线参数 $u(t) = t$ 随时间均匀增加，摄像机却在控制点密集处像蜗牛一样卡顿，在控制点稀疏处像失控过山车一样暴冲！
+            <strong>第二</strong>，如果直接用微分几何的 <strong>Frenet–Serret 标架 ($\mathbf{T}, \mathbf{N}, \mathbf{B}$)</strong> 控制镜头朝向，一旦飞船穿过 S 型轨道的<strong>拐点 (Inflection Point)</strong>，整个屏幕画面会在一帧之内瞬间<strong>上下颠倒 $180^\circ$</strong>！本课我们将用微积分链式法则与微分几何彻底解开这两个谜团。
+          </span>
+          <span class="lang-en hidden">
+            Welcome to <strong>Stage 5: Computer Animation &amp; Physical Simulation</strong>! When driving a camera along a spline $\mathbf{P}(u)$, two classic geometric traps await:
+            <strong>First</strong>, stepping the curve parameter uniformly ($u(t)=t$) makes the camera crawl where control points are bunched and surge wildly where they are stretched!
+            <strong>Second</strong>, aligning the camera with the <strong>Frenet–Serret frame ($\mathbf{T}, \mathbf{N}, \mathbf{B}$)</strong> causes an instant <strong>$180^\circ$ upside-down flip</strong> whenever the path crosses an <strong>inflection point</strong>! Let's derive why and build the exact mathematical cures.
+          </span>
+        </p>
+      </div>
+
+      <!-- Part 1: Chain Rule & Arc-Length Parameterization Derivation -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <span class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-black flex items-center justify-center">1</span>
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              <span class="lang-zh">链式法则剖析参数速度失控 &amp; 弧长参数化反函数抵消定理</span>
+              <span class="lang-en hidden">Chain Rule Analysis of Parametric Speed &amp; Arc-Length Inversion Cancellation Theorem</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">UC Davis ECS 175 L20：如何让 $\frac{du}{ds} = \frac{1}{\|\mathbf{P}'(u)\|}$ 完美约掉曲线自身的导数模长波动？</span>
+              <span class="lang-en hidden">UC Davis ECS 175 L20: How $\frac{du}{ds} = \frac{1}{\|\mathbf{P}'(u)\|}$ cancels out intrinsic curve stretching</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold uppercase text-rose-400">
+              <span class="lang-zh">步骤 A：为什么 $u(t)=t$ 的物理速率不恒定？</span>
+              <span class="lang-en hidden">Step A: Why $u(t)=t$ Has Non-Uniform Physical Speed</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <span class="lang-zh">
+                设样条曲线为 $\mathbf{P}(u)$，$u \in [0,1]$。相机在三维世界中的瞬时物理速度向量为 $\mathbf{v}(t) = \frac{d\mathbf{P}}{dt}$。由微积分<strong>链式法则 (Chain Rule)</strong>：
+              </span>
+              <span class="lang-en hidden">
+                Let the spline be $\mathbf{P}(u)$, $u \in [0,1]$. The camera's 3D velocity is $\mathbf{v}(t) = \frac{d\mathbf{P}}{dt}$. By the <strong>Chain Rule</strong>:
+              </span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto border border-rose-500/30">
+              $$\left\|\frac{d\mathbf{P}}{dt}\right\| = \left\|\frac{d\mathbf{P}}{du} \cdot \frac{du}{dt}\right\| = \underbrace{\|\mathbf{P}'(u)\|}_{\text{曲线内禀拉伸率}} \cdot \frac{du}{dt}$$
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              <span class="lang-zh">
+                对于三次多项式曲线 $\mathbf{P}(u) = \sum_{i=0}^3 \mathbf{c}_i u^i$，导数模长 $\|\mathbf{P}'(u)\| = \sqrt{x'(u)^2 + y'(u)^2 + z'(u)^2}$ 随 $u$ 剧烈变化！若令 $\frac{du}{dt} = 1$，物理速率就会完全等于 $\|\mathbf{P}'(u)\|$ 而忽快忽慢。
+              </span>
+              <span class="lang-en hidden">
+                For a cubic polynomial curve, $\|\mathbf{P}'(u)\| = \sqrt{x'(u)^2 + y'(u)^2 + z'(u)^2}$ fluctuates wildly with $u$. Setting $\frac{du}{dt}=1$ leaves the physical speed at the mercy of $\|\mathbf{P}'(u)\|$.
+              </span>
+            </p>
+          </div>
+
+          <div class="bg-slate-900/80 rounded-xl p-5 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold uppercase text-emerald-400">
+              <span class="lang-zh">步骤 B：弧长积分 $s(u)$ 与反函数导数完美约分</span>
+              <span class="lang-en hidden">Step B: Arc-Length Integral $s(u)$ &amp; Inverse Derivative Cancellation</span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <span class="lang-zh">
+                定义从 $0$ 到 $u$ 的累计弧长函数 $s(u) = \int_0^u \|\mathbf{P}'(\tau)\|\,d\tau$。由微积分基本定理，$\frac{ds}{du} = \|\mathbf{P}'(u)\|$。
+                因为 $s(u)$ 单调递增，反解出反函数 $u = s^{-1}(s)$。由<strong>反函数求导定理</strong>，若我们按目标弧长 $s(t)$ 推进，则：
+              </span>
+              <span class="lang-en hidden">
+                Define cumulative arc length $s(u) = \int_0^u \|\mathbf{P}'(\tau)\|\,d\tau$, so $\frac{ds}{du} = \|\mathbf{P}'(u)\|$. Inverting $s(u)$ to $u = s^{-1}(s)$ and applying the <strong>Inverse Function Derivative Rule</strong> yields:
+              </span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-3 text-xs overflow-x-auto border border-emerald-500/30">
+              $$\frac{du}{dt} = \frac{du}{ds}\cdot\frac{ds}{dt} = \frac{1}{\|\mathbf{P}'(u)\|}\cdot\frac{ds}{dt} \implies \left\|\frac{d\mathbf{P}}{dt}\right\| = \|\mathbf{P}'(u)\|\cdot\frac{1}{\|\mathbf{P}'(u)\|}\cdot\frac{ds}{dt} = \frac{ds}{dt}$$
+            </div>
+            <p class="text-xs text-emerald-300 leading-relaxed">
+              <span class="lang-zh">
+                💡 <strong>几何结论</strong>：反函数的导数 $\frac{1}{\|\mathbf{P}'(u)\|}$ 把曲线内禀拉伸率 $\|\mathbf{P}'(u)\|$ <strong>彻底约分抵消</strong>了！现在相机的真实物理速率 $100\%$ 听命于你设计的缓动函数 $\frac{ds}{dt}$！
+              </span>
+              <span class="lang-en hidden">
+                💡 <strong>Geometric Takeaway</strong>: The inverse derivative $\frac{1}{\|\mathbf{P}'(u)\|}$ <strong>cancels $\|\mathbf{P}'(u)\|$ exactly</strong>! Physical camera speed now obeys your easing curve $\frac{ds}{dt}$ $100\%$!
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Easing Curves & Frenet-Serret Frame vs World-Up -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+          <span class="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-black flex items-center justify-center">2</span>
+          <div>
+            <h3 class="text-xl font-bold text-white">
+              <span class="lang-zh">时间缓动曲线 (Ease-In / Ease-Out) 与 Frenet–Serret 标架拐点 $180^\circ$ 翻转之谜</span>
+              <span class="lang-en hidden">Time Easing Curves (Ease-In / Ease-Out) &amp; the Frenet–Serret Inflection $180^\circ$ Flip</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              <span class="lang-zh">为什么真实摄像机不能瞬间从静止跳到全速？为什么 S 型曲线会让主法向量 $\mathbf{N}$ 突然反向？</span>
+              <span class="lang-en hidden">Why real cameras need smooth acceleration and why S-curves flip the principal normal $\mathbf{N}$</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <!-- Card 1: Easing -->
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-slate-800 space-y-3">
+            <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Timing &amp; Easing</span>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">Hermite 缓入缓出 ($3\tau^2 - 2\tau^3$)</span>
+              <span class="lang-en hidden">Hermite Smoothstep ($3\tau^2 - 2\tau^3$)</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">在物理世界中，沉重的电影摄影机具有惯性，起止瞬间的速度必须为 $0$。令归一化时间 $\tau = t/T \in [0,1]$，满足 $e(0)=0, e(1)=1$ 且导数 $e'(0)=e'(1)=0$ 的唯一三次多项式正是 Smoothstep：</span>
+              <span class="lang-en hidden">Physical camera rigs have inertia and must start/stop with zero velocity. The unique cubic on $\tau \in [0,1]$ with $e(0)=0, e(1)=1$ and $e'(0)=e'(1)=0$ is Smoothstep:</span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-2.5 text-xs overflow-x-auto">
+              $$e(\tau) = 3\tau^2 - 2\tau^3, \qquad e'(\tau) = 6\tau(1-\tau)$$
+            </div>
+          </div>
+
+          <!-- Card 2: Frenet-Serret Flip -->
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-rose-500/40 space-y-3">
+            <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">Frenet Inflection Trap</span>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">Frenet 标架在拐点为何瞬间翻转 $180^\circ$？</span>
+              <span class="lang-en hidden">Why Frenet Frames Flip $180^\circ$ at Inflections</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">微分几何中的 Frenet 标架用切向量导数定义主法线 $\mathbf{N}$：</span>
+              <span class="lang-en hidden">The Frenet–Serret frame defines the principal normal $\mathbf{N}$ from curvature:</span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-2.5 text-xs overflow-x-auto">
+              $$\mathbf{T} = \frac{\mathbf{P}'}{\|\mathbf{P}'\|}, \quad \mathbf{N} = \frac{\mathbf{T}'}{\|\mathbf{T}'\|}, \quad \mathbf{B} = \mathbf{T}\times\mathbf{N}$$
+            </div>
+            <p class="text-xs text-rose-300 leading-relaxed">
+              <span class="lang-zh">⚠️ 当 S 型轨道从左转弯过渡到右转弯时，中间必经过曲率 $\mathbf{T}' = \mathbf{0}$ 的<strong>拐点</strong>！跨越拐点前后，$\mathbf{T}'$ 的方向从指向左侧圆心突变为指向右侧圆心，导致 $\mathbf{N}$ 和 $\mathbf{B}$ 瞬间翻转 $180^\circ$！</span>
+              <span class="lang-en hidden">⚠️ Crossing an S-curve inflection ($\mathbf{T}'=\mathbf{0}$), the center of curvature jumps from left to right, flipping $\mathbf{N}$ and $\mathbf{B}$ by $180^\circ$ in a single frame!</span>
+            </p>
+          </div>
+
+          <!-- Card 3: World-Up & Banking -->
+          <div class="bg-slate-900/90 rounded-xl p-5 border border-emerald-500/40 space-y-3">
+            <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Stable Camera Frames</span>
+            <h4 class="font-bold text-white text-base">
+              <span class="lang-zh">World-Up 正交化与过弯倾侧 (Banking)</span>
+              <span class="lang-en hidden">World-Up Stabilization &amp; Smooth Banking</span>
+            </h4>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <span class="lang-zh">工业界运镜弃用裸 Frenet 标架，改用恒定的世界天顶 $\mathbf{U}_w = (0,1,0)^T$ 与视线前向 $\mathbf{T}$ 叉乘构建正交标架，并可选地将有符号曲率 $\kappa(s)$ 作为平滑滚转角 $\phi_{\text{bank}} = k\cdot\kappa(s)$ 绕 $\mathbf{T}$ 旋转：</span>
+              <span class="lang-en hidden">Production cameras replace raw Frenet normals with a stable world-up cross product, plus optional roll angle $\phi_{\text{bank}} = k\cdot\kappa(s)$ proportional to signed curvature:</span>
+            </p>
+            <div class="bg-slate-950 rounded-lg p-2.5 text-xs overflow-x-auto">
+              $$\mathbf{R} = \frac{\mathbf{T}\times\mathbf{U}_w}{\|\mathbf{T}\times\mathbf{U}_w\|}, \qquad \mathbf{U}_{\text{cam}} = \mathbf{R}\times\mathbf{T}$$
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer in Tab 1: Arc-Length LUT Inversion s(u) <-> u(s) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3 text-xs">
+              <span class="font-bold text-indigo-300">
+                <span class="lang-zh">交互式弧长查找表 $s(u)$ 反解几何仪（红点: 等 $\Delta u$ 采样 vs. 绿点: 等 $\Delta s$ 弧长采样）</span>
+                <span class="lang-en hidden">Interactive Arc-Length LUT Inversion $s(u) \leftrightarrow u(s^*)$ (Red: Uniform $\Delta u$ vs. Green: Uniform $\Delta s$)</span>
+              </span>
+              <span id="mathLutBadge" class="font-mono px-2.5 py-1 rounded bg-slate-900 text-emerald-300 border border-slate-800">s* = 0.50 -> u* = 0.72</span>
+            </div>
+            <canvas id="mathArcCanvas" width="680" height="350" class="w-full rounded-xl bg-slate-950 border border-slate-800/80"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🎛️ 调节控制点聚拢度与目标归一化弧长 $\hat{s}^*$</span>
+              <span class="lang-en hidden">🎛️ Adjust Control Point Bunching &amp; Target Arc Length $\hat{s}^*$</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">控制点聚拢非均匀度 (Bunching Factor)</span><span class="lang-en hidden">Control Point Bunching Factor</span></span>
+                <span id="valBunching" class="font-mono text-indigo-400 font-bold">0.82</span>
+              </div>
+              <input id="sliderBunching" type="range" min="0.10" max="0.92" step="0.02" value="0.82" oninput="drawMathArc()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">目标归一化弧长进度 $\hat{s}^* \in [0, 1]$</span><span class="lang-en hidden">Target Normalized Arc Length $\hat{s}^* \in [0, 1]$</span></span>
+                <span id="valTargetS" class="font-mono text-emerald-400 font-bold">0.45</span>
+              </div>
+              <input id="sliderTargetS" type="range" min="0.05" max="0.95" step="0.01" value="0.45" oninput="drawMathArc()" class="w-full" />
+            </div>
+
+            <div class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 space-y-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400"><span class="lang-zh">反解出的曲线参数 $u^* = s^{-1}(\hat{s}^*)$:</span><span class="lang-en hidden">Inverted Parameter $u^* = s^{-1}(\hat{s}^*)$:</span></span>
+                <span id="statInvertedU" class="font-mono font-bold text-emerald-400">0.712</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400"><span class="lang-zh">该点内禀导数模长 $\|\mathbf{P}'(u^*)\|$:</span><span class="lang-en hidden">Intrinsic Speed $\|\mathbf{P}'(u^*)\|$:</span></span>
+                <span id="statIntrinsicSpeed" class="font-mono font-bold text-rose-400">520 px/u</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400"><span class="lang-zh">反函数补偿导数 $\frac{du}{ds} = \frac{1}{\|\mathbf{P}'(u^*)\|}$:</span><span class="lang-en hidden">Compensating $\frac{du}{ds} = \frac{1}{\|\mathbf{P}'(u^*)\|}$:</span></span>
+                <span id="statInvDeriv" class="font-mono font-bold text-cyan-300">0.00192 u/px</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: DUAL INTERACTIVE LABS ==================== -->
+    <section id="tab-lab" class="tab-panel hidden space-y-8">
+      <!-- Lab 1: Parametric u=t vs Arc-Length s(t) Camera Race & Speedometer -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Laboratory 01 • Parametric u(t) vs. Arc-Length Reparameterized s(t) Dual Camera Race</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">实验台 1：“参数 $u$ 直驱” vs. “弧长 $s$ 匀速/缓动”双机同轨竞速与实时速率仪</span>
+              <span class="lang-en hidden">Lab 1: Naive Parametric $u(t)$ vs. Arc-Length $s(t)$ Camera Race &amp; Live Speedometer</span>
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setLab1Easing('linear')" id="btnEaseLinear" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow transition">
+              📏 <span class="lang-zh">恒定弧长速率 (Constant Speed)</span><span class="lang-en hidden">Constant Arc Speed</span>
+            </button>
+            <button onclick="setLab1Easing('smoothstep')" id="btnEaseSmooth" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              🎬 <span class="lang-zh">Ease-In / Ease-Out (Smoothstep $3t^2-2t^3$)</span><span class="lang-en hidden">Ease-In / Ease-Out ($3t^2-2t^3$)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <canvas id="lab1Canvas" width="720" height="410" class="w-full rounded-xl bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">⏱️ 时间轴拖动与轨道控制点疏密调节</span>
+              <span class="lang-en hidden">⏱️ Timeline Scrubber &amp; Track Bunching</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">归一化时间进度 $t \in [0, 1]$</span><span class="lang-en hidden">Normalized Time $t \in [0, 1]$</span></span>
+                <span id="lab1ValTime" class="font-mono text-cyan-400 font-bold">0.35</span>
+              </div>
+              <input id="lab1SliderTime" type="range" min="0.00" max="1.00" step="0.01" value="0.35" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">起点控制点密集度 (Bunching)</span><span class="lang-en hidden">Start Control Point Bunching</span></span>
+                <span id="lab1ValSkew" class="font-mono text-indigo-400 font-bold">0.85</span>
+              </div>
+              <input id="lab1SliderSkew" type="range" min="0.20" max="0.92" step="0.02" value="0.85" oninput="renderLab1()" class="w-full" />
+            </div>
+
+            <button onclick="toggleLab1Play()" id="btnLab1Play" class="w-full py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow transition">
+              ▶️ <span class="lang-zh">自动播放 / 暂停双机运镜对比</span><span class="lang-en hidden">Play / Pause Dual Camera Animation</span>
+            </button>
+
+            <div class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 space-y-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-rose-400 font-bold"><span class="lang-zh">🔴 参数直驱相机 ($u=t$) 瞬时速率:</span><span class="lang-en hidden">🔴 Naive ($u=t$) Speed:</span></span>
+                <span id="lab1StatNaiveV" class="font-mono font-bold text-rose-300">120 px/s</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-emerald-400 font-bold"><span class="lang-zh">🟢 弧长参数化相机 ($s(t)$) 速率:</span><span class="lang-en hidden">🟢 Arc-Length ($s(t)$) Speed:</span></span>
+                <span id="lab1StatArcV" class="font-mono font-bold text-emerald-300">340 px/s</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lab 2: S-Curve Inflection Point — Frenet 180° Flip vs World-Up & Banking Stabilizer -->
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Laboratory 02 • S-Curve Inflection Point: Frenet 180° Flip vs. World-Up &amp; Banking Stabilizer</span>
+            <h3 class="text-xl sm:text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">实验台 2：S 型弯道拐点危机 —— Frenet 标架 $180^\circ$ 翻转 vs. 稳定取景器</span>
+              <span class="lang-en hidden">Lab 2: S-Curve Inflection Crisis — Frenet $180^\circ$ Horizon Flip vs. Stabilized Viewfinder</span>
+            </h3>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setLab2Frame('frenet')" id="btnFrameFrenet" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 text-white shadow transition">
+              ⚠️ <span class="lang-zh">裸 Frenet–Serret 标架 (拐点翻转 180°!)</span><span class="lang-en hidden">Raw Frenet–Serret (Flips 180°!)</span>
+            </button>
+            <button onclick="setLab2Frame('worldup')" id="btnFrameWorldUp" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              🛡️ <span class="lang-zh">World-Up 稳定正交标架</span><span class="lang-en hidden">World-Up Stabilized Frame</span>
+            </button>
+            <button onclick="setLab2Frame('banking')" id="btnFrameBanking" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition">
+              ✈️ <span class="lang-zh">World-Up + 曲率平滑倾侧 (Banking)</span><span class="lang-en hidden">World-Up + Smooth Curvature Banking</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            <canvas id="lab2Canvas" width="720" height="400" class="w-full rounded-xl bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <h4 class="font-bold text-sm text-white">
+              <span class="lang-zh">🕹️ 穿越 S 弯中心拐点 ($s = 0.50$)</span>
+              <span class="lang-en hidden">🕹️ Cross the S-Curve Inflection Point ($s = 0.50$)</span>
+            </h4>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300"><span class="lang-zh">S 型轨道位置 $s \in [0, 1]$ (拐点在 $0.50$)</span><span class="lang-en hidden">S-Curve Position $s \in [0, 1]$ (Inflection at $0.50$)</span></span>
+                <span id="lab2ValS" class="font-mono text-amber-400 font-bold">0.46</span>
+              </div>
+              <input id="lab2SliderS" type="range" min="0.05" max="0.95" step="0.01" value="0.46" oninput="renderLab2()" class="w-full" />
+            </div>
+
+            <div class="flex gap-2">
+              <button onclick="jumpInflection(0.47)" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
+                <span class="lang-zh">拐点前 ($s=0.47$)</span><span class="lang-en hidden">Before ($s=0.47$)</span>
+              </button>
+              <button onclick="jumpInflection(0.53)" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
+                <span class="lang-zh">拐点后 ($s=0.53$)</span><span class="lang-en hidden">After ($s=0.53$)</span>
+              </button>
+            </div>
+
+            <div id="lab2ReadoutBox" class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 text-xs text-slate-300 space-y-2 leading-relaxed"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: COURSE VIDEOS & NOTES ==================== -->
+    <section id="tab-videos" class="tab-panel hidden space-y-8">
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Course References • UC Davis ECS 175 &amp; MIT 6.837</span>
+          <h3 class="text-2xl font-extrabold text-white mt-1">
+            <span class="lang-zh">名校公开课视频索引与同步精读笔记</span>
+            <span class="lang-en hidden">University Lecture Video Index &amp; Study Guide</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">UC Davis ECS 175 • Lecture 20</span>
+              <a href="https://www.youtube.com/results?search_query=UC+Davis+Computer+Graphics+Fall+2009+Lecture+20" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">YouTube ↗</a>
+            </div>
+            <h4 class="text-lg font-bold text-white">Camera Motion (Prof. Kenneth Joy)</h4>
+            <ul class="text-xs sm:text-sm text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+              <li>
+                <span class="lang-zh"><strong>参数速率与物理弧长速率分离</strong>：推导 $s(u) = \int_0^u \|\mathbf{P}'(\tau)\|\,d\tau$ 以及数值弦长累加查表法。</span>
+                <span class="lang-en hidden"><strong>Parametric vs. Physical Arc Speed</strong>: Deriving $s(u) = \int_0^u \|\mathbf{P}'(\tau)\|\,d\tau$ and chord-length lookup tables.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>距离-时间缓动曲线 (Distance-Time Functions)</strong>：抛物线/三次多项式加速段、匀速巡航段与减速段的拼接。</span>
+                <span class="lang-en hidden"><strong>Distance-Time Easing Curves</strong>: Parabolic/cubic ease-in, constant cruise, and ease-out segments.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>Frenet 标架 vs. 双轨注视点运镜</strong>：解决曲线拐点处法向量不连续翻转的工程方案。</span>
+                <span class="lang-en hidden"><strong>Frenet Frame vs. Dual-Spline LookAt</strong>: Overcoming normal discontinuities at curve inflection points.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="bg-slate-900/90 rounded-2xl p-6 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">MIT 6.837 • Lecture 06</span>
+              <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-indigo-400 hover:text-indigo-300">MIT Playlist ↗</a>
+            </div>
+            <h4 class="text-lg font-bold text-white">Computer Animation &amp; Keyframing (Prof. Justin Solomon)</h4>
+            <ul class="text-xs sm:text-sm text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+              <li>
+                <span class="lang-zh"><strong>关键帧插值 (Keyframing)</strong>：从传统手绘原画 (Keyframes) 与中间帧 (In-betweens) 到样条时间曲线。</span>
+                <span class="lang-en hidden"><strong>Keyframing</strong>: From traditional animation extremes and in-betweens to spline timing curves.</span>
+              </li>
+              <li>
+                <span class="lang-zh"><strong>刚体位姿在 $\text{SE}(3) = \mathbb{R}^3 \rtimes \text{SO}(3)$ 上的插值</strong>：平移走弧长参数化样条，旋转走四元数球面样条。</span>
+                <span class="lang-en hidden"><strong>Pose Interpolation on $\text{SE}(3)$</strong>: Arc-length splines for translation in $\mathbb{R}^3$ paired with quaternion splines on $S^3$.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION PLAYABLE GAME ==================== -->
+    <section id="tab-game" class="tab-panel hidden space-y-8">
+      <div class="glass rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Interactive 3-Mission Challenge • Hollywood Virtual Cinematographer</span>
+            <h3 class="text-2xl font-extrabold text-white mt-1">
+              <span class="lang-zh">🎮 闯关游戏：好莱坞虚拟制片首席运镜总监 (3 大实战任务)</span>
+              <span class="lang-en hidden">🎮 Playable Game: Chief Virtual Cinematography Director (3 Missions)</span>
+            </h3>
+          </div>
+          <span id="gameScoreBadge" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            Completed: 0 / 3
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <button onclick="selectMission(1)" id="missionTab1" class="p-4 rounded-xl text-left border transition bg-indigo-600/20 border-indigo-500 text-white">
+            <div class="flex items-center justify-between text-xs font-bold text-indigo-300 mb-1">
+              <span>MISSION 01</span>
+              <span id="missionStatus1">⏳ In Progress</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">启用弧长重参数化消除镜头忽快忽慢</span>
+              <span class="lang-en hidden">Eliminate Speed Surge via Arc-Length LUT</span>
+            </div>
+          </button>
+
+          <button onclick="selectMission(2)" id="missionTab2" class="p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70">
+            <div class="flex items-center justify-between text-xs font-bold text-cyan-300 mb-1">
+              <span>MISSION 02</span>
+              <span id="missionStatus2">🔒 Pending</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">配置 Smoothstep 电影级柔顺起停缓冲</span>
+              <span class="lang-en hidden">Configure Smoothstep Ease-In / Ease-Out</span>
+            </div>
+          </button>
+
+          <button onclick="selectMission(3)" id="missionTab3" class="p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70">
+            <div class="flex items-center justify-between text-xs font-bold text-purple-300 mb-1">
+              <span>MISSION 03</span>
+              <span id="missionStatus3">🔒 Pending</span>
+            </div>
+            <div class="font-bold text-sm">
+              <span class="lang-zh">根治 S 弯拐点处的 Frenet $180^\circ$ 镜头翻转</span>
+              <span class="lang-en hidden">Cure S-Curve Inflection $180^\circ$ Horizon Flip</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 p-4 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span id="gameMissionTitle" class="font-bold text-indigo-300">Mission 1</span>
+              <span id="gameLiveMetric" class="font-mono text-emerald-300">Status</span>
+            </div>
+            <canvas id="gameCanvas" width="660" height="340" class="w-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-800 p-5 space-y-4">
+            <div id="gameBriefBox" class="bg-slate-950/90 rounded-xl p-4 border border-indigo-500/30 text-xs text-slate-300 leading-relaxed"></div>
+
+            <div class="space-y-3 text-xs">
+              <div>
+                <label class="block font-bold text-slate-300 mb-1">
+                  <span class="lang-zh">1. 曲线参数化驱动模式 (Parameterization)</span>
+                  <span class="lang-en hidden">1. Spline Parameterization Mode</span>
+                </label>
+                <select id="gameSelectParam" onchange="updateGame()" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white">
+                  <option value="naive">Naive Parametric u = e(t) (Speed fluctuates with ||P'(u)||)</option>
+                  <option value="arclength">Arc-Length LUT Inversion u = s⁻¹(e(t)) (Exact speed control)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-300 mb-1">
+                  <span class="lang-zh">2. 时间缓动曲线 (Distance-Time Easing $e(t)$)</span>
+                  <span class="lang-en hidden">2. Distance-Time Easing Curve $e(t)$</span>
+                </label>
+                <select id="gameSelectEase" onchange="updateGame()" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white">
+                  <option value="linear">Linear e(t) = t (Abrupt start/stop)</option>
+                  <option value="smoothstep">Hermite Smoothstep e(t) = 3t² - 2t³ (Zero start/end velocity)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-300 mb-1">
+                  <span class="lang-zh">3. 相机朝向正交标架 (Orientation Frame)</span>
+                  <span class="lang-en hidden">3. Camera Orientation Frame</span>
+                </label>
+                <select id="gameSelectFrame" onchange="updateGame()" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white">
+                  <option value="frenet">Raw Frenet–Serret Frame (Flips 180° at S-curve inflection)</option>
+                  <option value="banking">World-Up Stabilized + Smooth Curvature Banking</option>
+                </select>
+              </div>
+            </div>
+
+            <button onclick="verifyMission()" class="w-full py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg transition">
+              🚀 <span class="lang-zh">验证虚拟摄影机轨道配置 (Verify Camera Rig)</span><span class="lang-en hidden">Verify Virtual Camera Rig</span>
+            </button>
+
+            <div id="gameFeedbackBox" class="hidden rounded-xl p-3.5 text-xs font-semibold"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentLang = 'zh';
+    let lab1Easing = 'linear';
+    let lab1Playing = false;
+    let lab1AnimId = null;
+    let lab2Frame = 'frenet';
+    let currentMission = 1;
+    const completedMissions = { 1: false, 2: false, 3: false };
+
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.querySelectorAll('.lang-zh').forEach(el => el.classList.toggle('hidden', currentLang !== 'zh'));
+      document.querySelectorAll('.lang-en').forEach(el => el.classList.toggle('hidden', currentLang !== 'en'));
+      drawMathArc();
+      renderLab1();
+      renderLab2();
+      updateGameBrief();
+      updateGame();
+    }
+
+    function switchTab(tabId) {
+      ['math', 'lab', 'videos', 'game'].forEach(id => {
+        document.getElementById('tab-' + id).classList.toggle('hidden', id !== tabId);
+        const btn = document.getElementById('tab-btn-' + id);
+        if (id === tabId) {
+          btn.classList.add('tab-active');
+          btn.classList.remove('bg-slate-900', 'text-slate-300');
+        } else {
+          btn.classList.remove('tab-active');
+          btn.classList.add('bg-slate-900', 'text-slate-300');
+        }
+      });
+      if (tabId === 'math') drawMathArc();
+      if (tabId === 'lab') { renderLab1(); renderLab2(); }
+      if (tabId === 'game') { updateGameBrief(); updateGame(); }
+    }
+
+    // Cubic Bezier evaluation & derivative
+    function evalBezier(P0, P1, P2, P3, u) {
+      const m = 1 - u;
+      const b0 = m * m * m;
+      const b1 = 3 * m * m * u;
+      const b2 = 3 * m * u * u;
+      const b3 = u * u * u;
+      return {
+        x: b0 * P0.x + b1 * P1.x + b2 * P2.x + b3 * P3.x,
+        y: b0 * P0.y + b1 * P1.y + b2 * P2.y + b3 * P3.y
+      };
+    }
+
+    function evalBezierDeriv(P0, P1, P2, P3, u) {
+      const m = 1 - u;
+      const d0 = 3 * m * m;
+      const d1 = 6 * m * u;
+      const d2 = 3 * u * u;
+      return {
+        vx: d0 * (P1.x - P0.x) + d1 * (P2.x - P1.x) + d2 * (P3.x - P2.x),
+        vy: d0 * (P1.y - P0.y) + d1 * (P2.y - P1.y) + d2 * (P3.y - P2.y)
+      };
+    }
+
+    function buildArcLengthLUT(P0, P1, P2, P3, steps = 200) {
+      const uArr = new Float32Array(steps + 1);
+      const sArr = new Float32Array(steps + 1);
+      let prev = evalBezier(P0, P1, P2, P3, 0);
+      let total = 0;
+      uArr[0] = 0;
+      sArr[0] = 0;
+      for (let i = 1; i <= steps; i++) {
+        const u = i / steps;
+        const cur = evalBezier(P0, P1, P2, P3, u);
+        total += Math.hypot(cur.x - prev.x, cur.y - prev.y);
+        uArr[i] = u;
+        sArr[i] = total;
+        prev = cur;
+      }
+      for (let i = 1; i <= steps; i++) {
+        sArr[i] /= Math.max(1e-5, total);
+      }
+      return { uArr, sArr, total };
+    }
+
+    function invertArcLength(lut, targetNormS) {
+      const s = Math.max(0, Math.min(1, targetNormS));
+      const arr = lut.sArr;
+      let lo = 0, hi = arr.length - 1;
+      while (lo < hi - 1) {
+        const mid = (lo + hi) >> 1;
+        if (arr[mid] <= s) lo = mid;
+        else hi = mid;
+      }
+      const span = Math.max(1e-6, arr[hi] - arr[lo]);
+      const frac = (s - arr[lo]) / span;
+      return lut.uArr[lo] + frac * (lut.uArr[hi] - lut.uArr[lo]);
+    }
+
+    // ==================== TAB 1 VISUALIZER ====================
+    function drawMathArc() {
+      const canvas = document.getElementById('mathArcCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const bunch = parseFloat(document.getElementById('sliderBunching').value);
+      const sStar = parseFloat(document.getElementById('sliderTargetS').value);
+
+      document.getElementById('valBunching').textContent = bunch.toFixed(2);
+      document.getElementById('valTargetS').textContent = sStar.toFixed(2);
+
+      // Left Panel: Spline with bunched control points at the start
+      const P0 = { x: 40, y: 280 };
+      const P1 = { x: 40 + (1 - bunch) * 180, y: 280 - (1 - bunch) * 200 };
+      const P2 = { x: 40 + (1 - bunch * 0.7) * 240, y: 70 };
+      const P3 = { x: 330, y: 80 };
+
+      const lut = buildArcLengthLUT(P0, P1, P2, P3, 240);
+      const uStar = invertArcLength(lut, sStar);
+      const deriv = evalBezierDeriv(P0, P1, P2, P3, uStar);
+      const speedNorm = Math.hypot(deriv.vx, deriv.vy);
+
+      document.getElementById('statInvertedU').textContent = uStar.toFixed(3);
+      document.getElementById('statIntrinsicSpeed').textContent = speedNorm.toFixed(0) + ' px/u';
+      document.getElementById('statInvDeriv').textContent = (1 / Math.max(1, speedNorm)).toFixed(5) + ' u/px';
+      document.getElementById('mathLutBadge').textContent = `s* = ${sStar.toFixed(2)} -> u* = ${uStar.toFixed(3)}`;
+
+      // Draw control polygon
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#475569';
+      ctx.beginPath();
+      ctx.moveTo(P0.x, P0.y); ctx.lineTo(P1.x, P1.y); ctx.lineTo(P2.x, P2.y); ctx.lineTo(P3.x, P3.y);
+      ctx.stroke();
+      ctx.restore();
+
+      // Draw spline curve
+      ctx.strokeStyle = '#6366f1';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let i = 0; i <= 100; i++) {
+        const pt = evalBezier(P0, P1, P2, P3, i / 100);
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.stroke();
+
+      // Draw 10 uniform-u dots (above/on curve in rose) vs 10 uniform-s dots (emerald)
+      for (let k = 0; k <= 10; k++) {
+        const frac = k / 10;
+        const pNaive = evalBezier(P0, P1, P2, P3, frac);
+        ctx.fillStyle = '#f43f5e';
+        ctx.beginPath(); ctx.arc(pNaive.x, pNaive.y - 8, 4, 0, Math.PI * 2); ctx.fill();
+
+        const uEq = invertArcLength(lut, frac);
+        const pArc = evalBezier(P0, P1, P2, P3, uEq);
+        ctx.fillStyle = '#10b981';
+        ctx.beginPath(); ctx.arc(pArc.x, pArc.y + 8, 4.5, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Highlight current s* point on curve
+      const pCur = evalBezier(P0, P1, P2, P3, uStar);
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath(); ctx.arc(pCur.x, pCur.y, 7, 0, Math.PI * 2); ctx.fill();
+
+      // Right Panel: Cumulative Arc-Length Graph s(u) and inversion arrows
+      const gx = 395, gy = 45, gw = 245, gh = 245;
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(gx, gy, gw, gh);
+
+      // Diagonal identity line
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#475569';
+      ctx.beginPath();
+      ctx.moveTo(gx, gy + gh);
+      ctx.lineTo(gx + gw, gy);
+      ctx.stroke();
+      ctx.restore();
+
+      // Plot normalized s(u) curve
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let i = 0; i < lut.uArr.length; i++) {
+        const px = gx + lut.uArr[i] * gw;
+        const py = gy + (1 - lut.sArr[i]) * gh;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // Inversion guide lines: from vertical axis s* -> curve -> horizontal axis u*
+      const hitX = gx + uStar * gw;
+      const hitY = gy + (1 - sStar) * gh;
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(gx, hitY);
+      ctx.lineTo(hitX, hitY);
+      ctx.lineTo(hitX, gy + gh);
+      ctx.stroke();
+
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath(); ctx.arc(hitX, hitY, 6, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '左: 红点=等Δu (疏密不均) | 绿点=等Δs (绝对均匀)' : 'Left: Red = Uniform Δu | Green = Uniform Δs', 24, 26);
+      ctx.fillText(currentLang === 'zh' ? '右: 归一化弧长函数 s(u) 与反函数查表' : 'Right: Normalized Arc-Length s(u) & LUT Inversion', gx, 26);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '11px monospace';
+      ctx.fillText('u=0', gx, gy + gh + 16);
+      ctx.fillText(`u*=${uStar.toFixed(2)}`, hitX - 24, gy + gh + 28);
+      ctx.fillText('u=1', gx + gw - 24, gy + gh + 16);
+    }
+
+    // ==================== TAB 2 LAB 1: CAMERA RACE ====================
+    function setLab1Easing(mode) {
+      lab1Easing = mode;
+      document.getElementById('btnEaseLinear').className =
+        mode === 'linear'
+          ? 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow transition'
+          : 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition';
+      document.getElementById('btnEaseSmooth').className =
+        mode === 'smoothstep'
+          ? 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 text-white shadow transition'
+          : 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition';
+      renderLab1();
+    }
+
+    function toggleLab1Play() {
+      lab1Playing = !lab1Playing;
+      if (lab1Playing) {
+        let t = parseFloat(document.getElementById('lab1SliderTime').value);
+        const step = () => {
+          if (!lab1Playing) return;
+          t += 0.006;
+          if (t > 1.0) t = 0.0;
+          document.getElementById('lab1SliderTime').value = t.toFixed(3);
+          renderLab1();
+          lab1AnimId = requestAnimationFrame(step);
+        };
+        lab1AnimId = requestAnimationFrame(step);
+      } else if (lab1AnimId) {
+        cancelAnimationFrame(lab1AnimId);
+      }
+    }
+
+    function renderLab1() {
+      const canvas = document.getElementById('lab1Canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const t = parseFloat(document.getElementById('lab1SliderTime').value);
+      const skew = parseFloat(document.getElementById('lab1SliderSkew').value);
+      document.getElementById('lab1ValTime').textContent = t.toFixed(2);
+      document.getElementById('lab1ValSkew').textContent = skew.toFixed(2);
+
+      const P0 = { x: 55, y: 185 };
+      const P1 = { x: 55 + (1 - skew) * 260, y: 45 };
+      const P2 = { x: 55 + (1 - skew * 0.65) * 420, y: 215 };
+      const P3 = { x: W - 55, y: 75 };
+
+      const lut = buildArcLengthLUT(P0, P1, P2, P3, 250);
+
+      const easeVal = tau => (lab1Easing === 'smoothstep' ? tau * tau * (3 - 2 * tau) : tau);
+      const easeDeriv = tau => (lab1Easing === 'smoothstep' ? 6 * tau * (1 - tau) : 1.0);
+
+      const sTarget = easeVal(t);
+      const uNaive = sTarget;
+      const uArc = invertArcLength(lut, sTarget);
+
+      // Draw spline track in top half
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      for (let i = 0; i <= 120; i++) {
+        const pt = evalBezier(P0, P1, P2, P3, i / 120);
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.stroke();
+
+      // Naive Camera (Red) & Arc-Length Camera (Emerald)
+      const posNaive = evalBezier(P0, P1, P2, P3, uNaive);
+      const posArc = evalBezier(P0, P1, P2, P3, uArc);
+
+      ctx.fillStyle = '#f43f5e';
+      ctx.beginPath(); ctx.arc(posNaive.x, posNaive.y - 10, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath(); ctx.arc(posArc.x, posArc.y + 10, 9, 0, Math.PI * 2); ctx.fill();
+
+      // Bottom half: Speedometer plot v(t) = ||dP/dt||
+      const plotX = 55, plotY = 240, plotW = W - 110, plotH = 135;
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(plotX, plotY, plotW, plotH);
+
+      // Plot Naive Speed curve (Rose)
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i <= 100; i++) {
+        const tau = i / 100;
+        const u = easeVal(tau);
+        const d = evalBezierDeriv(P0, P1, P2, P3, u);
+        const v = Math.hypot(d.vx, d.vy) * easeDeriv(tau);
+        const px = plotX + tau * plotW;
+        const py = plotY + plotH - Math.min(plotH - 6, (v / 1400) * plotH);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // Plot Arc-Length Speed curve (Emerald)
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i <= 100; i++) {
+        const tau = i / 100;
+        const v = lut.total * easeDeriv(tau);
+        const px = plotX + tau * plotW;
+        const py = plotY + plotH - Math.min(plotH - 6, (v / 1400) * plotH);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // Current time marker line
+      const curPx = plotX + t * plotW;
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(curPx, plotY);
+      ctx.lineTo(curPx, plotY + plotH);
+      ctx.stroke();
+
+      const dCur = evalBezierDeriv(P0, P1, P2, P3, uNaive);
+      const vNaiveNow = Math.hypot(dCur.vx, dCur.vy) * easeDeriv(t);
+      const vArcNow = lut.total * easeDeriv(t);
+      document.getElementById('lab1StatNaiveV').textContent = vNaiveNow.toFixed(0) + ' px/s';
+      document.getElementById('lab1StatArcV').textContent = vArcNow.toFixed(0) + ' px/s';
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '上方轨道：🔴 参数直驱相机 vs. 🟢 弧长重参数化相机' : 'Top Track: 🔴 Naive Parametric Camera vs. 🟢 Arc-Length Camera', 55, 24);
+      ctx.fillText(currentLang === 'zh' ? '下方实时速率曲线 v(t) = ||dP/dt||：绿线严格遵循目标匀速/缓动，红线剧烈失控波动！' : 'Bottom Speed Plot v(t) = ||dP/dt||: Green obeys target speed; Red surges wildly!', 55, plotY - 8);
+    }
+
+    // ==================== TAB 2 LAB 2: FRENET INFLECTION FLIP ====================
+    function setLab2Frame(mode) {
+      lab2Frame = mode;
+      const map = {
+        frenet: 'btnFrameFrenet',
+        worldup: 'btnFrameWorldUp',
+        banking: 'btnFrameBanking'
+      };
+      Object.keys(map).forEach(k => {
+        const btn = document.getElementById(map[k]);
+        btn.className = k === mode
+          ? 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-cyan-600 text-white shadow transition'
+          : 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 border border-slate-700 text-slate-300 hover:bg-slate-800 transition';
+      });
+      renderLab2();
+    }
+
+    function jumpInflection(sVal) {
+      document.getElementById('lab2SliderS').value = String(sVal);
+      renderLab2();
+    }
+
+    function renderLab2() {
+      const canvas = document.getElementById('lab2Canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const s = parseFloat(document.getElementById('lab2SliderS').value);
+      document.getElementById('lab2ValS').textContent = s.toFixed(2);
+
+      // Left View: Top-down S-curve y(x) = A * sin(2*pi*(s - 0.5)) with inflection at s = 0.50
+      const padX = 40, trackW = 310, midY = 205, amp = 95;
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      for (let i = 0; i <= 100; i++) {
+        const u = i / 100;
+        const px = padX + u * trackW;
+        const py = midY - amp * Math.sin((u - 0.5) * Math.PI * 2);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // Inflection point marker at s = 0.50
+      const infX = padX + 0.5 * trackW;
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath(); ctx.arc(infX, midY, 6, 0, Math.PI * 2); ctx.fill();
+
+      // Current position, tangent T, and curvature kappa
+      const cx = padX + s * trackW;
+      const angle = (s - 0.5) * Math.PI * 2;
+      const cy = midY - amp * Math.sin(angle);
+      const dx = trackW;
+      const dy = -amp * Math.PI * 2 * Math.cos(angle);
+      const d2y = amp * Math.pow(Math.PI * 2, 2) * Math.sin(angle);
+      const len = Math.hypot(dx, dy);
+      const tx = dx / len, ty = dy / len;
+
+      // Signed curvature in 2D
+      const signedKappa = d2y / Math.pow(len, 1.5);
+
+      // Principal normal N points in direction of curvature (flips sign across s = 0.50!)
+      const signFlip = s < 0.5 ? -1 : 1;
+      const nx = -ty * signFlip, ny = tx * signFlip;
+
+      // Draw T (cyan) and N (rose) on top-down track
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + tx * 45, cy + ty * 45); ctx.stroke();
+
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + nx * 42, cy + ny * 42); ctx.stroke();
+
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI * 2); ctx.fill();
+
+      // Right View: First-Person Camera Viewfinder Horizon (Circle at x=540, y=205, r=135)
+      const vx = 540, vy = 205, vr = 135;
+      let rollRad = 0;
+      if (lab2Frame === 'frenet') {
+        rollRad = s < 0.5 ? 0 : Math.PI; // 180-degree instant flip across inflection!
+      } else if (lab2Frame === 'worldup') {
+        rollRad = 0;
+      } else if (lab2Frame === 'banking') {
+        rollRad = Math.sin(angle) * 0.42; // Smooth roll proportional to curvature
+      }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(vx, vy, vr, 0, Math.PI * 2);
+      ctx.clip();
+
+      ctx.translate(vx, vy);
+      ctx.rotate(rollRad);
+
+      // Sky half (top) & Ground half (bottom)
+      ctx.fillStyle = '#0ea5e9';
+      ctx.fillRect(-vr * 1.5, -vr * 1.5, vr * 3, vr * 1.5);
+      ctx.fillStyle = '#15803d';
+      ctx.fillRect(-vr * 1.5, 0, vr * 3, vr * 1.5);
+
+      // Horizon line & UP arrow
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-vr, 0); ctx.lineTo(vr, 0); ctx.stroke();
+
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 14px Inter, sans-serif';
+      ctx.fillText('▲ SKY (+UP)', -42, -55);
+      ctx.fillStyle = '#dcfce7';
+      ctx.fillText('▼ GROUND', -38, 68);
+      ctx.restore();
+
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(vx, vy, vr, 0, Math.PI * 2); ctx.stroke();
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.fillText(currentLang === 'zh' ? '左: S型轨道顶视图 (橙点 s=0.50 为拐点)' : 'Left: Top-Down S-Track (Amber Dot s=0.50 = Inflection)', 28, 28);
+      ctx.fillText(currentLang === 'zh' ? '右: 摄像机第一人称取景框 (观察天空与地面是否倒立!)' : 'Right: First-Person Camera Viewfinder Horizon', 395, 28);
+
+      const readout = document.getElementById('lab2ReadoutBox');
+      if (lab2Frame === 'frenet') {
+        readout.innerHTML = currentLang === 'zh'
+          ? `<span class="text-rose-400 font-bold">⚠️ 裸 Frenet 标架警告：</span> 当前滚转角 = <strong>${Math.round((rollRad * 180) / Math.PI)}°</strong>！当你拖动滑块跨过拐点 $s=0.50$ 时，主法向量 $\\mathbf{N}$ 瞬间反向，导致右侧取景框里的蓝天与绿地直接<strong>上下颠倒 $180^\\circ$</strong>！`
+          : `<span class="text-rose-400 font-bold">⚠️ Raw Frenet Warning:</span> Current Roll = <strong>${Math.round((rollRad * 180) / Math.PI)}°</strong>! Crossing $s=0.50$ flips $\\mathbf{N}$ and turns the sky upside down!`;
+      } else {
+        readout.innerHTML = currentLang === 'zh'
+          ? `<span class="text-emerald-400 font-bold">✅ 标架已稳定：</span> 当前倾侧角 = <strong>${((rollRad * 180) / Math.PI).toFixed(1)}°</strong>。跨越 $s=0.50$ 拐点时画面平滑自然，绝不发生 $180^\\circ$ 翻转！`
+          : `<span class="text-emerald-400 font-bold">✅ Stabilized Frame:</span> Current Roll = <strong>${((rollRad * 180) / Math.PI).toFixed(1)}°</strong>. Smooth transition across the inflection point!`;
+      }
+    }
+
+    // ==================== TAB 4: 3-MISSION GAME ====================
+    function selectMission(m) {
+      currentMission = m;
+      [1, 2, 3].forEach(id => {
+        const btn = document.getElementById('missionTab' + id);
+        btn.className = id === m
+          ? 'p-4 rounded-xl text-left border transition bg-indigo-600/20 border-indigo-500 text-white'
+          : 'p-4 rounded-xl text-left border transition bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70';
+      });
+
+      if (m === 1) {
+        document.getElementById('gameSelectParam').value = 'naive';
+        document.getElementById('gameSelectEase').value = 'linear';
+        document.getElementById('gameSelectFrame').value = 'banking';
+      } else if (m === 2) {
+        document.getElementById('gameSelectParam').value = 'arclength';
+        document.getElementById('gameSelectEase').value = 'linear';
+        document.getElementById('gameSelectFrame').value = 'banking';
+      } else {
+        document.getElementById('gameSelectParam').value = 'arclength';
+        document.getElementById('gameSelectEase').value = 'smoothstep';
+        document.getElementById('gameSelectFrame').value = 'frenet';
+      }
+
+      document.getElementById('gameFeedbackBox').classList.add('hidden');
+      updateGameBrief();
+      updateGame();
+    }
+
+    function updateGameBrief() {
+      const box = document.getElementById('gameBriefBox');
+      const title = document.getElementById('gameMissionTitle');
+      if (currentMission === 1) {
+        title.textContent = currentLang === 'zh' ? '关卡 1：启用弧长查找表消除镜头速率暴冲' : 'Mission 1: Enable Arc-Length LUT to Eliminate Speed Surge';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务简报：</strong>当前轨道控制点疏密不均，直接用参数驱动 ($u=e(t)$) 导致物理速率剧烈波动。请将参数化模式切换为 <strong>Arc-Length LUT Inversion $u = s^{-1}(e(t))$</strong>！'
+          : '<strong>Brief:</strong> Uneven control points cause severe speed surges under naive parameterization. Switch to <strong>Arc-Length LUT Inversion $u = s^{-1}(e(t))$</strong>!';
+      } else if (currentMission === 2) {
+        title.textContent = currentLang === 'zh' ? '关卡 2：配置 Smoothstep 电影级起停缓动曲线' : 'Mission 2: Configure Smoothstep Ease-In / Ease-Out';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务简报：</strong>在保持 <strong>Arc-Length LUT Inversion</strong> 的前提下，将时间缓动曲线切换为 <strong>Hermite Smoothstep $e(t) = 3t^2 - 2t^3$</strong>，消除镜头起止瞬间的机械顿挫！'
+          : '<strong>Brief:</strong> Keep <strong>Arc-Length LUT Inversion</strong> and switch the timing curve to <strong>Hermite Smoothstep $e(t) = 3t^2 - 2t^3$</strong> for zero-jerk starts and stops!';
+      } else {
+        title.textContent = currentLang === 'zh' ? '关卡 3：拯救 S 弯拐点处的 Frenet 180° 倒立事故' : 'Mission 3: Cure S-Curve Inflection 180° Horizon Flip';
+        box.innerHTML = currentLang === 'zh'
+          ? '<strong>任务简报：</strong>镜头在穿过 S 型峡谷拐点时因为使用裸 Frenet 标架发生了 $180^\\circ$ 翻转！请同时启用 <strong>Arc-Length LUT</strong> + <strong>Smoothstep</strong> + <strong>World-Up Stabilized + Smooth Curvature Banking</strong>！'
+          : '<strong>Brief:</strong> The camera flips upside down at the S-curve inflection! Enable <strong>Arc-Length LUT</strong> + <strong>Smoothstep</strong> + <strong>World-Up Stabilized + Banking</strong>!';
+      }
+    }
+
+    function updateGame() {
+      const param = document.getElementById('gameSelectParam').value;
+      const ease = document.getElementById('gameSelectEase').value;
+      const frame = document.getElementById('gameSelectFrame').value;
+
+      document.getElementById('gameLiveMetric').textContent =
+        `Param: ${param.toUpperCase()} | Ease: ${ease.toUpperCase()} | Frame: ${frame.toUpperCase()}`;
+
+      const canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.fillStyle = '#090d1f';
+      ctx.fillRect(0, 0, W, H);
+
+      // Draw speed curve preview on left and horizon stability preview on right
+      ctx.strokeStyle = param === 'arclength' ? '#10b981' : '#f43f5e';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let i = 0; i <= 100; i++) {
+        const tau = i / 100;
+        let vNorm = ease === 'smoothstep' ? 6 * tau * (1 - tau) * 0.65 : 0.65;
+        if (param === 'naive') {
+          vNorm *= 0.35 + 1.45 * Math.sin(tau * Math.PI * 2.5) * Math.sin(tau * Math.PI * 2.5);
+        }
+        const px = 40 + tau * 340;
+        const py = H - 50 - vNorm * 190;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // Horizon preview circle on right
+      const cx = 515, cy = 170, r = 95;
+      ctx.strokeStyle = frame === 'banking' ? '#22d3ee' : '#f43f5e';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = 'bold 12px monospace';
+      ctx.fillText(frame === 'banking' ? 'HORIZON STABLE (0° FLIP)' : '⚠️ 180° INFLECTION FLIP!', cx - 82, cy + 5);
+    }
+
+    function verifyMission() {
+      const param = document.getElementById('gameSelectParam').value;
+      const ease = document.getElementById('gameSelectEase').value;
+      const frame = document.getElementById('gameSelectFrame').value;
+      const fb = document.getElementById('gameFeedbackBox');
+      fb.classList.remove('hidden');
+
+      let ok = false;
+      if (currentMission === 1) ok = param === 'arclength';
+      else if (currentMission === 2) ok = param === 'arclength' && ease === 'smoothstep';
+      else ok = param === 'arclength' && ease === 'smoothstep' && frame === 'banking';
+
+      if (ok) {
+        completedMissions[currentMission] = true;
+        document.getElementById('missionStatus' + currentMission).textContent = '✅ Passed';
+        fb.className = 'rounded-xl p-3.5 text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+        fb.textContent = currentLang === 'zh'
+          ? `🎉 恭喜通过关卡 ${currentMission}！你的虚拟摄影机轨道与朝向标架完全符合电影工业标准！`
+          : `🎉 Mission ${currentMission} Complete! Your virtual camera spline and orientation frame are cinema-ready!`;
+      } else {
+        fb.className = 'rounded-xl p-3.5 text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40';
+        fb.textContent = currentLang === 'zh'
+          ? '⚠️ 配置未达标：请检查是否开启了 Arc-Length LUT、Smoothstep 缓动或 World-Up + Banking 稳定标架！'
+          : '⚠️ Check Arc-Length LUT, Smoothstep easing, or World-Up + Banking stabilization!';
+      }
+
+      const doneCount = Object.values(completedMissions).filter(Boolean).length;
+      document.getElementById('gameScoreBadge').textContent = `Completed: ${doneCount} / 3`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      drawMathArc();
+      renderLab1();
+      renderLab2();
+      updateGameBrief();
+      updateGame();
+    });
+  </script>
+</body>
+</html>

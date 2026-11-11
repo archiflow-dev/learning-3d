@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 13: Barycentric Coordinates, Möller–Trumbore & CSG | 重心坐标、三角形求交与实体布尔运算</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body { background: #020617; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .math-box { background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(51, 65, 85, 0.85); border-radius: 0.85rem; padding: 1rem 1.25rem; overflow-x: auto; }
+    canvas { touch-action: none; user-select: none; }
+    .tab-btn.active { background: #0284c7; color: #ffffff; border-color: #38bdf8; box-shadow: 0 0 20px rgba(56, 189, 248, 0.35); }
+    .lang-en { display: none; }
+    body.en-mode .lang-zh { display: none; }
+    body.en-mode .lang-en { display: inline; }
+    body.en-mode div.lang-en, body.en-mode p.lang-en, body.en-mode ul.lang-en, body.en-mode h3.lang-en, body.en-mode h4.lang-en { display: block; }
+    body.en-mode div.lang-zh, body.en-mode p.lang-zh, body.en-mode ul.lang-zh, body.en-mode h3.lang-zh, body.en-mode h4.lang-zh { display: none; }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          <span class="lang-zh">← 课程总目录 (Index)</span>
+          <span class="lang-en">← Course Index</span>
+        </a>
+        <span class="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950">
+          Stage 3 • Lesson 13 / 32
+        </span>
+        <div>
+          <h1 class="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+            <span class="lang-zh">重心坐标 (Barycentric Coordinates)、Möller–Trumbore 三角形求交、法线逆转置 $(M^{-1})^\top$ 与 CSG</span>
+            <span class="lang-en">Barycentric Coordinates, Möller–Trumbore, Inverse-Transpose Normals $(M^{-1})^\top$ &amp; CSG</span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            3Blue1Brown Determinant Volume &amp; Covector Dual Space • MIT 6.837 Lecture 10 (Prof. Justin Solomon)
+          </p>
+        </div>
+      </div>
+
+      <button id="langToggleBtn" onclick="toggleLang()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition">
+        <span>🌐</span>
+        <span id="langBtnText">EN / 中文</span>
+      </button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-3 flex flex-wrap gap-2">
+      <button onclick="switchTab('concepts')" id="tab-btn-concepts" class="tab-btn active px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">1. 3Blue1Brown 精讲：面积比重心坐标、行列式体积求交与法线逆转置</span>
+        <span class="lang-en">1. 3Blue1Brown Deep Dive: Area Ratios, Cramer's Rule &amp; $(M^{-1})^\top$</span>
+      </button>
+      <button onclick="switchTab('lab')" id="tab-btn-lab" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">2. 交互实验室：重心坐标面积天平 + CSG 射线区间布尔运算台</span>
+        <span class="lang-en">2. Interactive Lab: Barycentric Area Scale + CSG Ray Interval Booleans</span>
+      </button>
+      <button onclick="switchTab('videos')" id="tab-btn-videos" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 bg-slate-900 text-slate-300 transition">
+        <span class="lang-zh">3. MIT 6.837 Lec 10 视频与 Möller–Trumbore / CSG 速查表</span>
+        <span class="lang-en">3. MIT 6.837 Lec 10 Video &amp; Möller–Trumbore / CSG Cheat Sheet</span>
+      </button>
+      <button onclick="switchTab('game')" id="tab-btn-game" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold border border-indigo-500/40 bg-indigo-950/40 text-indigo-300 transition">
+        <span class="lang-zh">🎮 4. 3关实战游戏：重心插值、法线修复与 CSG 透镜雕刻师</span>
+        <span class="lang-en">🎮 4. 3-Mission Game: Barycentric, Normal Fix &amp; CSG Lens Sculptor</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <!-- ==================== TAB 1: 3BLUE1BROWN DEEP CONCEPTS ==================== -->
+    <section id="tab-concepts" class="space-y-8">
+      <!-- Intro Banner -->
+      <div class="rounded-3xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/40 p-6 sm:p-8 space-y-4">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+          <span>✨ 3Blue1Brown Essence of Linear Algebra × MIT 6.837 Lecture 10</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white">
+          <span class="lang-zh">从单颗球体到亿万三角形与复杂实体：重心坐标、行列式体积求交与为什么法向量不能直接乘 $M$？</span>
+          <span class="lang-en">From Spheres to Triangles &amp; Solid Booleans: Barycentric Areas, Determinant Volumes &amp; Why Normals Must Transform by $(M^{-1})^\top$</span>
+        </h2>
+        <p class="lang-zh text-sm sm:text-base text-slate-300 leading-relaxed">
+          在上一课（Lesson 12）中，我们学会了用射线对球体和无限平面求交。但现代 3D 游戏与电影中的角色、建筑都是由成千上万个<b>有界三角形 (Triangles)</b> 或<b>构造实体几何 (CSG)</b> 组成的！这一课我们将用 <b>3Blue1Brown《线性代数的本质》</b>中最核心的三大几何武器——<b>叉积面积比</b>、<b>三阶行列式（平行六面体体积 / 克拉默法则）</b>与<b>对偶空间协变向量 (Covectors)</b>，一次性打通四大图形学支柱！
+        </p>
+        <p class="lang-en text-sm sm:text-base text-slate-300 leading-relaxed">
+          In Lesson 12, we intersected rays with spheres and infinite planes. Modern 3D assets, however, are built from <b>Triangles</b> and <b>Constructive Solid Geometry (CSG)</b>. In this lesson, we use three pillars of 3Blue1Brown's <i>Essence of Linear Algebra</i> — <b>Signed Area Ratios</b>, <b>3D Determinant Volumes (Cramer's Rule)</b>, and <b>Dual-Space Covectors</b> — to master triangle intersection, attribute interpolation, normal transformation, and CSG booleans!
+        </p>
+      </div>
+
+      <!-- Part 1: Barycentric Coordinates — Area Ratio & Mass Lever Intuition -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-black flex items-center justify-center">01</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">重心坐标 $(\alpha, \beta, \gamma)$：对门子三角形面积比与阿基米德天平</span>
+            <span class="lang-en">Barycentric Coordinates $(\alpha, \beta, \gamma)$: Opposite Sub-Triangle Area Ratios &amp; Archimedes' Lever</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm text-slate-300 leading-relaxed">
+          <div class="space-y-3">
+            <h4 class="font-bold text-amber-300 text-base">
+              <span class="lang-zh">① 仿射组合视角：把三角形变成斜坐标系</span>
+              <span class="lang-en">1. Affine Combination: The Triangle as an Oblique Basis</span>
+            </h4>
+            <p class="lang-zh">
+              给定三角形的三个顶点 $\mathbf{a}, \mathbf{b}, \mathbf{c}$，平面内的任意一点 $\mathbf{p}$ 都可以唯一地写成三个顶点的<b>仿射加权平均</b>：
+            </p>
+            <div class="math-box text-xs">
+              $$\mathbf{p}(\alpha, \beta, \gamma) = \alpha\mathbf{a} + \beta\mathbf{b} + \gamma\mathbf{c}, \qquad \alpha + \beta + \gamma = 1$$
+              $$\text{代入 } \alpha = 1 - \beta - \gamma \implies \mathbf{p} - \mathbf{a} = \beta(\mathbf{b} - \mathbf{a}) + \gamma(\mathbf{c} - \mathbf{a})$$
+            </div>
+            <p class="lang-zh">
+              <b>看第二个式子！</b>这不就是以 $\mathbf{a}$ 为原点，以两条边向量 $\mathbf{e}_1 = \mathbf{b} - \mathbf{a}$ 和 $\mathbf{e}_2 = \mathbf{c} - \mathbf{a}$ 为基向量的二维斜坐标系吗？！
+              <br/>• <b>三角形内外部充要条件</b>：点 $\mathbf{p}$ 落在 $\triangle abc$ 内部（含边界）$\iff$ <b>$\alpha \ge 0,\; \beta \ge 0,\; \gamma \ge 0$</b>！只要有一个坐标小于 $0$，点就跑出了那条对边之外！
+              <br/>• <b>万用属性插值器</b>：一旦算出 $(\alpha, \beta, \gamma)$，无论是顶点颜色 $(R,G,B)$、纹理坐标 $(u,v)$、深度还是 Phong 法向量，全都用同一个公式丝滑插值：
+              $$\Phi(\mathbf{p}) = \alpha\,\Phi_a + \beta\,\Phi_b + \gamma\,\Phi_c$$
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="font-bold text-cyan-300 text-base">
+              <span class="lang-zh">② 为什么要叫“重心”坐标？对门子三角形有向面积比推导！</span>
+              <span class="lang-en">2. Why "Barycentric"? The Opposite Signed-Area Ratio Proof!</span>
+            </h4>
+            <p class="lang-zh">
+              把内部点 $\mathbf{p}$ 与三个顶点 $\mathbf{a}, \mathbf{b}, \mathbf{c}$ 连起来，大三角形 $\triangle abc$ 被切成了三块子三角形（注意：<b>顶点 $\mathbf{a}$ 的权重 $\alpha$ 对应的是它对面的子三角形 $\triangle pbc$！</b>）。
+              为什么 $\beta = \frac{\text{Area}(\triangle apc)}{\text{Area}(\triangle abc)}$？用 <b>Lesson 01 的叉积面积公式</b>一步秒杀：
+              将 $\mathbf{p} - \mathbf{a} = \beta(\mathbf{b}-\mathbf{a}) + \gamma(\mathbf{c}-\mathbf{a})$ 与边向量 $(\mathbf{c}-\mathbf{a})$ 做叉积（因为 $(\mathbf{c}-\mathbf{a})\times(\mathbf{c}-\mathbf{a}) = \mathbf{0}$ 自动消去 $\gamma$！）：
+            </p>
+            <div class="math-box text-xs">
+              $$(\mathbf{p} - \mathbf{a}) \times (\mathbf{c} - \mathbf{a}) = \beta\,(\mathbf{b} - \mathbf{a}) \times (\mathbf{c} - \mathbf{a})$$
+              $$\implies \alpha = \frac{A_a}{A} = \frac{[(\mathbf{b}-\mathbf{p})\times(\mathbf{c}-\mathbf{p})]\cdot\hat{\mathbf{n}}}{[(\mathbf{b}-\mathbf{a})\times(\mathbf{c}-\mathbf{a})]\cdot\hat{\mathbf{n}}}, \quad \beta = \frac{A_b}{A}, \quad \gamma = \frac{A_c}{A}$$
+            </div>
+            <p class="lang-zh text-xs text-slate-400">
+              <b>物理直觉（阿基米德重心）</b>：如果在三个顶点分别挂上质量为 $\alpha, \beta, \gamma$ 的秤砣，整块三角形铁板的物理平衡支点（重心 Center of Mass）就恰好停在点 $\mathbf{p}$！点 $\mathbf{p}$ 越靠近顶点 $\mathbf{a}$，对面的子三角形面积 $A_a$ 就占满整块面积 $A$，$\alpha \to 1$！
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Möller-Trumbore Ray-Triangle Intersection via 3Blue1Brown Determinant Volumes -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black flex items-center justify-center">02</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">Möller–Trumbore 快速三角形求交 (1997)：克拉默法则与平行六面体体积比</span>
+            <span class="lang-en">Möller–Trumbore Fast Ray-Triangle Intersection: Cramer's Rule &amp; Parallelepiped Volumes</span>
+          </h3>
+        </div>
+
+        <p class="lang-zh text-sm text-slate-300 leading-relaxed">
+          笨办法求射线与三角形交点需要两步：先求射线与三角形所在无限平面的交点 $t$，再算三维面积比判断交点是否在三角形内。1997 年 Tomas Möller 与 Ben Trumbore 发现：<b>直接让射线方程 $\mathbf{o} + t\mathbf{d}$ 等于三角形重心方程 $\mathbf{a} + \beta(\mathbf{b}-\mathbf{a}) + \gamma(\mathbf{c}-\mathbf{a})$</b>，就能一步同时解出 $(t, \beta, \gamma)$！
+        </p>
+
+        <div class="math-box text-xs sm:text-sm space-y-3">
+          <div class="text-amber-300 font-bold">
+            <span class="lang-zh">1. 线性方程组构造：记 $\mathbf{e}_1 = \mathbf{b} - \mathbf{a}$，$\mathbf{e}_2 = \mathbf{c} - \mathbf{a}$，右端项 $\mathbf{s} = \mathbf{o} - \mathbf{a}$</span>
+            <span class="lang-en">1. The $3\times 3$ Linear System: Let $\mathbf{e}_1 = \mathbf{b} - \mathbf{a}$, $\mathbf{e}_2 = \mathbf{c} - \mathbf{a}$, $\mathbf{s} = \mathbf{o} - \mathbf{a}$</span>
+          </div>
+          $$\mathbf{o} + t\mathbf{d} = \mathbf{a} + \beta\mathbf{e}_1 + \gamma\mathbf{e}_2 \iff \begin{bmatrix} -\mathbf{d} & \mathbf{e}_1 & \mathbf{e}_2 \end{bmatrix} \begin{bmatrix} t \\ \beta \\ \gamma \end{bmatrix} = \mathbf{s}$$
+          <div class="text-cyan-300 font-bold pt-1">
+            <span class="lang-zh">2. 3Blue1Brown 克拉默法则（体积比！）与标量三重积 $\det[\mathbf{u},\mathbf{v},\mathbf{w}] = (\mathbf{u}\times\mathbf{v})\cdot\mathbf{w}$</span>
+            <span class="lang-en">2. 3Blue1Brown Cramer's Rule (Volume Ratios!) &amp; Scalar Triple Products</span>
+          </div>
+          <p class="lang-zh text-slate-300">
+            在 3Blue1Brown《线性代数的本质》第 6 集中，三阶行列式 $\det[-\mathbf{d}, \mathbf{e}_1, \mathbf{e}_2]$ 就是由 $-\mathbf{d}, \mathbf{e}_1, \mathbf{e}_2$ 张成的<b>三维平行六面体有向体积</b>！利用循环轮换恒等式 $\det[\mathbf{u},\mathbf{v},\mathbf{w}] = (\mathbf{u}\times\mathbf{w})\cdot\mathbf{v} = (\mathbf{v}\times\mathbf{w})\cdot\mathbf{u}$，记两个可复用的叉积向量 <span class="text-emerald-300 font-mono">$\mathbf{p} = \mathbf{d} \times \mathbf{e}_2$</span> 与 <span class="text-amber-300 font-mono">$\mathbf{q} = \mathbf{s} \times \mathbf{e}_1$</span>：
+          </p>
+          $$\begin{bmatrix} t \\ \beta \\ \gamma \end{bmatrix} = \frac{1}{\det[-\mathbf{d}, \mathbf{e}_1, \mathbf{e}_2]} \begin{bmatrix} \det[\mathbf{s}, \mathbf{e}_1, \mathbf{e}_2] \\ \det[-\mathbf{d}, \mathbf{s}, \mathbf{e}_2] \\ \det[-\mathbf{d}, \mathbf{e}_1, \mathbf{s}] \end{bmatrix} = \frac{1}{\mathbf{p}\cdot\mathbf{e}_1} \begin{bmatrix} \mathbf{q}\cdot\mathbf{e}_2 \\ \mathbf{p}\cdot\mathbf{s} \\ \mathbf{q}\cdot\mathbf{d} \end{bmatrix}$$
+          <p class="lang-zh text-emerald-300 text-xs">
+            <b>为什么全球所有的 GPU 光追硬件（NVIDIA RTX）都用这个公式？</b>因为总共只需要 <b>1 次除法、2 次叉积（$\mathbf{p}, \mathbf{q}$）和 4 次点积</b>！而且无需预先存储三角形的平面方程，一旦算出 $\beta < 0$ 或 $\beta > 1$ 可以立即提前终止 (Early Exit)！
+          </p>
+        </div>
+      </div>
+
+      <!-- Part 3: Why Normals Transform by Inverse-Transpose (M^-1)^T & CSG 1D Ray Intervals -->
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 font-black flex items-center justify-center">03</span>
+          <h3 class="text-xl font-bold text-white">
+            <span class="lang-zh">为什么非均匀缩放会让法向量“歪掉”？对偶逆转置矩阵 $(M^{-1})^\top$ 与 CSG 射线布尔代数</span>
+            <span class="lang-en">Why Non-Uniform Scaling Breaks Normals: The Inverse-Transpose $(M^{-1})^\top$ Proof &amp; CSG Ray Intervals</span>
+          </h3>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm text-slate-300 leading-relaxed">
+          <div class="space-y-3">
+            <h4 class="font-bold text-purple-300 text-base">
+              <span class="lang-zh">① 法向量逆转置定理 $\mathbf{n}' = (M^{-1})^\top \mathbf{n}$ 的三行代数证明</span>
+              <span class="lang-en">1. The 3-Line Proof of Normal Matrix $\mathbf{n}' = (M^{-1})^\top \mathbf{n}$</span>
+            </h4>
+            <p class="lang-zh">
+              假设你把一个单位圆球沿着 $X$ 轴拉长 $2$ 倍、沿着 $Y$ 轴压扁 $0.5$ 倍（线性变换矩阵 $M = \text{diag}(2, 0.5, 1)$）。表面上的<b>切向量 $\mathbf{t}$</b> 是两个表面点的差 $\mathbf{p}_2 - \mathbf{p}_1$，因此切向量必然跟着乘以 $M$：$\mathbf{t}' = M\mathbf{t}$。
+              <br/>但如果你把<b>法向量 $\mathbf{n}$</b> 也直接乘以 $M$（变成 $M\mathbf{n}$），它也会被横向拉平，<b>不再垂直于压扁后的表面</b>！
+              <br/>为什么？因为法向量 $\mathbf{n}$ 的唯一使命是<b>与切向量保持正交（点积为 $0$：$\mathbf{n}^\top \mathbf{t} = 0$）</b>！我们在中间插入一个单位矩阵 $I = M^{-1} M$：
+            </p>
+            <div class="math-box text-xs">
+              $$0 = \mathbf{n}^\top \mathbf{t} = \mathbf{n}^\top \underbrace{(M^{-1} M)}_{I} \mathbf{t} = \big(\mathbf{n}^\top M^{-1}\big)\,(M\mathbf{t}) = \Big(\underbrace{(M^{-1})^\top \mathbf{n}}_{\mathbf{n}'}\Big)^\top \mathbf{t}' = 0$$
+            </div>
+            <p class="lang-zh text-xs text-emerald-300">
+              <b>结论</b>：只要令新法向量 $\mathbf{n}' = (M^{-1})^\top \mathbf{n}$，无论矩阵 $M$ 把物体怎么剪切或非均匀压扁，新法向量 $\mathbf{n}'$ 与新切向量 $\mathbf{t}' = M\mathbf{t}$ 的点积永远严格等于 $0$！（特例：当 $M = R$ 是纯旋转正交矩阵时，$R^{-1} = R^\top \implies (R^{-1})^\top = R$，所以纯旋转时法线可以直接乘 $R$！）
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <h4 class="font-bold text-amber-300 text-base">
+              <span class="lang-zh">② 构造实体几何 (CSG)：把 3D 布尔运算降维成 1D 射线区间运算！</span>
+              <span class="lang-en">2. Constructive Solid Geometry (CSG): 3D Booleans as 1D Ray Intervals!</span>
+            </h4>
+            <p class="lang-zh">
+              怎么在光线追踪里渲染一个“球体 $A$ 挖掉圆柱 $B$”的机械零件，或者两块透镜的交集 $A \cap B$？如果直接去算三维曲面网格的布尔切割，代码复杂到令人发指。
+              <br/>但在光线投射里，一条射线 $\mathbf{r}(t)$ 穿过封闭实体 $A$ 时，只是一段<b>一维时间区间 $I_A = [t_{A,\text{in}}, t_{A,\text{out}}]$</b>，穿过实体 $B$ 是区间 $I_B = [t_{B,\text{in}}, t_{B,\text{out}}]$！于是 3D 实体布尔运算瞬间简化为<b>一维线段集合运算</b>：
+            </p>
+            <div class="math-box text-xs space-y-1">
+              <div>• <b>并集 (Union $A \cup B$)</b>：$I_A \cup I_B = [\min(t_{A,\text{in}}, t_{B,\text{in}}),\; \max(t_{A,\text{out}}, t_{B,\text{out}})]$</div>
+              <div>• <b>交集 (Intersection $A \cap B$)</b>：$I_A \cap I_B = [\max(t_{A,\text{in}}, t_{B,\text{in}}),\; \min(t_{A,\text{out}}, t_{B,\text{out}})]$</div>
+              <div>• <b>差集 (Difference $A \setminus B$)</b>：从 $I_A$ 中挖掉 $I_B$！<b class="text-rose-400">核心细节：当射线从被挖掉的 $B$ 退出来进入 $A$ 时（$t = t_{B,\text{out}}$），凹坑表面的法向量必须取反 $-\mathbf{n}_B$！</b></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Visualizer 1: Normal Matrix (M vs (M^-1)^T) Deformer -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 class="text-sm font-bold text-purple-300">
+                <span class="lang-zh">🔬 交互透视镜 1：非均匀缩放与剪切下的“错误法线 $M\mathbf{n}$” vs “正确逆转置法线 $(M^{-1})^\top\mathbf{n}$”对决</span>
+                <span class="lang-en">🔬 Interactive Visualizer 1: Wrong Normal $M\mathbf{n}$ vs. True Inverse-Transpose Normal $(M^{-1})^\top\mathbf{n}$</span>
+              </h4>
+              <p class="text-xs text-slate-400">
+                <span class="lang-zh">拖动 X 轴拉伸 $s_x$、Y 轴压扁 $s_y$ 或剪切 $k_{xy}$，观察红色错误法线 $M\mathbf{n}$ 如何歪斜偏离 $90^\circ$，而绿色逆转置法线 $(M^{-1})^\top\mathbf{n}$ 始终严格垂直于椭圆切线！</span>
+                <span class="lang-en">Adjust scale $(s_x, s_y)$ and shear $k_{xy}$ to see why $M\mathbf{n}$ (Red) tilts away from $90^\circ$ while $(M^{-1})^\top\mathbf{n}$ (Green) stays strictly perpendicular to $M\mathbf{t}$!</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-7">
+              <canvas id="normMatCanvas" width="600" height="310" class="w-full rounded-xl border border-slate-800 bg-slate-900/70"></canvas>
+            </div>
+            <div class="lg:col-span-5 space-y-3 text-xs">
+              <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2.5">
+                <div class="flex justify-between font-bold text-amber-300"><span>Scale s_x</span><span id="nmSxVal">2.20</span></div>
+                <input id="nmSxSlider" type="range" min="0.5" max="2.6" step="0.05" value="2.20" oninput="drawNormMat()" class="w-full accent-amber-400" />
+                <div class="flex justify-between font-bold text-cyan-300"><span>Scale s_y</span><span id="nmSyVal">0.55</span></div>
+                <input id="nmSySlider" type="range" min="0.35" max="2.0" step="0.05" value="0.55" oninput="drawNormMat()" class="w-full accent-cyan-400" />
+                <div class="flex justify-between font-bold text-purple-300"><span>Shear k_xy</span><span id="nmShVal">0.30</span></div>
+                <input id="nmShSlider" type="range" min="-1.0" max="1.0" step="0.05" value="0.30" oninput="drawNormMat()" class="w-full accent-purple-400" />
+              </div>
+              <div id="normMatReadout" class="p-4 rounded-xl bg-slate-900 border border-slate-800 font-mono space-y-1 text-slate-200"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: BARYCENTRIC SCALE + CSG RAY INTERVAL LAB ==================== -->
+    <section id="tab-lab" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Left Lab: Barycentric Area & Attribute Interpolation -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+          <div>
+            <h3 class="text-lg font-bold text-white">
+              <span class="lang-zh">📐 实验台 A：重心坐标面积比 $(\alpha, \beta, \gamma)$ 与顶点色彩插值</span>
+              <span class="lang-en">📐 Lab A: Barycentric Area Ratios $(\alpha, \beta, \gamma)$ &amp; RGB Interpolation</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">
+              <span class="lang-zh">在画布上自由拖动采样点 $\mathbf{p}$（甚至拖出三角形外部观察负坐标！），实时显示三块子三角形面积比与插值颜色。</span>
+              <span class="lang-en">Drag point $\mathbf{p}$ inside or outside $\triangle ABC$ to inspect signed sub-triangle areas and interpolated RGB color!</span>
+            </p>
+          </div>
+          <canvas id="baryCanvas" width="540" height="360" class="w-full rounded-2xl border border-slate-800 bg-slate-950 cursor-pointer"></canvas>
+          <div id="baryReadout" class="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono text-xs space-y-1.5 text-slate-200"></div>
+        </div>
+
+        <!-- Right Lab: CSG 1D Ray Interval Boolean Workbench -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="text-lg font-bold text-white">
+                <span class="lang-zh">⚙️ 实验台 B：CSG 射线区间布尔运算台 ($A \cup B, A \cap B, A \setminus B$)</span>
+                <span class="lang-en">⚙️ Lab B: CSG Ray Interval Boolean Workbench</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">
+                <span class="lang-zh">切换布尔算子并上下拖动扫描射线或左右移动球 $B$，观察一维区间 $[t_{\text{in}}, t_{\text{out}}]$ 与差集凹坑翻转法线 $-\mathbf{n}_B$！</span>
+                <span class="lang-en">Switch boolean ops and adjust Ray Y or Sphere B X to inspect 1D intervals $[t_{\text{in}}, t_{\text{out}}]$ and flipped cavity normals $-\mathbf{n}_B$!</span>
+              </p>
+            </div>
+            <div class="flex gap-1.5">
+              <button onclick="setCsgOp('union')" id="csg-union" class="px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">A ∪ B</button>
+              <button onclick="setCsgOp('intersect')" id="csg-intersect" class="px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">A ∩ B</button>
+              <button onclick="setCsgOp('diff')" id="csg-diff" class="px-3 py-1 rounded-lg text-xs font-bold bg-cyan-600 text-white">A \ B (Carve)</button>
+            </div>
+          </div>
+
+          <canvas id="csgCanvas" width="540" height="280" class="w-full rounded-2xl border border-slate-800 bg-slate-950"></canvas>
+
+          <div class="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-xs">
+            <div>
+              <div class="flex justify-between text-amber-300 font-bold"><span>Ray Y Height</span><span id="csgRayYVal">140</span></div>
+              <input id="csgRayYSlider" type="range" min="65" max="215" value="140" oninput="drawCsg()" class="w-full accent-amber-400" />
+            </div>
+            <div>
+              <div class="flex justify-between text-cyan-300 font-bold"><span>Sphere B Center X</span><span id="csgBxVal">255</span></div>
+              <input id="csgBxSlider" type="range" min="180" max="390" value="255" oninput="drawCsg()" class="w-full accent-cyan-400" />
+            </div>
+          </div>
+
+          <div id="csgReadout" class="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-200"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: MIT 6.837 LECTURE 10 VIDEO & CHEAT SHEET ==================== -->
+    <section id="tab-videos" class="hidden space-y-8">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <h3 class="text-xl font-bold text-white">
+          <span class="lang-zh">🎥 MIT 6.837 Lecture 10 配套公开课与 Möller–Trumbore 代码实现</span>
+          <span class="lang-en">🎥 MIT 6.837 Lecture 10 (Ray Casting II) &amp; Möller–Trumbore Reference</span>
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 text-xs font-mono font-bold">MIT-10 • Prof. Justin Solomon</span>
+              <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="text-xs text-indigo-400 hover:underline">Playlist ↗</a>
+            </div>
+            <h4 class="font-bold text-white text-base">MIT 6.837 — Lecture 10: Ray Casting II (Triangles, Barycentric &amp; CSG)</h4>
+            <p class="lang-zh text-xs text-slate-400 leading-relaxed">
+              Justin Solomon 教授深入推导三角形重心坐标、克拉默法则快速射线-三角形求交、CSG 射线布尔求交树，以及带变换矩阵 $M$ 的实例化求交与法向量逆转置公式 $(M^{-1})^\top$。
+            </p>
+            <div class="aspect-video rounded-xl overflow-hidden border border-slate-800 bg-slate-900">
+              <iframe class="w-full h-full" src="https://www.youtube.com/embed/videoseries?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi&index=10" title="MIT 6.837 Lecture 10 Ray Casting II" allowfullscreen></iframe>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-3">
+            <h4 class="font-bold text-emerald-300 text-sm">
+              <span class="lang-zh">💻 工业级 Möller–Trumbore 三角形求交 GLSL / C++ 核心代码</span>
+              <span class="lang-en">💻 Production Möller–Trumbore Ray-Triangle Kernel</span>
+            </h4>
+            <pre class="font-mono text-[11px] text-slate-300 bg-slate-900 p-4 rounded-xl border border-slate-800 overflow-x-auto">bool intersectTriangleMT(vec3 o, vec3 d, vec3 a, vec3 b, vec3 c,
+                         out float t, out float beta, out float gamma) {
+  vec3 e1 = b - a;
+  vec3 e2 = c - a;
+  vec3 p  = cross(d, e2);         // p = d × e2
+  float det = dot(p, e1);         // det = (d × e2) · e1
+  if (abs(det) &lt; 1e-7) return false; // Ray parallel to triangle plane
+
+  float invDet = 1.0 / det;
+  vec3 s = o - a;
+  beta = dot(p, s) * invDet;      // Cramer's Rule for β
+  if (beta &lt; 0.0 || beta &gt; 1.0) return false; // Early exit!
+
+  vec3 q = cross(s, e1);          // q = s × e1
+  gamma = dot(q, d) * invDet;     // Cramer's Rule for γ
+  if (gamma &lt; 0.0 || beta + gamma &gt; 1.0) return false;
+
+  t = dot(q, e2) * invDet;        // Cramer's Rule for t
+  return t &gt; 1e-5;                // alpha = 1 - beta - gamma
+}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-game" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-indigo-500/40 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-white">
+              <span class="lang-zh">🎮 3 关实战通关小游戏：重心插值、法线修复与 CSG 透镜雕刻师</span>
+              <span class="lang-en">🎮 3-Mission Game: Barycentric, Normal Fix &amp; CSG Lens Sculptor</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">
+              <span class="lang-zh">通过配平三角形质心重心坐标、推导压扁椭球的逆转置法线缩放比，以及对齐 CSG 双凸透镜交集区间完成通关！</span>
+              <span class="lang-en">Clear all 3 missions by balancing triangle centroid weights, computing inverse-transpose normal scales, and forging a CSG biconvex lens!</span>
+            </p>
+          </div>
+
+          <div class="flex gap-2">
+            <button onclick="setGameMission(1)" id="game-btn-1" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white">
+              Mission 1: Barycentric Centroid
+            </button>
+            <button onclick="setGameMission(2)" id="game-btn-2" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 2: Inverse-Transpose (M⁻¹)ᵀ
+            </button>
+            <button onclick="setGameMission(3)" id="game-btn-3" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300">
+              Mission 3: CSG Biconvex Lens (A ∩ B)
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-7">
+            <canvas id="gameCanvas" width="640" height="360" class="w-full rounded-2xl border border-slate-800 bg-slate-950"></canvas>
+          </div>
+
+          <div class="lg:col-span-5 space-y-4 text-xs">
+            <div id="gameDesc" class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 text-slate-200 leading-relaxed"></div>
+
+            <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div>
+                <div class="flex justify-between font-bold text-amber-300 mb-1">
+                  <span id="gLabel1">Param 1</span>
+                  <span id="gVal1">0.20</span>
+                </div>
+                <input id="gSlider1" type="range" min="0" max="1" step="0.01" value="0.20" oninput="drawGame()" class="w-full accent-amber-400" />
+              </div>
+              <div>
+                <div class="flex justify-between font-bold text-cyan-300 mb-1">
+                  <span id="gLabel2">Param 2</span>
+                  <span id="gVal2">0.50</span>
+                </div>
+                <input id="gSlider2" type="range" min="0" max="1" step="0.01" value="0.50" oninput="drawGame()" class="w-full accent-cyan-400" />
+              </div>
+            </div>
+
+            <div id="gameStatus" class="p-4 rounded-2xl bg-slate-950 border border-slate-800 font-mono"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== LANGUAGE & TAB CONTROLLER ====================
+    let isEn = false;
+    function toggleLang() {
+      isEn = !isEn;
+      document.body.classList.toggle('en-mode', isEn);
+      drawNormMat();
+      drawBary();
+      drawCsg();
+      drawGame();
+    }
+
+    function switchTab(tabId) {
+      ['concepts', 'lab', 'videos', 'game'].forEach(id => {
+        document.getElementById('tab-' + id).classList.toggle('hidden', id !== tabId);
+        document.getElementById('tab-btn-' + id).classList.toggle('active', id === tabId);
+      });
+      if (tabId === 'concepts') drawNormMat();
+      if (tabId === 'lab') { drawBary(); drawCsg(); }
+      if (tabId === 'game') drawGame();
+    }
+
+    // ==================== VISUALIZER 1: INVERSE-TRANSPOSE NORMAL MATRIX ====================
+    function drawNormMat() {
+      const c = document.getElementById('normMatCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const sx = Number(document.getElementById('nmSxSlider').value);
+      const sy = Number(document.getElementById('nmSySlider').value);
+      const sh = Number(document.getElementById('nmShSlider').value);
+      document.getElementById('nmSxVal').textContent = sx.toFixed(2);
+      document.getElementById('nmSyVal').textContent = sy.toFixed(2);
+      document.getElementById('nmShVal').textContent = sh.toFixed(2);
+
+      // M = [sx, sh; 0, sy], det = sx * sy
+      // M^-1 = (1/det) [sy, -sh; 0, sx]
+      // (M^-1)^T = (1/det) [sy, 0; -sh, sx]
+      const cx = W * 0.5, cy = H * 0.54, R = 82;
+      const applyM = (x, y) => [sx * x + sh * y, sy * y];
+      const det = sx * sy;
+      const applyInvT = (nx, ny) => [sy * nx / det, (-sh * nx + sx * ny) / det];
+
+      // Draw Transformed Circle -> Ellipse
+      ctx.strokeStyle = '#38bdf8';
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i <= 80; i++) {
+        const ang = (i / 80) * Math.PI * 2;
+        const [tx, ty] = applyM(Math.cos(ang) * R, Math.sin(ang) * R);
+        const px = cx + tx, py = cy - ty;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Inspect angle theta = 45 deg on unit circle
+      const theta = Math.PI / 4;
+      const pOrig = [Math.cos(theta), Math.sin(theta)];
+      const tOrig = [-Math.sin(theta), Math.cos(theta)];
+      const nOrig = [Math.cos(theta), Math.sin(theta)];
+
+      const pDef = applyM(pOrig[0] * R, pOrig[1] * R);
+      const tDef = applyM(tOrig[0], tOrig[1]);
+      const nWrong = applyM(nOrig[0], nOrig[1]);
+      const nRight = applyInvT(nOrig[0], nOrig[1]);
+
+      const norm2 = (v) => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
+      const tHat = norm2(tDef);
+      const nwHat = norm2(nWrong);
+      const nrHat = norm2(nRight);
+
+      const px = cx + pDef[0], py = cy - pDef[1];
+
+      // Tangent line (Amber)
+      ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(px - tHat[0] * 95, py + tHat[1] * 95);
+      ctx.lineTo(px + tHat[0] * 95, py - tHat[1] * 95);
+      ctx.stroke();
+
+      // Wrong Normal M*n (Rose Red)
+      ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px + nwHat[0] * 85, py - nwHat[1] * 85);
+      ctx.stroke();
+
+      // True Normal (M^-1)^T * n (Emerald Green)
+      ctx.strokeStyle = '#10b981'; ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px + nrHat[0] * 85, py - nrHat[1] * 85);
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
+
+      const dotWrong = nwHat[0] * tHat[0] + nwHat[1] * tHat[1];
+      const dotRight = nrHat[0] * tHat[0] + nrHat[1] * tHat[1];
+      const angWrong = (Math.acos(Math.max(-1, Math.min(1, dotWrong))) * 180) / Math.PI;
+
+      document.getElementById('normMatReadout').innerHTML = `
+        <div class="text-rose-400 font-bold">❌ Naive M·n · M·t = ${dotWrong.toFixed(3)} (Angle = ${angWrong.toFixed(1)}° ≠ 90°!)</div>
+        <div class="text-emerald-400 font-bold">✓ True (M⁻¹)ᵀn · M·t = ${dotRight.toFixed(4)} (Exact 90.0°!)</div>
+        <div class="text-slate-400 pt-1">M = [[${sx.toFixed(2)}, ${sh.toFixed(2)}], [0, ${sy.toFixed(2)}]]</div>
+        <div class="text-cyan-300">(M⁻¹)ᵀ ∝ [[${sy.toFixed(2)}, 0], [${(-sh).toFixed(2)}, ${sx.toFixed(2)}]]</div>
+      `;
+    }
+
+    // ==================== TAB 2A: BARYCENTRIC AREA SCALE ====================
+    const triA = [270, 55];
+    const triB = [95, 305];
+    const triC = [445, 305];
+    let baryP = [270, 210];
+    let baryDragging = false;
+
+    function signedArea2D(p1, p2, p3) {
+      return 0.5 * ((p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0]));
+    }
+
+    function drawBary() {
+      const c = document.getElementById('baryCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const areaTotal = signedArea2D(triA, triB, triC);
+      const alpha = signedArea2D(baryP, triB, triC) / areaTotal;
+      const beta = signedArea2D(triA, baryP, triC) / areaTotal;
+      const gamma = 1 - alpha - beta;
+      const inside = alpha >= -1e-4 && beta >= -1e-4 && gamma >= -1e-4;
+
+      // Sub-triangles
+      const subTris = [
+        { pts: [baryP, triB, triC], col: 'rgba(244, 63, 94, 0.24)' },
+        { pts: [triA, baryP, triC], col: 'rgba(16, 185, 129, 0.24)' },
+        { pts: [triA, triB, baryP], col: 'rgba(56, 189, 248, 0.24)' }
+      ];
+      subTris.forEach(st => {
+        ctx.fillStyle = st.col;
+        ctx.beginPath();
+        st.pts.forEach((p, i) => i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]));
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      // Outer triangle
+      ctx.strokeStyle = inside ? '#e2e8f0' : '#f43f5e';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(triA[0], triA[1]); ctx.lineTo(triB[0], triB[1]); ctx.lineTo(triC[0], triC[1]);
+      ctx.closePath();
+      ctx.stroke();
+
+      // Lines from P to vertices
+      [triA, triB, triC].forEach(v => {
+        ctx.strokeStyle = 'rgba(226, 232, 240, 0.55)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(baryP[0], baryP[1]); ctx.lineTo(v[0], v[1]); ctx.stroke();
+      });
+
+      // Vertices A(Red), B(Green), C(Blue)
+      [
+        { p: triA, col: '#f43f5e', lbl: 'A (1,0,0)' },
+        { p: triB, col: '#10b981', lbl: 'B (0,1,0)' },
+        { p: triC, col: '#38bdf8', lbl: 'C (0,0,1)' }
+      ].forEach(v => {
+        ctx.fillStyle = v.col;
+        ctx.beginPath(); ctx.arc(v.p[0], v.p[1], 7.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 12px monospace';
+        ctx.fillText(v.lbl, v.p[0] - 28, v.p[1] - 12);
+      });
+
+      const r = Math.max(0, Math.min(255, Math.round(alpha * 244 + beta * 16 + gamma * 56)));
+      const g = Math.max(0, Math.min(255, Math.round(alpha * 63 + beta * 185 + gamma * 189)));
+      const b = Math.max(0, Math.min(255, Math.round(alpha * 94 + beta * 129 + gamma * 248)));
+
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(baryP[0], baryP[1], 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      document.getElementById('baryReadout').innerHTML = `
+        <div class="font-bold ${inside ? 'text-emerald-400' : 'text-rose-400'}">
+          ${inside ? '✓ Point P is INSIDE Triangle (α, β, γ ≥ 0)' : '⚠️ Point P is OUTSIDE Triangle (Negative Coordinate!)'}
+        </div>
+        <div class="grid grid-cols-3 gap-2 pt-1">
+          <div class="text-rose-400 font-bold">α = ${alpha.toFixed(3)}</div>
+          <div class="text-emerald-400 font-bold">β = ${beta.toFixed(3)}</div>
+          <div class="text-cyan-400 font-bold">γ = ${gamma.toFixed(3)}</div>
+        </div>
+        <div class="text-slate-300">Partition of Unity: α + β + γ = ${(alpha + beta + gamma).toFixed(4)}</div>
+      `;
+    }
+
+    (function setupBaryDrag() {
+      const c = document.getElementById('baryCanvas');
+      const move = (e) => {
+        const r = c.getBoundingClientRect();
+        baryP = [
+          Math.max(20, Math.min(c.width - 20, (e.clientX - r.left) * (c.width / r.width))),
+          Math.max(20, Math.min(c.height - 20, (e.clientY - r.top) * (c.height / r.height)))
+        ];
+        drawBary();
+      };
+      c.addEventListener('pointerdown', (e) => { baryDragging = true; move(e); });
+      c.addEventListener('pointermove', (e) => { if (baryDragging) move(e); });
+      window.addEventListener('pointerup', () => { baryDragging = false; });
+    })();
+
+    // ==================== TAB 2B: CSG RAY INTERVAL BOOLEAN WORKBENCH ====================
+    let csgOp = 'diff';
+    function setCsgOp(op) {
+      csgOp = op;
+      ['union', 'intersect', 'diff'].forEach(k => {
+        document.getElementById('csg-' + k).className = k === op
+          ? 'px-3 py-1 rounded-lg text-xs font-bold bg-cyan-600 text-white'
+          : 'px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      drawCsg();
+    }
+
+    function sphereInterval2D(cx, cy, r, rayY) {
+      const dy = rayY - cy;
+      if (Math.abs(dy) > r) return null;
+      const dx = Math.sqrt(r * r - dy * dy);
+      return [cx - dx, cx + dx];
+    }
+
+    function drawCsg() {
+      const c = document.getElementById('csgCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const rayY = Number(document.getElementById('csgRayYSlider').value);
+      const bx = Number(document.getElementById('csgBxSlider').value);
+      document.getElementById('csgRayYVal').textContent = rayY;
+      document.getElementById('csgBxVal').textContent = bx;
+
+      const ax = 205, ay = 140, ar = 78;
+      const by = 140, br = 72;
+
+      // Draw circles A & B
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(ax, ay, ar, 0, Math.PI * 2); ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.6)';
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw Ray line
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(20, rayY); ctx.lineTo(W - 20, rayY); ctx.stroke();
+
+      const intA = sphereInterval2D(ax, ay, ar, rayY);
+      const intB = sphereInterval2D(bx, by, br, rayY);
+
+      let resIntervals = [];
+      let hitFromB = false;
+
+      if (csgOp === 'union') {
+        if (intA && intB) {
+          if (intB[0] <= intA[1] && intA[0] <= intB[1]) {
+            resIntervals = [[Math.min(intA[0], intB[0]), Math.max(intA[1], intB[1])]];
+          } else {
+            resIntervals = [intA, intB];
+          }
+        } else if (intA) resIntervals = [intA];
+        else if (intB) resIntervals = [intB];
+      } else if (csgOp === 'intersect') {
+        if (intA && intB) {
+          const s = Math.max(intA[0], intB[0]);
+          const e = Math.min(intA[1], intB[1]);
+          if (s <= e) resIntervals = [[s, e]];
+        }
+      } else {
+        // A \ B
+        if (intA) {
+          if (!intB || intB[1] <= intA[0] || intB[0] >= intA[1]) {
+            resIntervals = [intA];
+          } else {
+            if (intB[0] > intA[0]) resIntervals.push([intA[0], intB[0]]);
+            if (intB[1] < intA[1]) {
+              resIntervals.push([intB[1], intA[1]]);
+              if (resIntervals.length === 1) hitFromB = true;
+            }
+          }
+        }
+      }
+
+      // Draw active solid intervals along ray
+      resIntervals.forEach(iv => {
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.moveTo(iv[0], rayY); ctx.lineTo(iv[1], rayY); ctx.stroke();
+      });
+
+      let firstHitX = resIntervals.length > 0 ? resIntervals[0][0] : null;
+      if (firstHitX !== null) {
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath(); ctx.arc(firstHitX, rayY, 7, 0, Math.PI * 2); ctx.fill();
+
+        // Draw Surface Normal at firstHitX
+        let nx = (firstHitX - ax) / ar, ny = (rayY - ay) / ar;
+        if (hitFromB) {
+          // Carved cavity normal is -n_B!
+          nx = -(firstHitX - bx) / br;
+          ny = -(rayY - by) / br;
+        }
+        ctx.strokeStyle = hitFromB ? '#f43f5e' : '#fbbf24';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(firstHitX, rayY);
+        ctx.lineTo(firstHitX + nx * 42, rayY + ny * 42);
+        ctx.stroke();
+      }
+
+      document.getElementById('csgReadout').innerHTML = `
+        <div class="text-cyan-300">Interval I_A = ${intA ? `[${intA[0].toFixed(0)}, ${intA[1].toFixed(0)}]` : '∅'} | I_B = ${intB ? `[${intB[0].toFixed(0)}, ${intB[1].toFixed(0)}]` : '∅'}</div>
+        <div class="text-emerald-400 font-bold">Result (${csgOp.toUpperCase()}): ${resIntervals.length ? resIntervals.map(i => `[${i[0].toFixed(0)}, ${i[1].toFixed(0)}]`).join(' ∪ ') : '∅ (Ray Miss)'}</div>
+        ${hitFromB ? '<div class="text-rose-400 font-bold">⚡ Hit on carved B cavity: Normal flipped to -N_B!</div>' : ''}
+      `;
+    }
+
+    // ==================== TAB 4: 3-MISSION MINI-GAME ====================
+    let gameMission = 1;
+    function setGameMission(m) {
+      gameMission = m;
+      [1, 2, 3].forEach(idx => {
+        document.getElementById('game-btn-' + idx).className = idx === m
+          ? 'px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white'
+          : 'px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300';
+      });
+      const s1 = document.getElementById('gSlider1');
+      const s2 = document.getElementById('gSlider2');
+      if (m === 1) {
+        s1.min = 0.05; s1.max = 0.85; s1.step = 0.01; s1.value = 0.15;
+        s2.min = 0.05; s2.max = 0.85; s2.step = 0.01; s2.value = 0.55;
+      } else if (m === 2) {
+        s1.min = 0.2; s1.max = 2.5; s1.step = 0.1; s1.value = 2.0;
+        s2.min = 0.2; s2.max = 2.5; s2.step = 0.1; s2.value = 0.5;
+      } else {
+        s1.min = 180; s1.max = 360; s1.step = 5; s1.value = 340;
+        s2.min = 30; s2.max = 95; s2.step = 5; s2.value = 50;
+      }
+      drawGame();
+    }
+
+    function drawGame() {
+      const c = document.getElementById('gameCanvas');
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const W = c.width, H = c.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const v1 = Number(document.getElementById('gSlider1').value);
+      const v2 = Number(document.getElementById('gSlider2').value);
+      document.getElementById('gVal1').textContent = v1.toFixed(gameMission === 3 ? 0 : 2);
+      document.getElementById('gVal2').textContent = v2.toFixed(gameMission === 3 ? 0 : 2);
+
+      let passed = false;
+      const desc = document.getElementById('gameDesc');
+      const status = document.getElementById('gameStatus');
+
+      if (gameMission === 1) {
+        document.getElementById('gLabel1').textContent = 'Barycentric α';
+        document.getElementById('gLabel2').textContent = 'Barycentric β';
+        desc.innerHTML = isEn
+          ? '<b>Mission 1 (Barycentric Centroid Balance)</b>: Set α and β so that (α, β, γ = 1 - α - β) sits at the exact centroid of △ABC (α ≈ 0.33, β ≈ 0.33, γ ≈ 0.33)!'
+          : '<b>第 1 关（三角形物理质心天平）</b>：调节重心坐标 α 与 β（其中 γ = 1 - α - β），使采样点停在三角形正中心质心（α = 1/3 ≈ 0.33, β = 1/3 ≈ 0.33）！';
+        const gamma = 1 - v1 - v2;
+        passed = Math.abs(v1 - 0.33) <= 0.03 && Math.abs(v2 - 0.33) <= 0.03 && Math.abs(gamma - 0.33) <= 0.04;
+      } else if (gameMission === 2) {
+        document.getElementById('gLabel1').textContent = 'Inverse-Transpose X Scale (1/s_x)';
+        document.getElementById('gLabel2').textContent = 'Inverse-Transpose Y Scale (1/s_y)';
+        desc.innerHTML = isEn
+          ? '<b>Mission 2 (Normal Matrix Fix)</b>: A sphere is scaled by M = diag(s_x = 2.0, s_y = 0.5). Set the diagonal entries of (M⁻¹)ᵀ = diag(1/s_x, 1/s_y) = (0.5, 2.0) to restore 90° orthogonality!'
+          : '<b>第 2 关（逆转置法线矩阵修复）</b>：球体被非均匀缩放矩阵 M = diag(s_x = 2.0, s_y = 0.5) 压扁。请将逆转置矩阵对角元设为 (1/s_x = 0.5, 1/s_y = 2.0) 以恢复法线正交性！';
+        passed = Math.abs(v1 - 0.5) < 0.05 && Math.abs(v2 - 2.0) < 0.05;
+      } else {
+        document.getElementById('gLabel1').textContent = 'Sphere B Center X (Target 260)';
+        document.getElementById('gLabel2').textContent = 'Lens Thickness (Target 60)';
+        desc.innerHTML = isEn
+          ? '<b>Mission 3 (CSG Biconvex Lens A ∩ B)</b>: Align Sphere B at X = 260 and thickness = 60 so the CSG intersection A ∩ B forms a symmetric optical biconvex lens!'
+          : '<b>第 3 关（CSG 双凸光学透镜雕刻 A ∩ B）</b>：将球体 B 中心移至 X = 260 且透镜厚度调至 60，使交集 A ∩ B 形成完美对称的双凸透镜！';
+        passed = v1 === 260 && v2 === 60;
+      }
+
+      ctx.strokeStyle = passed ? '#10b981' : '#38bdf8';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(45, 45, W - 90, H - 90);
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 19px monospace';
+      ctx.fillText(`Mission ${gameMission}: Param1 = ${v1.toFixed(2)} | Param2 = ${v2.toFixed(2)}`, 80, 165);
+      ctx.fillStyle = passed ? '#10b981' : '#fbbf24';
+      ctx.fillText(passed ? '★ GEOMETRY & CSG VERIFIED!' : '● Adjust sliders to satisfy target equation', 80, 215);
+
+      status.innerHTML = passed
+        ? `<div class="text-emerald-400 font-bold text-sm">★ MISSION ${gameMission} CLEARED! / 恭喜通关！</div>`
+        : `<div class="text-amber-300 font-bold">● Calibrating parameters...</div>`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+      drawNormMat();
+      drawBary();
+      drawCsg();
+      setGameMission(1);
+    });
+  </script>
+</body>
+</html>

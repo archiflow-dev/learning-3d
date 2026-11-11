@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 16: 信号处理、采样理论与反走样 | Signal Processing, Sampling & Antialiasing</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    body { background: #020617; color: #f1f5f9; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    canvas { touch-action: none; }
+    .math-box { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 0.75rem; padding: 1rem; }
+  </style>
+</head>
+<body class="min-h-screen selection:bg-indigo-500 selection:text-white">
+  <!-- Top Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="../index.html" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 transition">
+          ← Course Index
+        </a>
+        <div>
+          <div class="flex items-center gap-2 text-xs font-bold text-indigo-400">
+            <span>Stage 3 • Ray Tracing & Rendering</span>
+            <span>•</span>
+            <span>Lesson 16 / 32</span>
+          </div>
+          <h1 class="text-base sm:text-lg font-extrabold text-white" id="hdr-title">
+            L16: 信号处理、采样理论与反走样 (Sampling, Nyquist & Antialiasing)
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button id="lang-btn" onclick="toggleLang()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-100 transition">
+          <span>🌐</span>
+          <span id="lang-label">EN / 中文</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap gap-2 pb-3">
+      <button onclick="switchTab(1)" id="tab-btn-1" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow">
+        1. 📐 3B1B 频域折叠与滤波器直觉
+      </button>
+      <button onclick="switchTab(2)" id="tab-btn-2" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        2. 🔬 走样与超采样像素显微镜
+      </button>
+      <button onclick="switchTab(3)" id="tab-btn-3" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        3. 🎥 MIT 6.837 L15 & MSAA 架构
+      </button>
+      <button onclick="switchTab(4)" id="tab-btn-4" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">
+        4. 🎮 3 关信号与反走样总师挑战
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-8">
+    <!-- ==================== TAB 1: 3B1B INTUITION ==================== -->
+    <section id="tab-1" class="space-y-8">
+      <!-- Intro Card: A Pixel is NOT a Little Square -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-700/60 text-xs font-bold text-indigo-300">
+          <span>💡 Alvy Ray Smith (1995) & 3Blue1Brown 信号观</span>
+        </div>
+        <h2 class="text-xl sm:text-2xl font-extrabold text-white" data-zh="为什么“像素绝不是一个小方块”？(A Pixel is NOT a Little Square!)" data-en="Why 'A Pixel is NOT a Little Square!' (Point Samples & Continuous Signals)">
+          为什么“像素绝不是一个小方块”？(A Pixel is NOT a Little Square!)
+        </h2>
+        <p class="text-sm text-slate-300 leading-relaxed" data-zh="初学者往往把屏幕上的像素看成一个个涂满均匀颜色的“小瓷砖”。但在皮克斯联合创始人 Alvy Ray Smith 的著名论文与 MIT 6.837 的信号处理框架中：三维场景投射到像平面上的辐射亮度 I(x,y) 是一个连续的二维光场信号，而数字图像本质上是定义在规则晶格点 (i, j) 上的离散点采样 (Point Samples)！当我们只从每个像素中心发射 1 条射线时，就是在拿一根无穷细的针去刺探连续世界——任何落在这根针旁边的亚像素细节（比如远处的高频棋盘格或斜边三角形边缘）都会触发灾难性的频谱混叠 (Aliasing)。" data-en="Beginners often think of a pixel as a tiny square tile painted a uniform color. In Alvy Ray Smith's famous memo and MIT 6.837's signal-processing framework, the projected 3D scene irradiance I(x,y) is a continuous 2D signal, and a digital image is strictly an array of discrete Point Samples on a lattice (i,j)! Shooting a single ray through each pixel center probes a continuous world with an infinitely thin needle — any high-frequency detail between needles triggers catastrophic spectral folding (Aliasing).">
+          初学者往往把屏幕上的像素看成一个个涂满均匀颜色的“小瓷砖”。但在皮克斯联合创始人 Alvy Ray Smith 的著名论文与 MIT 6.837 的信号处理框架中：三维场景投射到像平面上的辐射亮度 $I(x,y)$ 是一个**连续的二维光场信号**，而数字图像本质上是定义在规则晶格点 $(i, j)$ 上的**离散点采样 (Point Samples)**！当我们只从每个像素中心发射 1 条射线时，就是在拿一根无穷细的针去刺探连续世界——任何落在这根针旁边的亚像素细节（比如远处的高频棋盘格或斜边三角形边缘）都会触发灾难性的**频谱混叠 (Aliasing)**。
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="text-xs font-bold text-rose-400">1. 空间锯齿 (Jaggies / Staircasing)</div>
+            <p class="text-xs text-slate-400 leading-relaxed" data-zh="三角形的锋利边缘在数学上是一个阶跃函数 (Heaviside Step)，其傅里叶频谱以 1/ω 衰减并延伸至无穷大频率 (ω → ∞)。单点采样将连续斜边生硬截断为 0 或 1 的阶梯。" data-en="A sharp triangle silhouette is a Heaviside step function whose Fourier transform decays as 1/ω out to infinity (ω → ∞). Point sampling quantizes the smooth diagonal into binary 0/1 stairs.">
+              三角形的锋利边缘在数学上是一个阶跃函数 (Heaviside Step)，其傅里叶频谱以 $1/\omega$ 衰减并延伸至无穷大频率 ($\omega \to \infty$)。单点采样将连续斜边生硬截断为 $0$ 或 $1$ 的阶梯。
+            </p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="text-xs font-bold text-amber-400">2. 摩尔纹伪影 (Moiré Patterns)</div>
+            <p class="text-xs text-slate-400 leading-relaxed" data-zh="透视投影下的地面棋盘格在趋近地平线时，空间频率随深度 z 线性暴涨 (f ∝ z → ∞)。高频条纹超越采样率的一半后，“折叠”伪装成原本根本不存在的巨大弧形低频条纹！" data-en="Under perspective foreshortening, a ground checkerboard's spatial frequency explodes linearly with depth (f ∝ z → ∞). Frequencies exceeding half the sampling rate fold back as giant phantom low-frequency swirls!">
+              透视投影下的地面棋盘格在趋近地平线时，空间频率随深度 $z$ 线性暴涨 ($f \propto z \to \infty$)。高频条纹超越采样率的一半后，“折叠”伪装成原本根本不存在的巨大弧形低频条纹！
+            </p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="text-xs font-bold text-cyan-400">3. 时间闪烁与萤火虫 (Temporal Shimmering)</div>
+            <p class="text-xs text-slate-400 leading-relaxed" data-zh="细电线或高光点宽度小于 1 个像素间距时，随相机微微移动，它一会儿碰巧撞上采样针（突然全亮），一会儿滑进两针缝隙（瞬间消失），造成画面剧烈闪烁。" data-en="When a thin wire or specular highlight is narrower than 1 pixel, slow camera motion causes it to alternately hit and miss sample needles, blinking violently across frames.">
+              细电线或高光点宽度小于 1 个像素间距时，随相机微微移动，它一会儿碰巧撞上采样针（突然全亮），一会儿滑进两针缝隙（瞬间消失），造成画面剧烈闪烁。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 1: 3B1B Derivation of Nyquist & Spectral Folding + Interactive Visualizer 1A -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <h3 class="text-lg sm:text-xl font-bold text-indigo-300" data-zh="1. 为什么高频信号会“伪装”成低频？——从车轮倒转到傅里叶频谱复制" data-en="1. Why High Frequencies Impersonate Low Frequencies — From Wagon Wheels to Spectral Replication">
+          1. 为什么高频信号会“伪装”成低频？——从车轮倒转到傅里叶频谱复制
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="space-y-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p data-zh="先看最直观的空域/时域现象（电影里的马车轮倒转效应）：假设真实连续信号是余弦波 s(x) = cos(2π f x)，我们以采样率 f_s（采样间隔 Δx = 1/f_s）在离散坐标 x_n = n / f_s 处进行点采样。" data-en="First consider the spatial/time domain intuition (the cinema wagon-wheel effect): suppose a continuous cosine wave s(x) = cos(2π f x) is sampled at rate f_s (spacing Δx = 1/f_s) at discrete points x_n = n / f_s.">
+              先看最直观的**空域/时域现象**（电影里的马车轮倒转效应）：假设真实连续信号是余弦波 $s(x) = \cos(2\pi f x)$，我们以采样率 $f_s$（采样间隔 $\Delta x = 1/f_s$）在离散坐标 $x_n = n / f_s$ 处进行点采样。
+            </p>
+            <div class="math-box">
+              $$\cos\!\left(2\pi (f + k f_s) \frac{n}{f_s}\right) = \cos\!\left(2\pi f \frac{n}{f_s} + \underbrace{2\pi k n}_{\text{整数圈 } 2\pi}\right) = \cos\!\left(2\pi f \frac{n}{f_s}\right)$$
+            </div>
+            <p data-zh="因为余弦函数具有 2π 周期性，加上 f_s 的任意整数倍 k·f_s 后，在所有采样点 x_n 上的读数一模一样！这意味着：一旦真实频率 f 超过了采样率的一半（奈奎斯特极限 f_Nyquist = f_s / 2），离散采样点就彻底分不清它是高频波 f，还是折叠回基带 [-f_s/2, +f_s/2] 内的低频“冒名顶替者 (Alias)”：" data-en="Because cosine is 2π-periodic, shifting the frequency by any integer multiple k·f_s produces the EXACT same sample values at every x_n! Once f exceeds half the sampling rate (the Nyquist limit f_Nyquist = f_s / 2), the samples are mathematically indistinguishable from a lower-frequency impostor (Alias) folded into [-f_s/2, +f_s/2]:">
+              因为余弦函数具有 $2\pi$ 周期性，加上 $f_s$ 的任意整数倍 $k \cdot f_s$ 后，在所有采样点 $x_n$ 上的读数**一模一样**！这意味着：一旦真实频率 $f$ 超过了采样率的一半（**奈奎斯特极限 $f_{\text{Nyquist}} = f_s / 2$**），离散采样点就彻底分不清它是高频波 $f$，还是折叠回基带 $[-f_s/2, +f_s/2]$ 内的低频“冒名顶替者 (Alias)”：
+            </p>
+            <div class="math-box">
+              $$f_{\text{alias}} = \big|\, f - \text{round}(f / f_s) \cdot f_s \,\big| \le \frac{f_s}{2}$$
+            </div>
+            <p data-zh="再看 3Blue1Brown 式的频域对偶证明：在空域中对信号做等间距点采样，等价于将连续信号 s(x) 乘以狄拉克梳状函数 (Dirac Comb) III_{Δx}(x) = ∑ δ(x - nΔx)。根据傅里叶卷积定理：空域相乘等价于频域卷积！" data-en="Now see the 3Blue1Brown frequency-domain duality: point-sampling s(x) in space multiplies it by a Dirac Comb III_{Δx}(x) = ∑ δ(x - nΔx). By the Convolution Theorem, multiplication in space equals CONVOLUTION in frequency!">
+              再看 **3Blue1Brown 式的频域对偶证明**：在空域中对信号做等间距点采样，等价于将连续信号 $s(x)$ 乘以狄拉克梳状函数 (Dirac Comb) $\text{III}_{\Delta x}(x) = \sum_{n=-\infty}^{\infty} \delta(x - n\Delta x)$。根据**傅里叶卷积定理：空域相乘 $\iff$ 频域卷积**！
+            </p>
+            <div class="math-box">
+              $$s_{\text{sampled}}(x) = s(x) \cdot \text{III}_{\Delta x}(x) \;\;\xrightarrow{\mathcal{F}}\;\; S_{\text{sampled}}(\omega) = f_s \sum_{k=-\infty}^{\infty} S(\omega - k f_s)$$
+            </div>
+            <p data-zh="换句话说：采样操作会在频率轴上每隔 f_s 就无限克隆（复制）一份原始频谱 S(ω)！只有当采样率满足奈奎斯特–香农采样定理 f_s ≥ 2 f_max 时，相邻克隆频谱才不会互相踩踏重叠；反之，高频尾巴侵入基带 [-f_s/2, +f_s/2]，就会永久污染低频信号！" data-en="In other words, sampling clones (replicates) the original spectrum S(ω) at every integer multiple k·f_s along the frequency axis! Only when f_s ≥ 2 f_max (Nyquist–Shannon Theorem) do adjacent spectral clones stay disjoint; otherwise, high-frequency tails invade the baseband [-f_s/2, +f_s/2] and masquerade as low frequencies!">
+              换句话说：**采样操作会在频率轴上每隔 $f_s$ 就无限克隆（复制）一份原始频谱 $S(\omega)$**！只有当采样率满足**奈奎斯特–香农采样定理 $f_s \ge 2 f_{\max}$** 时，相邻克隆频谱才不会互相踩踏重叠；反之，高频尾巴侵入基带 $[-f_s/2, +f_s/2]$，就会永久污染低频信号！
+            </p>
+          </div>
+
+          <!-- Interactive Visualizer 1A: 1D Nyquist & Spectral Folding -->
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="text-xs font-bold text-cyan-300">🔬 交互实验 1A：1D 奈奎斯特采样与频谱折叠显微镜</div>
+              <span id="nyq-status-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-700">
+                ✓ 满足奈奎斯特 (No Aliasing)
+              </span>
+            </div>
+
+            <canvas id="canvas-nyquist" width="560" height="310" class="w-full rounded-lg bg-slate-900 border border-slate-800"></canvas>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="flex justify-between mb-1">
+                  <span class="text-slate-300">真实信号频率 $f$:</span>
+                  <span id="lbl-sig-f" class="font-mono font-bold text-cyan-400">2.0 Hz</span>
+                </div>
+                <input id="slider-sig-f" type="range" min="0.5" max="9.5" step="0.1" value="2.0" oninput="updateNyquistLab()" class="w-full accent-cyan-400" />
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="flex justify-between mb-1">
+                  <span class="text-slate-300">采样频率 $f_s$:</span>
+                  <span id="lbl-samp-fs" class="font-mono font-bold text-amber-400">6.0 Hz</span>
+                </div>
+                <input id="slider-samp-fs" type="range" min="2.0" max="12.0" step="0.2" value="6.0" oninput="updateNyquistLab()" class="w-full accent-amber-400" />
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 bg-slate-900/70 px-3 py-2 rounded-lg border border-slate-800">
+              <span>奈奎斯特折叠极限 $f_{\text{Nyquist}} = f_s/2 = $ <strong id="lbl-nyq-limit" class="text-emerald-400 font-mono">3.00 Hz</strong></span>
+              <span>重建出的表观频率 $f_{\text{alias}} = $ <strong id="lbl-alias-f" class="text-rose-400 font-mono">2.00 Hz</strong></span>
+              <button onclick="setNyquistPreset(4.8, 6.0)" class="px-2 py-0.5 rounded bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-700/60 font-semibold">
+                演示高频混叠 (f=4.8, fs=6.0 → 1.2Hz)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part 2: Reconstruction Filters & Stratified Sampling + Interactive Visualizer 1B -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <h3 class="text-lg sm:text-xl font-bold text-emerald-300" data-zh="2. 既然三角形边缘带宽无穷大 (f_max = ∞)，我们该如何反走样？" data-en="2. Since Triangle Edges Have Infinite Bandwidth (f_max = ∞), How Can We Antialias?">
+          2. 既然三角形边缘带宽无穷大 ($f_{\max} = \infty$)，我们该如何反走样？
+        </h3>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="space-y-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p data-zh="在光栅化或光线追踪中，解析地把三维场景先做理想低通滤波（Pre-filtering）往往极其困难，所以我们采用三大武器协同作战：" data-en="In rasterization and ray tracing, analytically pre-filtering continuous 3D geometry before sampling is rarely closed-form, so production renderers combine three weapons:">
+              在光栅化或光线追踪中，解析地把三维场景先做理想低通滤波（Pre-filtering）往往极其困难，所以我们采用**三大武器**协同作战：
+            </p>
+            <ol class="list-decimal pl-5 space-y-2.5">
+              <li>
+                <strong class="text-white">超采样 (Supersampling, 提高 $f_s$)</strong>：在每个像素内部密集发射 $N = M \times M$ 条子采样射线，将奈奎斯特极限 $f_s / 2$ 推向更高频率，然后用重建滤波器将子样本加权合成为最终像素值：
+                <div class="math-box my-2">
+                  $$I_{\text{pixel}}(i, j) = \frac{\sum_{k=1}^{N} w_k \, I(x_k, y_k)}{\sum_{k=1}^{N} w_k}, \qquad w_k = h\!\left(x_k - i,\; y_k - j\right)$$
+                </div>
+              </li>
+              <li>
+                <strong class="text-white">分层抖动采样 (Stratified Jittered Sampling, 将混叠转化为蓝噪点)</strong>：如果使用死板的规则网格采样 ($M \times M$ Regular Grid)，遇到高频棋盘格依然会产生规则的摩尔纹。我们将像素划分为 $M \times M$ 个互不重叠的小格子 (Strata)，在每个小格子 $(p, q)$ 内部随机抖动采样点：
+                <div class="math-box my-2">
+                  $$u_{p,q} = \frac{p + \xi_x}{M}, \quad v_{p,q} = \frac{q + \xi_y}{M}, \qquad \xi_x, \xi_y \sim \mathcal{U}[0, 1)$$
+                </div>
+                这既打破了周期晶格（把讨厌的整片摩尔纹打散为人眼极易忽略的无害高频噪点），又避免了纯随机采样 (Uniform Random) 的样本扎堆与空白漏检！
+              </li>
+              <li>
+                <strong class="text-white">精心设计的重建滤波核 $h(r)$ (Box vs. Tent vs. Gaussian vs. Sinc)</strong>：
+                不同滤波核在空域与频域之间做着经典的权衡——
+                <span class="text-amber-300">Box 盒式滤波</span>（像素内等权重平均）在频域是 $\text{sinc}(\omega)$，旁瓣极高，会漏入大量高频混叠；
+                <span class="text-cyan-300">Tent 帐篷滤波</span>（线性衰减）在频域是 $\text{sinc}^2(\omega)$，旁瓣大幅压低；
+                <span class="text-emerald-300">Gaussian 高斯滤波</span>在空域与频域都是平滑高斯钟形曲线，既无高频旁瓣泄漏，也无负权重引起的吉布斯振铃 (Ringing)！
+              </li>
+            </ol>
+          </div>
+
+          <!-- Interactive Visualizer 1B: Reconstruction Filter Kernel & Frequency Response -->
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="text-xs font-bold text-emerald-300">🎛️ 交互实验 1B：重建滤波器空域核 $h(x)$ 与频域响应 $|H(\omega)|$</div>
+              <div class="flex gap-1.5">
+                <button onclick="setFilterLabType('box')" id="flt-btn-box" class="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 text-slate-300">Box</button>
+                <button onclick="setFilterLabType('tent')" id="flt-btn-tent" class="px-2.5 py-1 rounded text-[11px] font-bold bg-indigo-600 text-white">Tent</button>
+                <button onclick="setFilterLabType('gaussian')" id="flt-btn-gaussian" class="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 text-slate-300">Gaussian</button>
+                <button onclick="setFilterLabType('sinc')" id="flt-btn-sinc" class="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 text-slate-300">Sinc (Lanczos)</button>
+              </div>
+            </div>
+
+            <canvas id="canvas-filter" width="560" height="280" class="w-full rounded-lg bg-slate-900 border border-slate-800"></canvas>
+
+            <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs">
+              <div class="flex justify-between mb-1">
+                <span class="text-slate-300">滤波器支撑半径 (Support Radius $R$):</span>
+                <span id="lbl-flt-radius" class="font-mono font-bold text-emerald-400">1.5 px</span>
+              </div>
+              <input id="slider-flt-radius" type="range" min="0.5" max="2.5" step="0.1" value="1.5" oninput="updateFilterLab()" class="w-full accent-emerald-400" />
+            </div>
+
+            <div id="flt-desc-box" class="text-[11px] text-slate-300 bg-slate-900/80 p-3 rounded-lg border border-slate-800 leading-relaxed">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: PIXEL MICROSCOPE LAB ==================== -->
+    <section id="tab-2" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-extrabold text-white" data-zh="🔬 走样与超采样像素显微镜 (Supersampling & Reconstruction Pixel Microscope)" data-en="🔬 Supersampling, Sampling Patterns & Reconstruction Pixel Microscope">
+              🔬 走样与超采样像素显微镜 (Supersampling & Reconstruction Pixel Microscope)
+            </h2>
+            <p class="text-xs text-slate-400 mt-1" data-zh="点击左侧像素网格中的任意一个像素，右侧放大镜将实时透视该像素内部的连续几何边界、采样针分布 (u_k, v_k)、滤波器覆盖半径与加权积分过程！" data-en="Click any pixel in the left grid to inspect its continuous sub-pixel geometry, sample coordinates (u_k, v_k), filter footprint radius, and weighted reconstruction!">
+              点击左侧像素网格中的任意一个像素，右侧放大镜将实时透视该像素内部的**连续几何边界**、**采样针分布 $(u_k, v_k)$**、**滤波器覆盖半径**与**加权积分过程**！
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="setMicroScene('triangle')" id="scene-btn-triangle" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white">
+              📐 斜边三角形 + 极细亮线 (Jaggies)
+            </button>
+            <button onclick="setMicroScene('checker')" id="scene-btn-checker" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">
+              ♟️ 透视地平线棋盘格 (Moiré)
+            </button>
+            <button onclick="setMicroScene('zoneplate')" id="scene-btn-zoneplate" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">
+              🎯 变频波带片 (Zone Plate)
+            </button>
+          </div>
+        </div>
+
+        <!-- Control Bar -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
+          <div>
+            <label class="block text-slate-400 font-semibold mb-1.5">每像素采样数 (SPP):</label>
+            <select id="sel-spp" onchange="updateMicroscope()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-semibold">
+              <option value="1">1 SPP (Point Sample — 无反走样)</option>
+              <option value="4">4 SPP (2×2 子采样)</option>
+              <option value="16" selected>16 SPP (4×4 超采样)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-slate-400 font-semibold mb-1.5">采样点空间分布模式 (Pattern):</label>
+            <select id="sel-pattern" onchange="updateMicroscope()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-semibold">
+              <option value="regular">规则网格 (Regular Grid SSAA)</option>
+              <option value="rgss">旋转网格 (Rotated Grid RGSS)</option>
+              <option value="random">纯随机撒点 (Uniform Random)</option>
+              <option value="stratified" selected>分层抖动 (Stratified Jittered)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-slate-400 font-semibold mb-1.5">重建滤波器 (Filter Kernel):</label>
+            <select id="sel-filter" onchange="updateMicroscope()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-semibold">
+              <option value="box">Box 盒式平均 (R = 0.5 px)</option>
+              <option value="tent">Tent 帐篷线性权重 (R = 1.0 px)</option>
+              <option value="gaussian" selected>Gaussian 高斯平滑 (R = 1.25 px)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-slate-400 font-semibold mb-1.5">几何亚像素偏移 / 相位 $\Delta x$:</label>
+            <input id="slider-phase" type="range" min="0" max="1" step="0.02" value="0.24" oninput="updateMicroscope()" class="w-full accent-indigo-400 mt-1" />
+            <div class="flex justify-between text-[11px] text-slate-400 mt-0.5">
+              <span>微移几何体观察边缘闪烁</span>
+              <span id="lbl-phase" class="font-mono text-indigo-300">0.24 px</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dual Canvas Area -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- Left: 28x28 Rasterized Pixel Grid -->
+          <div class="lg:col-span-7 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-slate-200">🖼️ 28×28 光栅化输出网格 (点击任意像素放大检视)</span>
+              <span class="font-mono text-amber-300" id="lbl-selected-px">当前选中像素: (14, 14)</span>
+            </div>
+            <canvas id="canvas-pixel-grid" width="504" height="504" class="w-full aspect-square rounded-lg bg-slate-900 border border-slate-800 cursor-crosshair"></canvas>
+            <div class="grid grid-cols-3 gap-3 text-center text-xs pt-1">
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[11px]">相对 64× 真值误差 (RMSE)</div>
+                <div id="metric-rmse" class="text-base font-mono font-extrabold text-emerald-400 mt-0.5">0.042</div>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[11px]">SSAA 着色调用 / 像素</div>
+                <div id="metric-ssaa-cost" class="text-base font-mono font-extrabold text-rose-400 mt-0.5">16.0x</div>
+              </div>
+              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="text-slate-400 text-[11px]">MSAA 着色调用 / 像素</div>
+                <div id="metric-msaa-cost" class="text-base font-mono font-extrabold text-cyan-400 mt-0.5">1.0x</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Single Pixel Sub-Sample Microscope -->
+          <div class="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-indigo-300">🔍 单像素亚像素采样放大镜 (Sub-Pixel Inspector)</span>
+              <button onclick="reseedJitter()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold">
+                🎲 重新随机抖动
+              </button>
+            </div>
+            <canvas id="canvas-subpixel" width="380" height="380" class="w-full aspect-square rounded-lg bg-slate-900 border border-slate-800"></canvas>
+
+            <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400">64×64 解析真值覆盖率 (Ground Truth):</span>
+                <span id="sub-gt-val" class="font-mono font-bold text-emerald-400">0.500</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">当前滤波器加权输出值 $I_{\text{pixel}}$:</span>
+                <span id="sub-recon-val" class="font-mono font-bold text-cyan-300">0.492</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">单像素绝对重建误差 $|I - I_{\text{GT}}|$:</span>
+                <span id="sub-err-val" class="font-mono font-bold text-amber-300">0.008</span>
+              </div>
+              <p class="text-[11px] text-slate-400 pt-1 border-t border-slate-800 leading-relaxed">
+                💡 图例说明：背景显示该像素及周围邻域的<strong>真实连续几何信号</strong>；虚线框为<strong>分层网格 (Strata)</strong>；圆点为<strong>子采样针</strong>（半径大小代表其在当前重建滤波核 $h(r)$ 下的权重 $w_k$）。
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: MIT 6.837 L15 & MSAA ==================== -->
+    <section id="tab-3" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <div class="text-xs font-bold text-amber-400">🎥 配套名校公开课精要 • MIT 6.837 Lecture 15</div>
+            <h2 class="text-xl font-extrabold text-white mt-1">
+              MIT 6.837 Lecture 15: Antialiasing (Sampling, Aliasing & Reconstruction)
+            </h2>
+          </div>
+          <a href="https://www.youtube.com/playlist?list=PLQ3UicqQtfNtqt2yL3KgKV-yn0NEPbRVi" target="_blank" rel="noreferrer" class="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 transition">
+            ▶ 观看 MIT 6.837 Lecture 15 视频 ↗
+          </a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <h3 class="text-sm font-bold text-cyan-300">⚡ 为什么 GPU 偏爱 MSAA 而非 SSAA？(解耦覆盖测试与着色计算)</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              在现代实时渲染管线中，一个像素的 **Fragment Shader（片元着色器）** 往往需要查询多张法线/PBR 贴图并计算复杂光照，开销极其高昂；但大多数高频锯齿其实只发生在**三角形的几何轮廓边缘 (Silhouette Edges)**，而不是三角形内部平滑渐变的表面！
+            </p>
+            <ul class="space-y-2 text-xs text-slate-300 list-disc pl-4">
+              <li>
+                <strong class="text-rose-300">SSAA (Supersampling AA)</strong>：简单粗暴地把帧缓冲分辨率放大 $4\times$ 或 $16\times$，对每个子样本都完整执行一次几何覆盖测试 + 一次昂贵的 Fragment Shader。算力与显存带宽直接暴涨 $4\sim 16$ 倍。
+              </li>
+              <li>
+                <strong class="text-emerald-300">MSAA (Multisample AA)</strong>：在每个像素内放置 $4$ 或 $8$ 个子采样点（通常采用 **4x RGSS 旋转网格** 或 **8x 皇后分布 N-Rooks**），对每个子采样点测试**三角形覆盖率 (Coverage) 与深度值 (Z-Buffer)**；但对于覆盖该像素的同一个三角形，**Fragment Shader 只在像素中心（或覆盖重心 Centroid）执行唯一 1 次**，再把算出的颜色广播写入所有通过深度测试的子样本中！
+              </li>
+            </ul>
+          </div>
+
+          <div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <h3 class="text-sm font-bold text-indigo-300">📊 现代图形学反走样技术全景对比表</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs text-slate-300 border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400">
+                    <th class="py-2 pr-2">技术</th>
+                    <th class="py-2 pr-2">核心原理</th>
+                    <th class="py-2 pr-2">着色开销</th>
+                    <th class="py-2">能否消除材质内部摩尔纹？</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/70">
+                  <tr>
+                    <td class="py-2 pr-2 font-bold text-white">SSAA / 光追分层采样</td>
+                    <td class="py-2 pr-2">子样本独立覆盖 + 独立着色</td>
+                    <td class="py-2 pr-2 text-rose-400">$N \times$ (极高)</td>
+                    <td class="py-2 text-emerald-400">✓ 完全支持 (几何+着色全抗锯齿)</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 pr-2 font-bold text-white">MSAA (多重采样)</td>
+                    <td class="py-2 pr-2">$N$ 点测覆盖/深度，1 次着色</td>
+                    <td class="py-2 pr-2 text-emerald-400">$\approx 1.1\times$</td>
+                    <td class="py-2 text-amber-400">仅抗几何边缘锯齿 (纹理需靠 Mipmap)</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 pr-2 font-bold text-white">TAA / DLSS (时域超分)</td>
+                    <td class="py-2 pr-2">跨帧 Halton 抖动 + 运动向量重投影</td>
+                    <td class="py-2 pr-2 text-cyan-400">$\le 1.0\times$</td>
+                    <td class="py-2 text-emerald-400">✓ 跨帧累计等效 16~64 SPP</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Production Stratified + Filter Code Block -->
+        <div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+          <div class="text-xs font-bold text-indigo-300">💻 工业级分层抖动采样与高斯重建滤波核心代码 (TypeScript / C++ Reference)</div>
+          <pre class="text-xs font-mono text-slate-200 overflow-x-auto leading-relaxed"><code>// 1. 生成 M×M 分层抖动采样点 (Stratified Jittered Samples in [-0.5, +0.5]^2)
+function renderPixelStratified(px: number, py: number, M: number, filterRadius: number): RGB {
+  let weightSum = 0.0;
+  let colorAccum = new RGB(0, 0, 0);
+  const sigma = filterRadius * 0.5;
+  const alpha = 1.0 / (2.0 * sigma * sigma);
+  const baseExp = Math.exp(-alpha * filterRadius * filterRadius);
+
+  for (let sy = 0; sy < M; sy++) {
+    for (let sx = 0; sx < M; sx++) {
+      // 在第 (sx, sy) 个子格内部均匀随机抖动 ξ_x, ξ_y ∈ [0, 1)
+      const dx = ((sx + Math.random()) / M - 0.5) * (2.0 * filterRadius);
+      const dy = ((sy + Math.random()) / M - 0.5) * (2.0 * filterRadius);
+      const r2 = dx * dx + dy * dy;
+      if (r2 >= filterRadius * filterRadius) continue;
+
+      // 2. 截断高斯重建滤波核 h(r) = max(0, exp(-α r²) - exp(-α R²))
+      const w = Math.max(0.0, Math.exp(-alpha * r2) - baseExp);
+      const sampleColor = traceRay(px + 0.5 + dx, py + 0.5 + dy);
+      colorAccum = colorAccum.add(sampleColor.scale(w));
+      weightSum += w;
+    }
+  }
+  return colorAccum.scale(1.0 / Math.max(weightSum, 1e-6));
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: 3-MISSION MINI-GAME ==================== -->
+    <section id="tab-4" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="text-xs font-bold text-emerald-400">🎮 交互式通关挑战 • Signal & Antialiasing Chief Engineer</div>
+            <h2 class="text-xl font-extrabold text-white mt-0.5">
+              3 关信号与反走样总工程师挑战赛
+            </h2>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-bold">
+            <span id="game-badge-1" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 1: 待通关</span>
+            <span id="game-badge-2" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 2: 待通关</span>
+            <span id="game-badge-3" class="px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">关卡 3: 待通关</span>
+          </div>
+        </div>
+
+        <!-- Mission Selector -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold text-cyan-400">关卡 1：奈奎斯特除混叠调谐师</div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              当前高频传感器信号频率为 $f = 4.4\text{ Hz}$，在低采样率下折叠成了错误的假低频波。请将上方实验台或下方滑块的采样率 $f_s$ 调至<strong>刚好跨越奈奎斯特阈值且不浪费过多带宽 ($8.8 \le f_s \le 10.2\text{ Hz}$)</strong>，彻底消除频谱折叠！
+            </p>
+            <div class="space-y-1 text-xs">
+              <div class="flex justify-between">
+                <span>目标信号 $f = 4.4\text{ Hz}$，调谐 $f_s$:</span>
+                <span id="m1-fs-lbl" class="font-mono font-bold text-amber-400">6.0 Hz</span>
+              </div>
+              <input id="m1-fs-slider" type="range" min="4.0" max="12.0" step="0.2" value="6.0" oninput="evalMission1()" class="w-full accent-cyan-400" />
+              <div id="m1-feedback" class="text-[11px] text-rose-400 pt-1">
+                当前表观频率 f_alias = 1.60 Hz (发生严重频谱折叠！需满足 fs ≥ 2f = 8.8 Hz)
+              </div>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold text-indigo-400">关卡 2：波带片摩尔纹歼灭战</div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              在高频同心圆波带片 (Zone Plate) 测试图中，规则网格会产生虚假的同心圆摩尔纹。请选择合适的<strong>采样数、分层抖动分布与重建滤波器</strong>，使波带片重建误差 $\text{RMSE} \le 0.068$！
+            </p>
+            <div class="space-y-2 text-xs">
+              <div class="grid grid-cols-2 gap-2">
+                <select id="m2-pattern" onchange="evalMission2()" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white">
+                  <option value="regular">Regular Grid</option>
+                  <option value="random">Uniform Random</option>
+                  <option value="stratified">Stratified Jitter</option>
+                </select>
+                <select id="m2-filter" onchange="evalMission2()" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white">
+                  <option value="box">Box (1 SPP)</option>
+                  <option value="tent16">16x Tent</option>
+                  <option value="gauss16">16x Gaussian</option>
+                </select>
+              </div>
+              <div id="m2-feedback" class="text-[11px] text-amber-300 pt-1">
+                请选择能同时打破周期摩尔纹并抑制频谱旁瓣的组合！
+              </div>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="text-xs font-bold text-emerald-400">关卡 3：MSAA 硬件带宽架构师</div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              移动端 GPU 预算要求每像素<strong>Fragment Shader 执行次数 $\le 1.2\times$</strong>，同时将斜边三角形轮廓锯齿误差压低至 $\le 0.050$。请配置最优的覆盖采样与着色解耦方案！
+            </p>
+            <div class="space-y-2 text-xs">
+              <select id="m3-mode" onchange="evalMission3()" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-white">
+                <option value="1spp">1 SPP Point Sampling (Shader 1.0x, Error 0.195)</option>
+                <option value="8ssaa">8x SSAA 超采样 (Shader 8.0x, Error 0.041)</option>
+                <option value="8msaa">8x RGSS MSAA 多重采样 (Shader 1.0x, Error 0.043)</option>
+              </select>
+              <div id="m3-feedback" class="text-[11px] text-slate-400 pt-1">
+                当前方案：1 SPP（着色开销达标，但边缘锯齿严重超标！）
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==================== LANGUAGE & TABS ====================
+    let currentLang = 'zh';
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      document.querySelectorAll('[data-zh]').forEach(el => {
+        el.textContent = currentLang === 'zh' ? el.getAttribute('data-zh') : el.getAttribute('data-en');
+      });
+      updateNyquistLab();
+      updateFilterLab();
+      updateMicroscope();
+    }
+
+    function switchTab(idx) {
+      for (let i = 1; i <= 4; i++) {
+        const sec = document.getElementById('tab-' + i);
+        const btn = document.getElementById('tab-btn-' + i);
+        if (i === idx) {
+          sec.classList.remove('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white shadow';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800';
+        }
+      }
+      if (idx === 1) { updateNyquistLab(); updateFilterLab(); }
+      if (idx === 2) { updateMicroscope(); }
+    }
+
+    // ==================== TAB 1A: 1D NYQUIST & SPECTRAL FOLDING ====================
+    function setNyquistPreset(f, fs) {
+      document.getElementById('slider-sig-f').value = f;
+      document.getElementById('slider-samp-fs').value = fs;
+      updateNyquistLab();
+    }
+
+    function updateNyquistLab() {
+      const f = parseFloat(document.getElementById('slider-sig-f').value);
+      const fs = parseFloat(document.getElementById('slider-samp-fs').value);
+      const nyq = fs * 0.5;
+      const kNearest = Math.round(f / fs);
+      const fAlias = Math.abs(f - kNearest * fs);
+      const isAliased = f > nyq + 1e-6;
+
+      document.getElementById('lbl-sig-f').textContent = f.toFixed(1) + ' Hz';
+      document.getElementById('lbl-samp-fs').textContent = fs.toFixed(1) + ' Hz';
+      document.getElementById('lbl-nyq-limit').textContent = nyq.toFixed(2) + ' Hz';
+      document.getElementById('lbl-alias-f').textContent = fAlias.toFixed(2) + ' Hz';
+
+      const badge = document.getElementById('nyq-status-badge');
+      if (isAliased) {
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-950 text-rose-300 border border-rose-700';
+        badge.textContent = currentLang === 'zh'
+          ? `⚠️ 发生频谱折叠！(f=${f.toFixed(1)} > fs/2=${nyq.toFixed(1)} → 伪装成 ${fAlias.toFixed(2)}Hz)`
+          : `⚠️ Aliasing! (f=${f.toFixed(1)} > fs/2=${nyq.toFixed(1)} → folds to ${fAlias.toFixed(2)}Hz)`;
+      } else {
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-700';
+        badge.textContent = currentLang === 'zh'
+          ? '✓ 满足奈奎斯特采样定理 (无混叠失真)'
+          : '✓ Nyquist Satisfied (Exact Reconstruction)';
+      }
+
+      const canvas = document.getElementById('canvas-nyquist');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // Top Half: Spatial Domain [0, 1.0s]
+      const topY0 = 16, topH = 125, topMid = topY0 + topH * 0.5;
+      const leftPad = 36, rightPad = 18, plotW = W - leftPad - rightPad;
+
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(leftPad, topMid);
+      ctx.lineTo(W - rightPad, topMid);
+      ctx.stroke();
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('空域信号 s(x) = cos(2πfx) (蓝) vs 离散采样点 (黄) vs 重建波 (红虚线)', leftPad, 14);
+
+      // True continuous cosine wave
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      for (let i = 0; i <= 400; i++) {
+        const t = i / 400;
+        const x = leftPad + t * plotW;
+        const y = topMid - Math.cos(2 * Math.PI * f * t) * (topH * 0.4);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Reconstructed (aliased) wave if aliased
+      if (isAliased) {
+        ctx.strokeStyle = '#f43f5e';
+        ctx.lineWidth = 2.2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        for (let i = 0; i <= 300; i++) {
+          const t = i / 300;
+          const x = leftPad + t * plotW;
+          const y = topMid - Math.cos(2 * Math.PI * fAlias * t) * (topH * 0.4);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Discrete sample needles
+      const dt = 1.0 / fs;
+      for (let t = 0; t <= 1.0001; t += dt) {
+        const x = leftPad + t * plotW;
+        const val = Math.cos(2 * Math.PI * f * t);
+        const y = topMid - val * (topH * 0.4);
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(x, topMid);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(x, y, 4.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Bottom Half: Frequency Domain [-12 Hz, +12 Hz]
+      const botY0 = 175, botH = 110, botBase = botY0 + botH - 18;
+      const maxFreqPlot = 12.5;
+      const freqToX = (freq) => leftPad + ((freq + maxFreqPlot) / (2 * maxFreqPlot)) * plotW;
+
+      // Nyquist baseband box [-fs/2, +fs/2]
+      const nxL = freqToX(-nyq), nxR = freqToX(nyq);
+      ctx.fillStyle = isAliased ? 'rgba(244, 63, 94, 0.12)' : 'rgba(16, 185, 129, 0.13)';
+      ctx.strokeStyle = isAliased ? 'rgba(244, 63, 94, 0.6)' : 'rgba(16, 185, 129, 0.6)';
+      ctx.lineWidth = 1.2;
+      ctx.fillRect(nxL, botY0 + 12, nxR - nxL, botBase - (botY0 + 12));
+      ctx.strokeRect(nxL, botY0 + 12, nxR - nxL, botBase - (botY0 + 12));
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('频域频谱 S_sampled(ω)：绿/红框为奈奎斯特基带 [-fs/2, +fs/2]，虚线为周期克隆副本 k·fs ± f', leftPad, botY0 + 4);
+
+      // Axis line
+      ctx.strokeStyle = '#334155';
+      ctx.beginPath();
+      ctx.moveTo(leftPad, botBase);
+      ctx.lineTo(W - rightPad, botBase);
+      ctx.stroke();
+
+      // Draw spectral replicas k = -2..2
+      for (let k = -2; k <= 2; k++) {
+        const center = k * fs;
+        [-f, f].forEach(offset => {
+          const w = center + offset;
+          if (Math.abs(w) > maxFreqPlot) return;
+          const x = freqToX(w);
+          const isBaseOriginal = (k === 0);
+          const inNyq = Math.abs(w) <= nyq + 1e-5;
+          ctx.strokeStyle = isBaseOriginal ? '#38bdf8' : (inNyq ? '#f43f5e' : '#64748b');
+          ctx.lineWidth = (isBaseOriginal || inNyq) ? 2.5 : 1.4;
+          ctx.beginPath();
+          ctx.moveTo(x, botBase);
+          ctx.lineTo(x, botBase - 62);
+          ctx.stroke();
+
+          ctx.fillStyle = ctx.strokeStyle;
+          ctx.beginPath();
+          ctx.arc(x, botBase - 62, 4, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      // Labels on frequency axis
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px monospace';
+      [-10, -5, 0, 5, 10].forEach(v => {
+        const x = freqToX(v);
+        ctx.fillText(v + 'Hz', x - 12, botBase + 13);
+      });
+    }
+
+    // ==================== TAB 1B: RECONSTRUCTION FILTER LAB ====================
+    let currentFilterLabType = 'tent';
+    function setFilterLabType(type) {
+      currentFilterLabType = type;
+      ['box', 'tent', 'gaussian', 'sinc'].forEach(t => {
+        const btn = document.getElementById('flt-btn-' + t);
+        btn.className = (t === type)
+          ? 'px-2.5 py-1 rounded text-[11px] font-bold bg-indigo-600 text-white'
+          : 'px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 text-slate-300';
+      });
+      updateFilterLab();
+    }
+
+    function evalKernel1D(type, x, R) {
+      const ax = Math.abs(x);
+      if (type === 'box') {
+        return ax <= R ? 1.0 : 0.0;
+      } else if (type === 'tent') {
+        return ax <= R ? (1.0 - ax / R) : 0.0;
+      } else if (type === 'gaussian') {
+        if (ax > R) return 0.0;
+        const sigma = R * 0.5;
+        return Math.max(0, Math.exp(-(x * x) / (2 * sigma * sigma)) - Math.exp(-(R * R) / (2 * sigma * sigma)));
+      } else {
+        // Windowed Sinc (Lanczos)
+        if (ax < 1e-6) return 1.0;
+        if (ax > R) return 0.0;
+        const px = Math.PI * x;
+        const sinc1 = Math.sin(px) / px;
+        const sincWin = Math.sin(px / R) / (px / R);
+        return sinc1 * sincWin;
+      }
+    }
+
+    function updateFilterLab() {
+      const R = parseFloat(document.getElementById('slider-flt-radius').value);
+      document.getElementById('lbl-flt-radius').textContent = R.toFixed(1) + ' px';
+
+      const descEl = document.getElementById('flt-desc-box');
+      const descs = {
+        box: '📦 Box 盒式滤波：像素支撑域 [-R, R] 内所有样本权重完全相等。空域有跳变不连续，导致频域响应 H(ω)=sinc(ω) 拥有巨大的高频旁瓣（红色外溢区），容易漏入高频摩尔纹！',
+        tent: '⛺ Tent 帐篷（三角线性）滤波：h(x) = max(0, 1 - |x|/R)，离像素中心越近权重越高。频域响应为 sinc²(ω)，旁瓣能量比 Box 降低一个数量级，性价比极高。',
+        gaussian: '🔔 Gaussian 截断高斯滤波：空域与频域皆为平滑钟形曲线，几乎零高频旁瓣泄漏，且函数恒正（无负权重），绝不会在 HDR 亮边旁产生黑边振铃伪影！',
+        sinc: '🌊 Windowed Sinc (Lanczos) 滤波：最接近理想低通砖墙滤波器，画面最锐利；但空域存在负权重旁瓣 (h(x) < 0)，在剧烈明暗边界处可能触发吉布斯过冲振铃 (Ringing)。'
+      };
+      descEl.textContent = descs[currentFilterLabType];
+
+      const canvas = document.getElementById('canvas-filter');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // Left plot: Spatial Kernel h(x) on [-3, 3]
+      const pW = (W - 60) * 0.5;
+      const x1L = 24, yZero = 175, scaleY = 115;
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('空域滤波核 h(x) (像素偏移 x ∈ [-3, +3])', x1L, 22);
+
+      ctx.strokeStyle = '#334155';
+      ctx.beginPath();
+      ctx.moveTo(x1L, yZero);
+      ctx.lineTo(x1L + pW, yZero);
+      ctx.moveTo(x1L + pW * 0.5, 38);
+      ctx.lineTo(x1L + pW * 0.5, H - 25);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#34d399';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      for (let i = 0; i <= 240; i++) {
+        const u = (i / 240) * 6.0 - 3.0;
+        const val = evalKernel1D(currentFilterLabType, u, R);
+        const px = x1L + (i / 240) * pW;
+        const py = yZero - val * scaleY;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // Right plot: Frequency Response |H(ω)| via numerical cosine transform
+      const x2L = x1L + pW + 24;
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('频域幅频响应 |H(ω)| (虚线为理想奈奎斯特截止)', x2L, 22);
+
+      ctx.strokeStyle = '#334155';
+      ctx.beginPath();
+      ctx.moveTo(x2L, yZero);
+      ctx.lineTo(x2L + pW, yZero);
+      ctx.moveTo(x2L + pW * 0.5, 38);
+      ctx.lineTo(x2L + pW * 0.5, H - 25);
+      ctx.stroke();
+
+      // Ideal brickwall box [-0.5, 0.5] cycles/px
+      const nyqW = pW * (1.0 / 4.0);
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.5)';
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(x2L + pW * 0.5 - nyqW * 0.5, yZero - scaleY, nyqW, scaleY);
+      ctx.setLineDash([]);
+
+      // Compute normalized |H(f)| for f in [-2, 2] cycles/pixel
+      let norm0 = 0;
+      for (let k = -60; k <= 60; k++) {
+        norm0 += evalKernel1D(currentFilterLabType, k * 0.05, R) * 0.05;
+      }
+      norm0 = Math.max(norm0, 1e-5);
+
+      ctx.strokeStyle = '#818cf8';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      for (let i = 0; i <= 200; i++) {
+        const freq = (i / 200) * 4.0 - 2.0;
+        let sum = 0;
+        for (let k = -60; k <= 60; k++) {
+          const x = k * 0.05;
+          sum += evalKernel1D(currentFilterLabType, x, R) * Math.cos(2 * Math.PI * freq * x) * 0.05;
+        }
+        const mag = Math.abs(sum / norm0);
+        const px = x2L + (i / 200) * pW;
+        const py = yZero - mag * scaleY;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+
+    // ==================== TAB 2: PIXEL MICROSCOPE LAB ====================
+    let microScene = 'triangle';
+    let selectedPx = { x: 14, y: 14 };
+    let jitterSeed = 1337;
+    const GRID_N = 28;
+
+    function setMicroScene(sc) {
+      microScene = sc;
+      ['triangle', 'checker', 'zoneplate'].forEach(s => {
+        const btn = document.getElementById('scene-btn-' + s);
+        btn.className = (s === sc)
+          ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white'
+          : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700';
+      });
+      updateMicroscope();
+    }
+
+    function reseedJitter() {
+      jitterSeed = (jitterSeed * 1664525 + 1013904223) >>> 0;
+      updateMicroscope();
+    }
+
+    // Continuous 2D Signal Function I(x, y) in [0, GRID_N]^2 -> [0, 1]
+    function sampleSignalContinuous(x, y, phase) {
+      const u = (x + phase) / GRID_N;
+      const v = y / GRID_N;
+      if (microScene === 'triangle') {
+        // Slanted triangle + thin sub-pixel diagonal laser beam
+        const inTri = (v > 0.12 + 0.68 * u) && (v < 0.88 - 0.18 * u) && (u > 0.12);
+        const wireDist = Math.abs((v - (0.18 + 0.72 * u)) * GRID_N);
+        const inWire = wireDist < 0.36;
+        return (inTri || inWire) ? 1.0 : 0.08;
+      } else if (microScene === 'checker') {
+        // Perspective foreshortened checkerboard
+        if (v < 0.22) return 0.15; // sky
+        const z = 1.0 / Math.max(v - 0.20, 0.025);
+        const wx = (u - 0.5) * z * 4.2 + phase * 0.5;
+        const wz = z * 2.8;
+        const cx = Math.floor(wx) & 1;
+        const cz = Math.floor(wz) & 1;
+        return (cx ^ cz) ? 0.92 : 0.12;
+      } else {
+        // Zone plate: 0.5 + 0.45 * cos(k * r^2)
+        const dx = (u - 0.5) * 2.0;
+        const dy = (v - 0.5) * 2.0;
+        const r2 = dx * dx + dy * dy;
+        return 0.5 + 0.46 * Math.cos(58.0 * r2 + phase * 6.28);
+      }
+    }
+
+    function pseudoRand(px, py, idx, chan) {
+      let h = (px * 374761393 + py * 668265263 + idx * 1442695041 + chan * 2654435761 + jitterSeed) >>> 0;
+      h = ((h ^ (h >> 13)) * 1274126177) >>> 0;
+      return ((h ^ (h >> 16)) >>> 0) / 4294967296.0;
+    }
+
+    function getSampleOffsets(px, py, spp, pattern, filterRadius) {
+      const pts = [];
+      if (spp === 1) {
+        pts.push({ dx: 0, dy: 0, sx: 0, sy: 0, M: 1 });
+        return pts;
+      }
+      const M = Math.round(Math.sqrt(spp));
+      const span = Math.max(1.0, filterRadius * 1.6);
+      let idx = 0;
+      for (let sy = 0; sy < M; sy++) {
+        for (let sx = 0; sx < M; sx++) {
+          let ux = (sx + 0.5) / M - 0.5;
+          let uy = (sy + 0.5) / M - 0.5;
+          if (pattern === 'rgss') {
+            const ang = 0.4636476; // arctan(1/2) ~ 26.56 deg
+            const c = Math.cos(ang), s = Math.sin(ang);
+            const rx = ux * c - uy * s;
+            const ry = ux * s + uy * c;
+            ux = rx * 0.85;
+            uy = ry * 0.85;
+          } else if (pattern === 'random') {
+            ux = pseudoRand(px, py, idx, 1) - 0.5;
+            uy = pseudoRand(px, py, idx, 2) - 0.5;
+          } else if (pattern === 'stratified') {
+            ux = (sx + pseudoRand(px, py, idx, 1)) / M - 0.5;
+            uy = (sy + pseudoRand(px, py, idx, 2)) / M - 0.5;
+          }
+          pts.push({ dx: ux * span, dy: uy * span, sx, sy, M });
+          idx++;
+        }
+      }
+      return pts;
+    }
+
+    function evalFilterWeight2D(dx, dy, filterType) {
+      const r = Math.hypot(dx, dy);
+      if (filterType === 'box') {
+        return (Math.abs(dx) <= 0.55 && Math.abs(dy) <= 0.55) ? 1.0 : 0.05;
+      } else if (filterType === 'tent') {
+        return Math.max(0.02, 1.0 - r / 1.05);
+      } else {
+        // gaussian
+        const sigma = 0.52;
+        return Math.exp(-(r * r) / (2 * sigma * sigma));
+      }
+    }
+
+    function computePixelValue(px, py, spp, pattern, filterType, phase) {
+      const filterRadius = filterType === 'box' ? 0.5 : (filterType === 'tent' ? 0.85 : 1.0);
+      const offsets = getSampleOffsets(px, py, spp, pattern, filterRadius);
+      let wSum = 0, valSum = 0;
+      for (const pt of offsets) {
+        const w = evalFilterWeight2D(pt.dx, pt.dy, filterType);
+        const s = sampleSignalContinuous(px + 0.5 + pt.dx, py + 0.5 + pt.dy, phase);
+        valSum += w * s;
+        wSum += w;
+      }
+      return { value: valSum / Math.max(wSum, 1e-6), offsets };
+    }
+
+    function computeGroundTruth(px, py, phase) {
+      let sum = 0;
+      const G = 8;
+      for (let j = 0; j < G; j++) {
+        for (let i = 0; i < G; i++) {
+          sum += sampleSignalContinuous(px + (i + 0.5) / G, py + (j + 0.5) / G, phase);
+        }
+      }
+      return sum / (G * G);
+    }
+
+    function updateMicroscope() {
+      const spp = parseInt(document.getElementById('sel-spp').value, 10);
+      const pattern = document.getElementById('sel-pattern').value;
+      const filterType = document.getElementById('sel-filter').value;
+      const phase = parseFloat(document.getElementById('slider-phase').value);
+      document.getElementById('lbl-phase').textContent = phase.toFixed(2) + ' px';
+      document.getElementById('lbl-selected-px').textContent = `当前选中像素: (${selectedPx.x}, ${selectedPx.y})`;
+
+      const gridCanvas = document.getElementById('canvas-pixel-grid');
+      const ctx = gridCanvas.getContext('2d');
+      const cell = gridCanvas.width / GRID_N;
+
+      let sqErrSum = 0;
+      for (let py = 0; py < GRID_N; py++) {
+        for (let px = 0; px < GRID_N; px++) {
+          const { value } = computePixelValue(px, py, spp, pattern, filterType, phase);
+          const gt = computeGroundTruth(px, py, phase);
+          sqErrSum += (value - gt) * (value - gt);
+
+          const c = Math.max(0, Math.min(255, Math.round(value * 255)));
+          ctx.fillStyle = `rgb(${c}, ${c}, ${Math.min(255, c + 12)})`;
+          ctx.fillRect(px * cell, py * cell, cell, cell);
+          ctx.strokeStyle = 'rgba(30, 41, 59, 0.55)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(px * cell, py * cell, cell, cell);
+        }
+      }
+
+      // Highlight selected pixel
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2.6;
+      ctx.strokeRect(selectedPx.x * cell + 1, selectedPx.y * cell + 1, cell - 2, cell - 2);
+
+      const rmse = Math.sqrt(sqErrSum / (GRID_N * GRID_N));
+      document.getElementById('metric-rmse').textContent = rmse.toFixed(3);
+      document.getElementById('metric-ssaa-cost').textContent = spp.toFixed(1) + 'x';
+      document.getElementById('metric-msaa-cost').textContent = '1.0x';
+
+      // Draw Sub-Pixel Inspector for selectedPx
+      const subCanvas = document.getElementById('canvas-subpixel');
+      const sctx = subCanvas.getContext('2d');
+      const SW = subCanvas.width, SH = subCanvas.height;
+      sctx.clearRect(0, 0, SW, SH);
+
+      // Render high-res continuous signal in [-0.75, +0.75] around pixel center
+      const res = 76;
+      const tile = SW / res;
+      for (let j = 0; j < res; j++) {
+        for (let i = 0; i < res; i++) {
+          const dx = ((i + 0.5) / res - 0.5) * 1.5;
+          const dy = ((j + 0.5) / res - 0.5) * 1.5;
+          const s = sampleSignalContinuous(selectedPx.x + 0.5 + dx, selectedPx.y + 0.5 + dy, phase);
+          const v = Math.round(s * 215);
+          sctx.fillStyle = `rgb(${v}, ${v + 8}, ${Math.min(255, v + 28)})`;
+          sctx.fillRect(i * tile, j * tile, tile + 0.5, tile + 0.5);
+        }
+      }
+
+      const toSubScreen = (dx, dy) => ({
+        x: (dx / 1.5 + 0.5) * SW,
+        y: (dy / 1.5 + 0.5) * SH
+      });
+
+      // Draw pixel boundary [-0.5, +0.5]^2
+      const pMin = toSubScreen(-0.5, -0.5);
+      const pMax = toSubScreen(0.5, 0.5);
+      sctx.strokeStyle = '#fbbf24';
+      sctx.lineWidth = 2;
+      sctx.strokeRect(pMin.x, pMin.y, pMax.x - pMin.x, pMax.y - pMin.y);
+
+      // Draw strata grid if M > 1
+      const M = Math.round(Math.sqrt(spp));
+      if (M > 1) {
+        sctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+        sctx.setLineDash([4, 4]);
+        for (let k = 1; k < M; k++) {
+          const d = -0.5 + k / M;
+          const a = toSubScreen(d, -0.5), b = toSubScreen(d, 0.5);
+          sctx.beginPath(); sctx.moveTo(a.x, a.y); sctx.lineTo(b.x, b.y); sctx.stroke();
+          const c1 = toSubScreen(-0.5, d), c2 = toSubScreen(0.5, d);
+          sctx.beginPath(); sctx.moveTo(c1.x, c1.y); sctx.lineTo(c2.x, c2.y); sctx.stroke();
+        }
+        sctx.setLineDash([]);
+      }
+
+      // Draw filter footprint circle
+      const fRad = filterType === 'box' ? 0.5 : (filterType === 'tent' ? 0.85 : 1.0);
+      const centerSc = toSubScreen(0, 0);
+      sctx.strokeStyle = 'rgba(52, 211, 153, 0.75)';
+      sctx.lineWidth = 1.6;
+      sctx.beginPath();
+      sctx.arc(centerSc.x, centerSc.y, (fRad / 1.5) * SW, 0, Math.PI * 2);
+      sctx.stroke();
+
+      // Draw sample needles
+      const { value, offsets } = computePixelValue(selectedPx.x, selectedPx.y, spp, pattern, filterType, phase);
+      for (const pt of offsets) {
+        const sc = toSubScreen(pt.dx, pt.dy);
+        const w = evalFilterWeight2D(pt.dx, pt.dy, filterType);
+        const hitVal = sampleSignalContinuous(selectedPx.x + 0.5 + pt.dx, selectedPx.y + 0.5 + pt.dy, phase);
+        sctx.fillStyle = hitVal > 0.5 ? '#38bdf8' : '#f43f5e';
+        sctx.strokeStyle = '#ffffff';
+        sctx.lineWidth = 1.5;
+        sctx.beginPath();
+        sctx.arc(sc.x, sc.y, 3.5 + 4.5 * w, 0, Math.PI * 2);
+        sctx.fill();
+        sctx.stroke();
+      }
+
+      const gt = computeGroundTruth(selectedPx.x, selectedPx.y, phase);
+      document.getElementById('sub-gt-val').textContent = gt.toFixed(3);
+      document.getElementById('sub-recon-val').textContent = value.toFixed(3);
+      document.getElementById('sub-err-val').textContent = Math.abs(value - gt).toFixed(3);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const gridCanvas = document.getElementById('canvas-pixel-grid');
+      gridCanvas.addEventListener('pointerdown', (e) => {
+        const rect = gridCanvas.getBoundingClientRect();
+        const x = Math.floor(((e.clientX - rect.left) / rect.width) * GRID_N);
+        const y = Math.floor(((e.clientY - rect.top) / rect.height) * GRID_N);
+        selectedPx = {
+          x: Math.max(0, Math.min(GRID_N - 1, x)),
+          y: Math.max(0, Math.min(GRID_N - 1, y))
+        };
+        updateMicroscope();
+      });
+
+      updateNyquistLab();
+      updateFilterLab();
+      updateMicroscope();
+
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+    });
+
+    // ==================== TAB 4: MINI-GAME MISSIONS ====================
+    function evalMission1() {
+      const f = 4.4;
+      const fs = parseFloat(document.getElementById('m1-fs-slider').value);
+      document.getElementById('m1-fs-lbl').textContent = fs.toFixed(1) + ' Hz';
+      const fAlias = Math.abs(f - Math.round(f / fs) * fs);
+      const fb = document.getElementById('m1-feedback');
+      const badge = document.getElementById('game-badge-1');
+
+      if (fs >= 8.8 && fs <= 10.2) {
+        fb.className = 'text-[11px] text-emerald-400 font-bold pt-1';
+        fb.textContent = `✓ 通关成功！采样率 fs=${fs.toFixed(1)}Hz ≥ 2f=8.8Hz，表观频率精确锁定 4.40Hz，零混叠！`;
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 1: ✓ 已通关';
+      } else if (fs < 8.8) {
+        fb.className = 'text-[11px] text-rose-400 pt-1';
+        fb.textContent = `当前表观频率 f_alias = ${fAlias.toFixed(2)} Hz (低于奈奎斯特极限 8.8 Hz，发生折叠！)`;
+      } else {
+        fb.className = 'text-[11px] text-amber-300 pt-1';
+        fb.textContent = `无混叠但采样率过高 (${fs.toFixed(1)} Hz > 10.2 Hz)，请调回 [8.8, 10.2] Hz 黄金带宽区间！`;
+      }
+    }
+
+    function evalMission2() {
+      const pat = document.getElementById('m2-pattern').value;
+      const flt = document.getElementById('m2-filter').value;
+      const fb = document.getElementById('m2-feedback');
+      const badge = document.getElementById('game-badge-2');
+
+      if (pat === 'stratified' && (flt === 'tent16' || flt === 'gauss16')) {
+        fb.className = 'text-[11px] text-emerald-400 font-bold pt-1';
+        fb.textContent = '✓ 通关成功！16x 分层抖动采样打破了波带片摩尔纹，配合平滑滤波核将 RMSE 压至 0.052！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 2: ✓ 已通关';
+      } else {
+        fb.className = 'text-[11px] text-rose-400 pt-1';
+        fb.textContent = '当前组合仍残留同心摩尔纹或高频旁瓣泄漏（提示：选 Stratified Jitter + 16x Gaussian/Tent）。';
+      }
+    }
+
+    function evalMission3() {
+      const mode = document.getElementById('m3-mode').value;
+      const fb = document.getElementById('m3-feedback');
+      const badge = document.getElementById('game-badge-3');
+
+      if (mode === '8msaa') {
+        fb.className = 'text-[11px] text-emerald-400 font-bold pt-1';
+        fb.textContent = '✓ 通关成功！8x RGSS MSAA 对覆盖率做 8 倍超采样，但每像素仅执行 1.0x Fragment Shader！';
+        badge.className = 'px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600';
+        badge.textContent = '关卡 3: ✓ 已通关';
+      } else if (mode === '8ssaa') {
+        fb.className = 'text-[11px] text-amber-300 pt-1';
+        fb.textContent = '画质达标，但 8x SSAA 每像素执行 8.0 次 Fragment Shader，超出移动端 1.2x 算力预算！';
+      } else {
+        fb.className = 'text-[11px] text-rose-400 pt-1';
+        fb.textContent = '1 SPP 锯齿误差高达 0.195，远超 0.050 上限！';
+      }
+    }
+  </script>
+</body>
+</html>
